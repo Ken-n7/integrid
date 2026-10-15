@@ -8,7 +8,7 @@ A gamified math-crossword **web app** for Grade 7 integer operations (+, −, ×
 | Used at | Tolosa National High School (action research, 10 participants, later whole Grade 7 classes) |
 | Plan date | 2026-10-15 (updated the same day with the client's answers) |
 | Delivery | **2026-10-29** (2 weeks) |
-| Status | Client answered most questions (§13). Phases 0–2 done, Phase 4 code done and tested locally (Oct 15). Waiting on: Supabase project, hosting, researchers' puzzles. |
+| Status | Client answered most questions (§13). Phases 0–2 done, Phase 4 code done and tested locally (Oct 15). Live on Supabase + Vercel (https://integrid-phi.vercel.app), tested against the real database (Oct 15). Waiting on: researchers' puzzles. |
 
 ---
 
@@ -422,7 +422,7 @@ Day 1 = Thu Oct 15. Delivery Thu Oct 29.
 - [x] Student sign-in + background sync (code done; needs a live Supabase test)
 - [x] Expert ranking screen (live while online)
 - [x] Admin page: separate sign-in, progress table, add students, print slips, ranking, CSV downloads (code done; needs a live Supabase test)
-- [ ] Supabase project created, admin account, env vars on hosting
+- [x] Supabase project created, admin account, env vars on hosting (Oct 15)
 - [ ] Live test: sign in, play offline, reconnect, see it on the admin page
 
 ### Phase 5 — Battle Mode, groups (Oct 22–26)
@@ -439,7 +439,7 @@ Day 1 = Thu Oct 15. Delivery Thu Oct 29.
 
 ### Delivery (Oct 29)
 - [ ] Walkthrough with the client: admin page, codes, ranking, exports, Battle
-- [ ] Hand over: site link, admin login, Supabase project ownership, this plan
+- [ ] Hand over: site link, admin login, hosting, this plan (client already owns Supabase)
 
 ## 13. Client answers (2026-10-15)
 
@@ -510,9 +510,11 @@ npm run build          # check + type-check + production build in dist/
 ```
 
 **Supabase (once)**
-1. supabase.com → New project. Region: **Singapore** (closest to Leyte).
+1. **The client** signs up at supabase.com (free, no card) and makes the project: New project → `integrid`, Region **Singapore** (closest to Leyte), and keeps the database password. Then Organization → Team → invite the dev as **Developer**.
+   Why not the dev's account: the dev's free plan is full (2 projects), and Owner/Administrator roles count toward that limit while Developer doesn't. A Developer can still run SQL, add Auth users and read the API keys, so steps 2–4 are the dev's. The client owns the student data from day one; nothing to transfer later.
 2. SQL Editor → paste `supabase/schema.sql` → Run.
-3. Authentication → Users → Add user (admin email + password, auto-confirm). Then in the SQL Editor: `insert into admins (uid) values ('<that user's id>');`
+3. Authentication → Users → Add user (admin email + password, auto-confirm). Then in the SQL Editor: `insert into public.admins (uid) select id from auth.users where email = '<that email>';`
+   Authentication → Sign In / Providers → turn off **Allow new users to sign up** (admins are added by hand; students never use Auth).
 4. Project Settings → API: copy the URL and the publishable (anon) key into `.env.local`:
    ```
    VITE_SUPABASE_URL=https://xxxx.supabase.co
@@ -520,11 +522,12 @@ npm run build          # check + type-check + production build in dist/
    ```
 5. Admin page → Add students → Print codes.
 
-**Hosting:** Cloudflare Pages or Vercel → import the repo → build `npm run build`, output `dist`, same two env vars.
+**Hosting:** Vercel, https://integrid-phi.vercel.app (imports the GitHub repo; every push to `main` redeploys). Settings → Environment Variables: the same two `VITE_` vars, then Redeploy, because they're baked in at build time. Never put the secret key there: every `VITE_` var ends up in the public code.
+Anyone who signed in while a build had no keys (dev mode) keeps that save on the device: clear the site's data once on those phones.
 
 **Free-tier note:** Supabase pauses a free project after ~7 days with no activity. Daily use during the study keeps it awake. After a long break, press "Restore" in the dashboard; data is kept.
 
-**Handover:** transfer the Supabase project and hosting to the client's account (or document that the dev keeps them), and give them the admin login and this plan.
+**Handover:** the client already owns the Supabase project (step 1); remove the dev's Developer access when they want. Move hosting to their account (or document that the dev keeps it), and give them the admin login and this plan.
 
 ## 16. Risks
 

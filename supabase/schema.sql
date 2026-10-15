@@ -2,7 +2,7 @@
 --
 -- Students never get a database login: the app calls integrid_sync() with their code + PIN.
 -- Admins sign in with email + password and must be listed in public.admins:
---   insert into public.admins (uid) values ('<the user id from Authentication → Users>');
+--   insert into public.admins (uid) select id from auth.users where email = '<admin email>';
 
 create table public.admins (
   uid uuid primary key references auth.users on delete cascade
