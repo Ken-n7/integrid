@@ -4,8 +4,9 @@ import { HOW_TO, PRE_ASSESSMENT } from './content.ts'
 import { Game } from './Game.tsx'
 import { bestWin, clock, coinsOf, isUnlocked, LEVELS, rankingFor, wonLevels, type Attempt, type Mode, type Rank } from './rules.ts'
 import { db, load, merge, newSave, persist, sync, type Save, type Store } from './store.ts'
+import { useBack } from './back.ts'
 import { focusScreen } from './focus.ts'
-import { Coins, Deco, Icon } from './ui.tsx'
+import { Coins, Deco, Dialog, Icon } from './ui.tsx'
 
 // Puzzle files: the researchers' relax-1.csv replaces the placeholder relax-1.sample.csv.
 const files = import.meta.glob('../puzzles/*.csv', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
@@ -14,7 +15,8 @@ const puzzleFor = (id: string) => {
   return csv ? { csv, sample: !files[`../puzzles/${id}.csv`] } : null
 }
 
-type Screen = 'landing' | 'login' | 'howto' | 'pre' | 'modes' | Mode | 'ranking' | { level: string }
+type Screen = 'landing' | 'login' | 'howto' | 'pre' | 'modes' | 'settings' | Mode | 'ranking' | { level: string }
+type HowToFrom = 'landing' | 'login' | 'settings'
 
 export default function App() {
   const [admin, setAdmin] = useState(() => location.hash === '#admin')
@@ -30,6 +32,7 @@ function Student() {
   const [store, setStore] = useState(load)
   const [screen, setScreen] = useState<Screen>('landing')
   const [ranking, setRanking] = useState<Rank[] | null>(null) // null = not fetched yet (offline)
+  const [howtoFrom, setHowtoFrom] = useState<HowToFrom>('landing') // How to Play's back goes there
   const latest = useRef(store)
   const busy = useRef(false)
   const save = store.who ? store.saves[store.who] : null
@@ -46,14 +49,18 @@ function Student() {
 
   async function syncNow() {
     const st = latest.current
-    const s = st.who ? st.saves[st.who] : null
-    if (!s || busy.current) return
+    if (!st.who || busy.current) return
     busy.current = true
+    // Everyone who played on this phone, not only whoever is signed in now: on a shared phone,
+    // results of a student who signed out still reach the teacher.
+    const codes = [st.who, ...Object.keys(st.saves).filter((c) => c !== st.who && st.saves[c].attempts.some((a) => !a.synced))]
     try {
-      const r = await sync(s)
-      if (r === 'bad-login') return // code removed on the server: keep everything on the device
-      setStore((cur) => (cur.saves[s.code] ? { ...cur, saves: { ...cur.saves, [s.code]: merge(cur.saves[s.code], r.attempts) } } : cur))
-      setRanking(r.ranking)
+      for (const code of codes) {
+        const r = await sync(st.saves[code])
+        if (r === 'bad-login') continue // code removed on the server: keep everything on the device
+        setStore((cur) => (cur.saves[code] ? { ...cur, saves: { ...cur.saves, [code]: merge(cur.saves[code], r.attempts) } } : cur))
+        if (code === st.who) setRanking(r.ranking)
+      }
     } catch {
       // offline: the next finished level, app open or 'online' event tries again
     } finally {
@@ -79,24 +86,42 @@ function Student() {
   }, [screen])
 
   const go = setScreen
-  if (screen === 'landing') return <Landing onStart={() => go(save ? 'howto' : 'login')} />
+  const howTo = (from: HowToFrom) => {
+    setHowtoFrom(from)
+    go('howto')
+  }
+  if (screen === 'landing') return <Landing onStart={() => (save ? howTo('landing') : go('login'))} />
   if (screen === 'login' || !save)
     return (
       <Login
         store={store}
+        onBack={() => go('landing')}
         onDone={(s) => {
           setStore((st) => ({ who: s.code, saves: { ...st.saves, [s.code]: s } }))
-          go('howto')
+          howTo('login')
         }}
       />
     )
-  if (screen === 'howto') return <HowTo onNext={() => go(save.preDone ? 'modes' : 'pre')} />
+  if (screen === 'howto') return <HowTo from={howtoFrom} onBack={() => go(howtoFrom)} onNext={() => go(save.preDone ? 'modes' : 'pre')} />
   if (screen === 'pre')
     return (
       <Pre
         onDone={() => {
           update((s) => ({ ...s, preDone: true }))
           go('modes')
+        }}
+        onBack={() => go('howto')}
+      />
+    )
+  if (screen === 'settings')
+    return (
+      <Settings
+        code={save.code}
+        onBack={() => go('modes')}
+        onHowTo={() => howTo('settings')}
+        onSignOut={() => {
+          setStore((st) => ({ ...st, who: null }))
+          go('login')
         }}
       />
     )
@@ -111,10 +136,7 @@ function Student() {
         expertOpen={isUnlocked('expert-1', won)}
         battleOpen={won.has('expert-5')}
         onPick={go}
-        onSwitch={() => {
-          setStore((st) => ({ ...st, who: null }))
-          go('login')
-        }}
+        onSettings={() => go('settings')}
       />
     )
   if (screen === 'relax' || screen === 'expert')
@@ -166,7 +188,7 @@ function Landing({ onStart }: { onStart: () => void }) {
   )
 }
 
-function Login({ store, onDone }: { store: Store; onDone: (s: Save) => void }) {
+function Login({ store, onBack, onDone }: { store: Store; onBack: () => void; onDone: (s: Save) => void }) {
   const [code, setCode] = useState('')
   const [pin, setPin] = useState('')
   const [msg, setMsg] = useState('')
@@ -192,9 +214,15 @@ function Login({ store, onDone }: { store: Store; onDone: (s: Save) => void }) {
     }
   }
 
+  useBack(onBack)
   return (
     <main className="screen" tabIndex={-1}>
-      <h1>Sign in</h1>
+      <header className="bar">
+        <button className="icon" onClick={onBack} aria-label="Back to start">
+          <Icon name="back" />
+        </button>
+        <h1>Sign in</h1>
+      </header>
       <p className="sub">Use the code and PIN from your teacher.</p>
       <form className="card form" onSubmit={submit}>
         <label>
@@ -243,12 +271,20 @@ function Login({ store, onDone }: { store: Store; onDone: (s: Save) => void }) {
   )
 }
 
-function HowTo({ onNext }: { onNext: () => void }) {
+const BACK_TO: Record<HowToFrom, string> = { landing: 'Back to start', login: 'Back to sign in', settings: 'Back to settings' }
+
+function HowTo({ from, onBack, onNext }: { from: HowToFrom; onBack: () => void; onNext: () => void }) {
+  useBack(onBack)
   return (
     <main className="screen" tabIndex={-1}>
-      <h1>
-        Let’s learn how to play! <Deco>🎓</Deco>
-      </h1>
+      <header className="bar">
+        <button className="icon" onClick={onBack} aria-label={BACK_TO[from]}>
+          <Icon name="back" />
+        </button>
+        <h1>
+          Let’s learn how to play! <Deco>🎓</Deco>
+        </h1>
+      </header>
       {HOW_TO.map((c) => (
         <section key={c.title} className="howto">
           <span className="howto-icon" aria-hidden="true">
@@ -269,14 +305,16 @@ function HowTo({ onNext }: { onNext: () => void }) {
   )
 }
 
-function Pre({ onDone }: { onDone: () => void }) {
+function Pre({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
   const [i, setI] = useState(0)
   const [picked, setPicked] = useState<number | null>(null)
   const [score, setScore] = useState(0)
+  const [leaving, setLeaving] = useState(false)
   const total = PRE_ASSESSMENT.length
   useEffect(() => {
     if (i > 0) focusScreen() // the next question (or the score) is read out
   }, [i])
+  useBack(() => (i === total ? onDone() : setLeaving(true)))
 
   if (i === total)
     return (
@@ -294,14 +332,19 @@ function Pre({ onDone }: { onDone: () => void }) {
   const q = PRE_ASSESSMENT[i]
   return (
     <main className="screen" tabIndex={-1}>
+      <header className="bar">
+        <button className="icon" onClick={() => setLeaving(true)} aria-label="Back to How to Play">
+          <Icon name="back" />
+        </button>
+        <div className="progress" aria-hidden="true">
+          {PRE_ASSESSMENT.map((_, j) => (
+            <span key={j} className={j < i ? 'done' : j === i ? 'now' : ''} />
+          ))}
+        </div>
+      </header>
       <p className="eyebrow">
-        Pre-Assessment: Integer Rules · {i + 1} of {total}
+        Pre-Assessment: Integer Rules · {`${i + 1}\u00a0of\u00a0${total}`}
       </p>
-      <div className="progress" aria-hidden="true">
-        {PRE_ASSESSMENT.map((_, j) => (
-          <span key={j} className={j < i ? 'done' : j === i ? 'now' : ''} />
-        ))}
-      </div>
       <h1 className="question">{q.q}</h1>
       <div className="choices">
         {q.choices.map((c, j) => (
@@ -341,23 +384,37 @@ function Pre({ onDone }: { onDone: () => void }) {
           </button>
         </>
       )}
+      {leaving && (
+        <Dialog title="Leave the pre-assessment?" onClose={() => setLeaving(false)}>
+          <p>You’ll start again from question 1. You need to finish it before you can play.</p>
+          <div className="row">
+            <button className="big secondary" onClick={() => setLeaving(false)} autoFocus>
+              Keep going
+            </button>
+            <button className="big" onClick={onBack}>
+              Leave
+            </button>
+          </div>
+        </Dialog>
+      )}
     </main>
   )
 }
 
-function Modes(props: { code: string; coins: number; expertOpen: boolean; battleOpen: boolean; onPick: (m: Mode) => void; onSwitch: () => void }) {
+function Modes(props: { code: string; coins: number; expertOpen: boolean; battleOpen: boolean; onPick: (m: Mode) => void; onSettings: () => void }) {
   const [note, setNote] = useState('')
   return (
     <main className="screen" tabIndex={-1}>
       <header className="bar">
         <span className="who">
           <Icon name="user" />
+          <span className="sr">Signed in as&nbsp;</span>
           {props.code}
-          <button className="switch" onClick={props.onSwitch}>
-            Not you? Switch
-          </button>
         </span>
         <Coins n={props.coins} />
+        <button className="icon" onClick={props.onSettings} aria-label="Settings">
+          <Icon name="settings" />
+        </button>
       </header>
       <h1>
         Choose Your Adventure! <Deco>🗺️</Deco>
@@ -391,7 +448,58 @@ function Modes(props: { code: string; coins: number; expertOpen: boolean; battle
   )
 }
 
+// Settings: How to Play again, and signing out (asks first: the student needs the slip to come back).
+function Settings({ code, onBack, onHowTo, onSignOut }: { code: string; onBack: () => void; onHowTo: () => void; onSignOut: () => void }) {
+  const [confirm, setConfirm] = useState(false)
+  useBack(onBack)
+  return (
+    <main className="screen" tabIndex={-1}>
+      <header className="bar">
+        <button className="icon" onClick={onBack} aria-label="Back to modes">
+          <Icon name="back" />
+        </button>
+        <h1>Settings</h1>
+      </header>
+      <button className="level" onClick={onHowTo}>
+        <span className="level-n">
+          <Icon name="info" />
+        </span>
+        <span className="level-text">
+          <b>How to Play</b>
+          <small>The rules, the number bank, lives and coins</small>
+        </span>
+        <span className="level-state">
+          <Icon name="next" />
+        </span>
+      </button>
+      <section className="card account">
+        <p className="who">
+          <Icon name="user" />
+          Signed in as {code}
+        </p>
+        <button className="big secondary" onClick={() => setConfirm(true)}>
+          Sign out
+        </button>
+      </section>
+      {confirm && (
+        <Dialog title={`Sign out of ${code}?`} onClose={() => setConfirm(false)}>
+          <p>Your progress stays saved. To come back, you’ll need your code and PIN.</p>
+          <div className="row">
+            <button className="big secondary" onClick={() => setConfirm(false)} autoFocus>
+              Stay signed in
+            </button>
+            <button className="big" onClick={onSignOut}>
+              Sign out
+            </button>
+          </div>
+        </Dialog>
+      )}
+    </main>
+  )
+}
+
 function Levels(props: { mode: Mode; attempts: Attempt[]; won: Set<string>; coins: number; onPlay: (id: string) => void; onBack: () => void; onRanking: () => void }) {
+  useBack(props.onBack)
   return (
     <main className="screen" tabIndex={-1}>
       <header className="bar">
@@ -450,6 +558,7 @@ function Levels(props: { mode: Mode; attempts: Attempt[]; won: Set<string>; coin
 function Ranking(props: { rows: Rank[] | null; attempts: Attempt[]; code: string; onRefresh: () => Promise<void>; onBack: () => void }) {
   const levels = LEVELS.filter((l) => l.mode === 'expert' && puzzleFor(l.id))
   const [id, setId] = useState(levels[0]?.id ?? 'expert-1')
+  useBack(props.onBack)
   const refresh = useEffectEvent(() => void props.onRefresh())
   useEffect(() => {
     refresh()

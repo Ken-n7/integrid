@@ -249,8 +249,7 @@ a {
 .choices button:active:not(:disabled),
 .tools button:active,
 .icon:active,
-.tabs button:active,
-.switch:active {
+.tabs button:active {
   translate: 0 2px;
 }
 .link {
@@ -504,6 +503,9 @@ label.inline input {
   background: var(--yellow);
   box-shadow: inset 0 0 0 2px var(--yellow-dark);
 }
+.bar .progress {
+  flex: 1; /* beside the back button, like most quiz apps */
+}
 .question {
   font-size: 1.3rem;
 }
@@ -561,15 +563,9 @@ label.inline input {
   width: 20px;
   height: 20px;
 }
-.switch {
-  min-height: 32px;
-  padding: 4px 12px;
-  border: 2px solid var(--line);
-  border-radius: 999px;
-  background: #fff;
-  color: var(--blue);
-  font-size: 0.8rem;
-  font-weight: 800;
+.account {
+  display: grid;
+  gap: 12px;
 }
 .mode {
   display: flex;
@@ -1288,5 +1284,16 @@ td.won {
   *::after {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+/* Phones set to "reduce motion": no floating, wiggling or shaking (color and text still show what happened). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from 'react'
+import { useBack } from './back.ts'
 import { focusScreen } from './focus.ts'
 
 // Negative numbers in parentheses like the paper's test items, (−7), with slim parentheses
@@ -24,6 +25,8 @@ const ICONS = {
   close: 'M18 6 6 18M6 6l12 12',
   info: 'M12 7v6M12 17h.01',
   clock: 'M12 7v5l3 2',
+  settings:
+    'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2zM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0', // Lucide gear
 }
 export const Icon = ({ name }: { name: keyof typeof ICONS }) => (
   <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -46,8 +49,10 @@ export const Coins = ({ n }: { n: number }) => (
 
 // Pop-up: Escape and the X close it, Tab stays inside it, and closing hands focus back
 // to whatever opened it (e.g. the (!) button).
-export function Dialog({ title, onClose, children }: { title: ReactNode; onClose?: () => void; children: ReactNode }) {
+// onBack: what Android's back gesture does while it's open (default: close it).
+export function Dialog({ title, onClose, onBack = onClose, children }: { title: ReactNode; onClose?: () => void; onBack?: () => void; children: ReactNode }) {
   const panel = useRef<HTMLDivElement>(null)
+  useBack(() => onBack?.(), 'popup', !!onBack)
   const onKey = useEffectEvent((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose?.()
     if (e.key !== 'Tab') return

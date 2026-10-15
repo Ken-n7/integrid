@@ -115,7 +115,8 @@ The admin page also has its own address, `<site>/#admin`.
   - A wrong code or PIN shows "Wrong code or PIN. Ask your teacher."
   - No connection shows "You need internet the first time you sign in."
 - **After that:** works offline, and the device remembers the student.
-- **Shared devices:** "Not you? Switch student" on the mode screen. Each student's save stays on the device, so nothing unsynced is lost.
+- **Shared devices:** Settings (gear on the mode screen) → Sign out, which asks first. Each student's save stays on the device, and the phone sends every student's unsent results, not only the signed-in one's.
+- **Going back:** every inner screen has a back button at the top left; Android's back gesture does the same thing (closes a pop-up first, asks before leaving a level or the pre-assessment, leaves the app from the start and mode screens).
 - **Admin sign in:** a small link at the bottom of this screen opens the separate admin login (client: "separate the admin log in to student log in").
 - **No real names or emails for students.** This follows the paper's "coding system", and the students are minors.
 - **Dev mode:** with no Supabase keys set, any code + 4-digit PIN is accepted, so the app can be tried before the backend exists.
@@ -145,7 +146,7 @@ Then a **CONTINUE** button. It goes to the pre-assessment if not done yet, other
   - **Relax** (green): "Go at your own pace! Free clues, no pressure."
   - **Expert** (orange, 🔒 until Relax 4 is won): "Bigger grids, beat the clock, climb the ranking!"
   - **Battle** (blue, 🔒 until Expert 5 is won): "Team up with your group and race the other groups!"
-- Coin balance and student code are shown, with "Switch student".
+- Coin balance and student code are shown, with a gear for Settings (How to Play, Sign out).
 
 ### 5.6 Level list
 - **Relax:**

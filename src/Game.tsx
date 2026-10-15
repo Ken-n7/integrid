@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useBack } from './back.ts'
 import { clue, guideFor, sayNum, sayPattern, SIGN_RULES } from './content.ts'
 import { bankOf, blanksOf, equations, key, lenOf, parse } from './puzzle.ts'
 import { clock, HEARTS, MODES, reward, type Attempt, type Level, type Result } from './rules.ts'
@@ -114,6 +115,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
   const balance = playing ? coins - run.hints * rules.hintCost : coins
   const canHint = playing && run.hints < rules.hintLimit && balance >= rules.hintCost
   const active = playing && (Object.keys(run.filled).length > 0 || run.wrong > 0 || run.hints > 0)
+  useBack(() => (active ? setDialog('leave') : onExit())) // same as the back button
 
   // Each correct cell uses up one bank tile with its value.
   const used = new Map<number, number>()
@@ -376,7 +378,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
       </div>
 
       {info && (
-        <Dialog title={`Level ${level.n} · ${level.title}`} onClose={closeInfo}>
+        <Dialog title={`Level ${level.n} · ${level.title}`} onClose={closeInfo} onBack={started ? closeInfo : onExit}>
           {clues.length > 0 && (
             <section className="clue">
               <h3>

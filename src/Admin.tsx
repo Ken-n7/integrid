@@ -33,10 +33,12 @@ function download(name: string, rows: (string | number)[][]) {
 
 const Shell = ({ children }: { children: ReactNode }) => (
   <main className="admin">
-    {children}
     <p className="no-print">
-      <a href="#">← Student app</a>
+      <a href="#">
+        <Deco>←</Deco> Student app
+      </a>
     </p>
+    {children}
   </main>
 )
 
