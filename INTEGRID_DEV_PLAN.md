@@ -433,7 +433,7 @@ Day 1 = Thu Oct 15. Delivery Thu Oct 29.
 - [x] Expert ranking screen (live while online)
 - [x] Admin page: separate sign-in, progress table, add students, print slips, ranking, CSV downloads (code done; needs a live Supabase test)
 - [x] Supabase project created, admin account, env vars on hosting (Oct 15)
-- [ ] Live test: sign in, play offline, reconnect, see it on the admin page
+- [x] Live test on a real phone (Realme 3 Pro, Android 11, Chrome 155, live site, real database; Oct 16): signed in as test student S10, pre-assessment, all 9 levels won, Relax 2 played offline, then reconnected; the server confirmed all results and its Expert ranking listed S10. (Admin page view: check S10's row.)
 
 ### Phase 5 — Battle Mode, groups (Oct 22–26)
 - [x] Admin: new battle (puzzle, groups, time), room code, lobby, start, live ranking, end now (Oct 16)
@@ -441,9 +441,9 @@ Day 1 = Thu Oct 15. Delivery Thu Oct 29.
 - [x] Attempt log for battles (Oct 16)
 
 ### Phase 6 — Test & polish (Oct 26–28)
-- [ ] Low-end Android phone (Chrome), school PC (Chrome/Edge), iPhone Safari smoke test
-- [ ] Airplane-mode test: play offline → reconnect → data appears on admin page
-- [ ] Battle test with 2 groups × 5 phones on one hotspot
+- [ ] Low-end Android phone (Chrome), school PC (Chrome/Edge), iPhone Safari smoke test. *Done: Realme 3 Pro (Oct 16), every level and Battle, no lag. Left: school PC, iPhone.*
+- [x] Offline test: play offline → reconnect → the server confirms the result (Oct 16, on the phone, with that tab's internet cut)
+- [ ] Battle test with 2 groups × 5 phones on one hotspot. *Done so far: a real battle on the phone over the real Realtime, with a scripted teacher and teammate (teammate's box in ~0.2 s, wrong answers counted, finished first, result saved; Oct 16). Left: hosted from the admin page, with real phones in class.*
 - [ ] Researchers' pilot: play every level once, report confusing parts
 - [ ] Fixes, final puzzle check, print code slips
 
