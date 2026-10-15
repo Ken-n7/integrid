@@ -443,7 +443,7 @@ Day 1 = Thu Oct 15. Delivery Thu Oct 29.
 ### Phase 6 — Test & polish (Oct 26–28)
 - [ ] Low-end Android phone (Chrome), school PC (Chrome/Edge), iPhone Safari smoke test. *Done: Realme 3 Pro (Oct 16), every level and Battle, no lag. Left: school PC, iPhone.*
 - [x] Offline test: play offline → reconnect → the server confirms the result (Oct 16, on the phone, with that tab's internet cut)
-- [ ] Battle test with 2 groups × 5 phones on one hotspot. *Done so far: a real battle on the phone over the real Realtime, with a scripted teacher and teammate (teammate's box in ~0.2 s, wrong answers counted, finished first, result saved; Oct 16). Left: hosted from the admin page, with real phones in class.*
+- [ ] Battle test with 2 groups × 5 phones on one hotspot. *Done so far: a real battle on the phone over the real Realtime, with a scripted teacher and teammate (teammate's box in ~0.2 s, wrong answers counted, finished first, result saved; Oct 16). Then hosted from the real admin page (room 7330) with the phone in Group 1: Start, a wrong answer counted, finished, End now, "Your group won!", result confirmed by the server (Oct 17). Left: real phones in class.*
 - [ ] Researchers' pilot: play every level once, report confusing parts
 - [ ] Fixes, final puzzle check, print code slips
 
