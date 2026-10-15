@@ -476,7 +476,7 @@ Day 1 = Thu Oct 15. Delivery Thu Oct 29.
 5. **Undo:** OK to remove? *Built: removed.*
 6. **Puzzles:** the researchers review/approve the generated puzzles (Relax by Oct 19, Expert + Battle by Oct 22)?
 7. **Flow:** How to Play stays before the pre-assessment (docx page order)? *Built: yes.*
-8. **Battle unlock:** Battle opens only after a student wins Expert 5 (the sketch's 🔒). On battle day, a student who hasn't finished Expert can't join the teacher's room. Keep it, or let anyone with the room code join? *Built: locked until Expert 5.*
+8. **Battle unlock:** answered by the docx: "Battle Mode shall only be accessible after completing Expert Mode." *Built: locked until Expert 5.* In practice, all 10 learners need to finish Expert 5 before battle day.
 
 ## 13b. Accessibility (checked 2026-10-15)
 
