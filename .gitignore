@@ -26,3 +26,6 @@ dist-ssr
 # Client source documents (kept locally, not in git)
 *.pdf
 *.docx
+
+# LibreOffice lock files (made while a document is open)
+.~lock.*#
