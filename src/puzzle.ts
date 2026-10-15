@@ -1,0 +1,202 @@
+// Puzzle grids: read the researchers' CSV, check every equation, and make sure
+// there is exactly one way to fill the blanks from the number bank.
+
+export type Op = '+' | '−' | '×' | '÷'
+export type Cell = { t: 'num'; v: number; hidden: boolean } | { t: 'op'; op: Op } | { t: 'eq' } | null
+export type Grid = Cell[][]
+export type Pos = [row: number, col: number]
+type Side = { nums: Pos[]; ops: Op[] }
+export type Eq = { cells: Pos[]; across: boolean; left: Side; right: Side }
+type Lookup = (p: Pos) => number | undefined // undefined = blank not filled yet
+
+export const MAX_COLS = 9
+const OPS: Record<string, Op> = { '+': '+', '-': '−', x: '×', '*': '×', '×': '×', '/': '÷', '÷': '÷' }
+
+export const key = (p: Pos) => `${p[0]},${p[1]}`
+export const fmt = (n: number) => (n < 0 ? `(−${-n})` : String(n))
+export const lenOf = (n: number) => String(Math.abs(n)).length + (n < 0 ? 2 : 0) // for font sizing
+const where = (p: Pos) => `row ${p[0] + 1}, column ${p[1] + 1}`
+const label = (e: Eq) => `${where(e.cells[0])} ${e.across ? 'across' : 'down'}`
+
+export function parse(csv: string): Grid {
+  const rows = csv.replace(/^﻿/, '').split(/\r?\n/).map((line) => line.split(','))
+  const used = (r: string[]) => r.findLastIndex((s) => s.trim()) + 1
+  while (rows.length && !used(rows[rows.length - 1])) rows.pop()
+  const width = Math.max(0, ...rows.map(used))
+  return rows.map((r, i) => Array.from({ length: width }, (_, j) => readCell(r[j] ?? '', [i, j])))
+}
+
+function readCell(raw: string, p: Pos): Cell {
+  // Sheets and Docs like to swap "-" for "−" or "–", and people type "(-7)" or "x"
+  const s = raw.replace(/["\s]/g, '').replace(/[−–—]/g, '-').toLowerCase()
+  if (!s) return null
+  if (s === '=') return { t: 'eq' }
+  if (Object.hasOwn(OPS, s)) return { t: 'op', op: OPS[s] }
+  const m = /^(\?)?\(?([-+]?\d+)\)?$/.exec(s)
+  if (!m) throw new Error(`${where(p)}: can't read "${raw.trim()}"`)
+  return { t: 'num', v: Number(m[2]) || 0, hidden: !!m[1] }
+}
+
+// Every row/column run of 2+ filled squares is one equation.
+export function equations(grid: Grid) {
+  const eqs: Eq[] = []
+  const errors: string[] = []
+  const h = grid.length
+  const w = grid[0]?.length ?? 0
+  for (const across of [true, false]) {
+    for (let a = 0; a < (across ? h : w); a++) {
+      let run: Pos[] = []
+      for (let b = 0; b <= (across ? w : h); b++) {
+        const p: Pos | null = b < (across ? w : h) ? (across ? [a, b] : [b, a]) : null
+        if (p && grid[p[0]][p[1]]) {
+          run.push(p)
+          continue
+        }
+        if (run.length > 1) {
+          const e = compile(grid, run, across)
+          if (typeof e === 'string') errors.push(e)
+          else eqs.push(e)
+        }
+        run = []
+      }
+    }
+  }
+  return { eqs, errors }
+}
+
+function compile(grid: Grid, cells: Pos[], across: boolean): Eq | string {
+  const sides: Side[] = [{ nums: [], ops: [] }]
+  for (const [i, p] of cells.entries()) {
+    const c = grid[p[0]][p[1]]!
+    if ((i % 2 === 0) !== (c.t === 'num')) return `${where(p)}: expected ${i % 2 === 0 ? 'a number' : 'an operator or ='} here`
+    if (c.t === 'num') sides[sides.length - 1].nums.push(p)
+    else if (c.t === 'op') sides[sides.length - 1].ops.push(c.op)
+    else sides.push({ nums: [], ops: [] })
+  }
+  const e: Eq = { cells, across, left: sides[0], right: sides[1] }
+  if (cells.length % 2 === 0) return `${label(e)}: ends without a number`
+  if (sides.length !== 2) return `${label(e)}: needs exactly one =`
+  return e
+}
+
+function value(s: Side, val: Lookup): number | undefined | string {
+  const nums = s.nums.map(val)
+  return nums.includes(undefined) ? undefined : calc(nums as number[], s.ops)
+}
+
+// MDAS: × and ÷ first, then + and −, left to right. A string means the math breaks.
+export function calc(nums: number[], ops: Op[]): number | string {
+  const terms = [nums[0]]
+  const signs: Op[] = []
+  for (const [i, op] of ops.entries()) {
+    const n = nums[i + 1]
+    if (op === '+' || op === '−') {
+      terms.push(n)
+      signs.push(op)
+      continue
+    }
+    const a = terms.pop()!
+    if (op === '÷' && n === 0) return 'divides by 0'
+    if (op === '÷' && a % n !== 0) return `${fmt(a)} ÷ ${fmt(n)} is not a whole number`
+    terms.push((op === '×' ? a * n : a / n) || 0)
+  }
+  return terms.reduce((sum, t, i) => (i === 0 ? t : signs[i - 1] === '+' ? sum + t : sum - t), 0)
+}
+
+// true / false, undefined while a blank in it is still empty, or a string when the math breaks
+export function holds(e: Eq, val: Lookup): boolean | undefined | string {
+  const l = value(e.left, val)
+  const r = value(e.right, val)
+  if (typeof l === 'string') return l
+  if (typeof r === 'string') return r
+  return l === undefined || r === undefined ? undefined : l === r
+}
+
+const answer = (grid: Grid): Lookup => (p) => (grid[p[0]][p[1]] as { v: number }).v
+
+export const blanksOf = (grid: Grid): Pos[] =>
+  grid.flatMap((row, r) => row.flatMap((c, col): Pos[] => (c?.t === 'num' && c.hidden ? [[r, col]] : [])))
+
+// Client: the number bank holds the correct answers only, smallest first like the sketch.
+export const bankOf = (grid: Grid) => blanksOf(grid).map(answer(grid)).map(Number).sort((a, b) => a - b)
+
+export function text(grid: Grid, e: Eq) {
+  return e.cells
+    .map(([r, c]) => {
+      const cell = grid[r][c]!
+      return cell.t === 'num' ? (cell.hidden ? '?' : '') + fmt(cell.v) : cell.t === 'op' ? cell.op : '='
+    })
+    .join(' ')
+}
+
+// Everything wrong with a puzzle, in words the researchers can act on. Empty = good.
+export function validate(grid: Grid, rules: { ops: Op[]; oneOp: boolean }): string[] {
+  const errors: string[] = []
+  const width = grid[0]?.length ?? 0
+  if (width > MAX_COLS) errors.push(`${width} columns wide; phones fit at most ${MAX_COLS}`)
+  const { eqs, errors: shape } = equations(grid)
+  errors.push(...shape)
+  const covered = new Set(eqs.flatMap((e) => e.cells.map(key)))
+  grid.forEach((row, r) =>
+    row.forEach((c, col) => {
+      if (c && !covered.has(key([r, col]))) errors.push(`${where([r, col])}: not part of any equation`)
+    }),
+  )
+  for (const e of eqs) {
+    const ops = [...e.left.ops, ...e.right.ops]
+    const stray = ops.filter((op) => !rules.ops.includes(op))
+    if (stray.length) errors.push(`${label(e)}: uses ${stray.join(' ')}, but this level only allows ${rules.ops.join(' ')}`)
+    if (rules.oneOp && ops.length !== 1) errors.push(`${label(e)}: Relax equations need exactly one operation`)
+    const ok = holds(e, answer(grid))
+    if (ok !== true) errors.push(`${label(e)}: ${typeof ok === 'string' ? ok : 'is not true'}  →  ${text(grid, e)}`)
+  }
+  const bank = bankOf(grid)
+  if (!bank.length) errors.push('no ? squares for students to fill')
+  if (!errors.length && countSolutions(grid, eqs, bank) > 1)
+    errors.push('more than one way to fill the ? squares with the number bank: show (un-hide) one more number')
+  return errors
+}
+
+// Brute force over the bank, stopping at `limit`. Puzzles are small, so this is instant.
+export function countSolutions(grid: Grid, eqs: Eq[], bank: number[], limit = 2) {
+  const all = blanksOf(grid)
+  // Fill the blanks of the emptiest equations first so wrong guesses fail early.
+  const order: Pos[] = []
+  const seen = new Set<string>()
+  while (order.length < all.length) {
+    let best: Pos[] | null = null
+    for (const e of eqs) {
+      const open = e.cells.filter((p) => all.some((b) => key(b) === key(p)) && !seen.has(key(p)))
+      if (open.length && (!best || open.length < best.length)) best = open
+    }
+    if (!best) break // a blank outside every equation; validate() already reported it
+    for (const p of best) {
+      seen.add(key(p))
+      order.push(p)
+    }
+  }
+  const touching = order.map((b) => eqs.filter((e) => e.cells.some((p) => key(p) === key(b))))
+  const left = new Map<number, number>()
+  for (const v of bank) left.set(v, (left.get(v) ?? 0) + 1)
+  const placed = new Map<string, number>()
+  const val: Lookup = (p) => {
+    const c = grid[p[0]][p[1]] as { v: number; hidden: boolean }
+    return c.hidden ? placed.get(key(p)) : c.v
+  }
+  let found = 0
+  const go = (i: number) => {
+    if (found >= limit) return
+    if (i === order.length) return void found++
+    const k = key(order[i])
+    for (const [v, n] of left) {
+      if (!n) continue
+      left.set(v, n - 1)
+      placed.set(k, v)
+      if (touching[i].every((e) => { const ok = holds(e, val); return ok === true || ok === undefined })) go(i + 1)
+      placed.delete(k)
+      left.set(v, n)
+    }
+  }
+  go(0)
+  return found
+}
