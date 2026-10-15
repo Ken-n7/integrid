@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js'
 import { useEffect, useEffectEvent, useState, type FormEvent, type ReactNode } from 'react'
+import { BattleHost } from './Battle.tsx'
 import { rng } from './generate.ts'
 import { clock, LEVELS, MODES, rankingFor, reward, START_COINS } from './rules.ts'
 import { db } from './store.ts'
@@ -236,6 +237,7 @@ function Dashboard({ email, demo = false }: { email: string; demo?: boolean }) {
       </header>
       {demo && <p className="notice no-print">Dev mode: sample students, no server connected. Nothing here is saved.</p>}
       {status && <p className="note no-print">{status}</p>}
+      <BattleHost />
 
       <section className="card no-print">
         <h2>Students</h2>

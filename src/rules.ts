@@ -1,7 +1,7 @@
 // Every game number in one place (dev plan §6). Change here, nothing else.
 import type { Op } from './puzzle.ts'
 
-export type Mode = 'relax' | 'expert'
+export type Mode = 'relax' | 'expert' | 'battle'
 export type Result = 'win' | 'lose' | 'quit'
 export type Attempt = {
   id: string
@@ -25,6 +25,7 @@ export const HEARTS = 5
 export const MODES: Record<Mode, { hintCost: number; hintLimit: number; clue: boolean; ranked: boolean; rewards: [number, number][] }> = {
   relax: { hintCost: 60, hintLimit: Infinity, clue: true, ranked: false, rewards: [[60, 60], [120, 40], [180, 30], [240, 20], [300, 10]] },
   expert: { hintCost: 120, hintLimit: 2, clue: false, ranked: true, rewards: [[120, 120], [180, 100], [240, 80], [300, 60]] },
+  battle: { hintCost: 100, hintLimit: Infinity, clue: false, ranked: false, rewards: [[Infinity, 0]] }, // prizes are physical (§10)
 }
 
 export function reward(mode: Mode, seconds: number) {
@@ -44,6 +45,7 @@ export const LEVELS: Level[] = [
   { id: 'expert-4', mode: 'expert', n: 4, title: 'Multi-Step Integer Problems', ops: ALL_OPS },
   { id: 'expert-5', mode: 'expert', n: 5, title: 'Advanced Crossword Challenges', ops: ALL_OPS },
 ]
+export const BATTLES = [1, 2, 3].map((n): Level => ({ id: `battle-${n}`, mode: 'battle', n, title: `Battle ${n}`, ops: ALL_OPS }))
 
 // Coins and unlocks are worked out from the attempts, so they can never disagree with the data.
 export const wonLevels = (attempts: Attempt[]) => new Set(attempts.filter((a) => a.result === 'win').map((a) => a.level))

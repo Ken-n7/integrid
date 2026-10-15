@@ -3,6 +3,7 @@ import { useBack } from './back.ts'
 import { clue, guideFor, sayNum, sayPattern, SIGN_RULES } from './content.ts'
 import { bankOf, blanksOf, equations, key, lenOf, parse } from './puzzle.ts'
 import { clock, HEARTS, MODES, reward, type Attempt, type Level, type Result } from './rules.ts'
+import { uuid } from './store.ts'
 import { Coins, Deco, Dialog, Icon, Num } from './ui.tsx'
 
 type Run = {
@@ -18,12 +19,20 @@ type Run = {
   status: 'play' | 'win' | 'lose'
 }
 
-// crypto.randomUUID only exists on https/localhost; phones testing over LAN http need the fallback
-const uuid = () =>
-  crypto.randomUUID?.() ??
-  '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (c) => (+c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (+c / 4)))).toString(16))
-
 const newRun = (): Run => ({ id: uuid(), at: new Date().toISOString(), start: Date.now(), filled: {}, hearts: HEARTS, wrong: 0, hints: 0, mistakes: [], status: 'play' })
+
+// Battle Mode: the group's shared grid and live ranking, from the room (Battle.tsx).
+export type BattleLink = {
+  title: string // "Group 2"
+  startedAt: number
+  seconds: number // round time
+  shared: Record<string, boolean> // boxes the group solved, teammates' too
+  over: boolean
+  bars: ReactNode
+  result: ReactNode
+  onSolve: (k: string, hint: boolean) => void
+  onWrong: (wrong: number) => void
+}
 
 type Props = {
   level: Level
@@ -35,9 +44,10 @@ type Props = {
   onFinish: (a: Attempt) => void
   onExit: () => void
   onNext: (() => void) | null
+  battle?: BattleLink
 }
 
-export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, onExit, onNext }: Props) {
+export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, onExit, onNext, battle }: Props) {
   const rules = MODES[level.mode]
   const { grid, eqs, blanks, bank } = useMemo(() => {
     const grid = parse(csv)
@@ -48,24 +58,25 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
     return (grid[r][c] as { v: number }).v
   }
 
-  const [run, setRun] = useState(newRun)
+  const [run, setRun] = useState(() => (battle ? { ...newRun(), start: battle.startedAt, at: new Date(battle.startedAt).toISOString() } : newRun()))
   const [sel, setSel] = useState<string | null>(null)
   const [flash, setFlash] = useState<{ k: string; v: number; t: number } | null>(null)
   const [msg, setMsg] = useState<ReactNode>('')
   const [nudge, setNudge] = useState(false)
   const [dialog, setDialog] = useState<'rules' | 'leave' | 'restart' | null>(null)
-  const [info, setInfo] = useState(true) // the (!) popup opens when the level starts…
-  const [started, setStarted] = useState(false) // …and the clock starts when it closes, so reading costs no coins
+  const [info, setInfo] = useState(!battle) // the (!) popup opens when the level starts…
+  const [started, setStarted] = useState(!!battle) // …and the clock starts when it closes, so reading costs no coins
   const [wiggle, setWiggle] = useState(false)
   const board = useRef<HTMLDivElement>(null)
   const [clear, setClear] = useState<'top' | 'left' | null>(null) // side kept clear for the (!) corner
   const [now, setNow] = useState(Date.now)
 
+  const ticking = battle ? !battle.over : run.status === 'play' // a battle's clock runs until the round ends
   useEffect(() => {
-    if (run.status !== 'play') return
+    if (!ticking) return
     const t = setInterval(() => setNow(Date.now()), 250)
     return () => clearInterval(t)
-  }, [run.status])
+  }, [ticking])
   useEffect(() => {
     if (!flash) return
     const t = setTimeout(() => setFlash(null), 700)
@@ -109,17 +120,20 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
     return () => resize.disconnect()
   }, [grid])
 
+  const filled = battle ? { ...battle.shared, ...run.filled } : run.filled
+  const allDone = blanks.every((k) => k in filled)
   const seconds = started ? Math.max(0, Math.floor(((run.end ?? now) - run.start) / 1000)) : 0
-  const playing = run.status === 'play'
+  const left = battle ? Math.max(0, battle.seconds - Math.floor((now - run.start) / 1000)) : 0
+  const playing = run.status === 'play' && !(battle && (allDone || battle.over))
   // after a finish, the app's balance already includes this run's coins
   const balance = playing ? coins - run.hints * rules.hintCost : coins
   const canHint = playing && run.hints < rules.hintLimit && balance >= rules.hintCost
-  const active = playing && (Object.keys(run.filled).length > 0 || run.wrong > 0 || run.hints > 0)
+  const active = battle ? !battle.over : playing && (Object.keys(run.filled).length > 0 || run.wrong > 0 || run.hints > 0)
   useBack(() => (active ? setDialog('leave') : onExit())) // same as the back button
 
   // Each correct cell uses up one bank tile with its value.
   const used = new Map<number, number>()
-  for (const k of Object.keys(run.filled)) used.set(answerOf(k), (used.get(answerOf(k)) ?? 0) + 1)
+  for (const k of Object.keys(filled)) used.set(answerOf(k), (used.get(answerOf(k)) ?? 0) + 1)
   const seen = new Map<number, number>()
   const tiles = bank.map((v) => {
     const n = (seen.get(v) ?? 0) + 1
@@ -142,9 +156,11 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
   function commit(next: Run) {
     const end = Date.now()
     const secs = Math.floor((end - next.start) / 1000)
-    const status = blanks.every((k) => k in next.filled) ? 'win' : next.hearts <= 0 ? 'lose' : 'play'
-    if (status === 'play') {
-      setRun(next)
+    const status = blanks.every((k) => k in next.filled || (battle && k in battle.shared)) ? 'win' : next.hearts <= 0 ? 'lose' : 'play'
+    if (status === 'play' || battle) {
+      // a battle's result is the group's: the room logs it when the round ends
+      setRun(status === 'play' ? next : { ...next, status, end })
+      if (status !== 'play') setSel(null)
       onProgress(attemptOf(next, 'quit', 0, secs)) // saved as "quit" until the level ends
       return
     }
@@ -155,7 +171,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
 
   // After choosing a box, keyboard focus jumps to the number bank (no visible change on touch screens).
   function select(k: string) {
-    if (!playing || k in run.filled) return
+    if (!playing || k in filled) return
     setSel(k === sel ? null : k)
     if (k !== sel) requestAnimationFrame(() => document.querySelector<HTMLElement>('.bank .tile:not(:disabled)')?.focus())
   }
@@ -167,6 +183,11 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
       setNudge(true)
       return
     }
+    if (sel in filled) {
+      setSel(null) // a teammate solved it a moment ago
+      setMsg('A teammate just solved that box!')
+      return
+    }
     const want = answerOf(sel)
     const v = tiles[i].v
     if (v === want) {
@@ -176,9 +197,10 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
           <Deco>✓</Deco> Correct!
         </>,
       )
-      const filled = { ...run.filled, [sel]: false }
-      commit({ ...run, filled })
-      const next = blanks.find((k) => !(k in filled))
+      const mine = { ...run.filled, [sel]: false }
+      commit({ ...run, filled: mine })
+      battle?.onSolve(sel, false)
+      const next = blanks.find((k) => !(k in mine) && !(k in filled))
       if (next) requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-cell="${next}"]`)?.focus())
       return
     }
@@ -197,6 +219,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
       </>,
     )
     if (rules.clue) setWiggle(true)
+    battle?.onWrong(run.wrong + 1)
     commit({ ...run, hearts: run.hearts - 1, wrong: run.wrong + 1, mistakes: [...run.mistakes, [want, v]] })
   }
 
@@ -205,9 +228,10 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
       if (playing) setMsg(run.hints >= rules.hintLimit ? 'No hints left for this level.' : `A hint costs ${rules.hintCost} coins.`)
       return
     }
-    const target = sel ?? blanks.find((k) => !(k in run.filled))
+    const target = sel && !(sel in filled) ? sel : blanks.find((k) => !(k in filled))
     if (!target) return
     setSel(null)
+    battle?.onSolve(target, true)
     commit({ ...run, hints: run.hints + 1, filled: { ...run.filled, [target]: true } })
   }
 
@@ -247,7 +271,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
               if (c.t === 'op') return SAY[c.op]
               if (c.t === 'eq') return 'equals'
               if (key(p) === k) return 'this box'
-              return c.hidden && !(key(p) in run.filled) ? 'blank' : sayNum(c.v)
+              return c.hidden && !(key(p) in filled) ? 'blank' : sayNum(c.v)
             })
             .join(' '),
       )
@@ -262,21 +286,24 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
   const guide = guideFor(level.ops, eqs.some((e) => e.left.ops.length + e.right.ops.length > 1))
   const sharedRule = clues.every((c) => c.rule === clues[0].rule) // Across and Down often share one: say it once
   const rank = playing || run.status === 'lose' || !rules.ranked ? undefined : rankOf(seconds, run.wrong)
+  const [heading, subheading] = battle ? [level.title, battle.title] : [`Level ${level.n}`, level.title]
 
   return (
     <main className="screen game" tabIndex={-1}>
       <header className="bar">
-        <button className="icon" onClick={() => (active ? setDialog('leave') : onExit())} aria-label="Back to levels">
+        <button className="icon" onClick={() => (active ? setDialog('leave') : onExit())} aria-label={battle ? 'Leave the battle' : 'Back to levels'}>
           <Icon name="back" />
         </button>
-        <button className="icon" onClick={() => (active ? setDialog('restart') : restart())} aria-label="Restart level">
-          <Icon name="restart" />
-        </button>
-        <h1 aria-label={`Level ${level.n}, ${level.title}${sample ? ', sample puzzle' : ''}`}>
-          Level {level.n}
+        {!battle && (
+          <button className="icon" onClick={() => (active ? setDialog('restart') : restart())} aria-label="Restart level">
+            <Icon name="restart" />
+          </button>
+        )}
+        <h1 aria-label={`${heading}, ${subheading}${sample ? ', sample puzzle' : ''}`}>
+          {heading}
           <small>
             {sample && <span className="tag">SAMPLE</span>}
-            <span className="clip" title={level.title}>{level.title}</span>
+            <span className="clip" title={subheading}>{subheading}</span>
           </small>
         </h1>
         <Coins n={balance} />
@@ -290,10 +317,10 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
         <span className="clock">
           <span className="timer">
             <Icon name="clock" />
-            <span className="sr">Time:&nbsp;</span>
-            {clock(seconds)}
+            <span className="sr">{battle ? 'Time left:' : 'Time:'}&nbsp;</span>
+            {clock(battle ? left : seconds)}
           </span>
-          {playing && (
+          {playing && !battle && (
             <span className="next" title="Finish now to earn this many coins">
               +{reward(level.mode, seconds)}
               <span className="sr">&nbsp;coins if you finish now</span>
@@ -301,6 +328,8 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
           )}
         </span>
       </div>
+
+      {battle?.bars}
 
       {/* the puzzle box: fills the space between the header and the tray, and the grid scales to fit it */}
       <div ref={board} className={`board${clear ? ` clear-${clear}` : ''}`}>
@@ -329,10 +358,10 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
                     <Num v={c.v} />
                   </span>
                 )
-              const done = k in run.filled
+              const done = k in filled
               const wrongHere = flash?.k === k
               const shown = done ? c.v : wrongHere ? flash.v : null
-              const cls = `cell blank${done ? (run.filled[k] ? ' hinted' : ' solved') : ''}${sel === k ? ' sel' : ''}${wrongHere ? ' bad' : ''}`
+              const cls = `cell blank${done ? (filled[k] ? ' hinted' : ' solved') : ''}${sel === k ? ' sel' : ''}${wrongHere ? ' bad' : ''}`
               return (
                 <button
                   key={wrongHere ? `${k}-${flash.t}` : k}
@@ -355,7 +384,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
       {/* pinned to the bottom like a keyboard, so the bank stays in reach on tall grids */}
       <div className="tray">
         <p className="msg" role="status">
-          {msg}
+          {battle && !battle.over && !playing ? (allDone ? 'Your group finished! Waiting for the other groups…' : 'Out of hearts! Cheer your group on.') : msg}
         </p>
 
         <Bank tiles={tiles} disabled={!playing} onPick={place} />
@@ -378,7 +407,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
       </div>
 
       {info && (
-        <Dialog title={`Level ${level.n} · ${level.title}`} onClose={closeInfo} onBack={started ? closeInfo : onExit}>
+        <Dialog title={battle ? level.title : `Level ${level.n} · ${level.title}`} onClose={closeInfo} onBack={started ? closeInfo : onExit}>
           {clues.length > 0 && (
             <section className="clue">
               <h3>
@@ -449,8 +478,8 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
       )}
 
       {(dialog === 'leave' || dialog === 'restart') && (
-        <Dialog title={dialog === 'leave' ? 'Leave this level?' : 'Start this level over?'} onClose={() => setDialog(null)}>
-          <p>This try will end and your progress on it will be lost.</p>
+        <Dialog title={dialog === 'leave' ? (battle ? 'Leave the battle?' : 'Leave this level?') : 'Start this level over?'} onClose={() => setDialog(null)}>
+          <p>{battle ? 'Your group can keep playing without you.' : 'This try will end and your progress on it will be lost.'}</p>
           <div className="row">
             <button className="big secondary" onClick={() => setDialog(null)} autoFocus>
               Keep playing
@@ -469,7 +498,24 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
         </Dialog>
       )}
 
-      {!playing && (
+      {battle?.over && (
+        <Dialog
+          title={
+            <>
+              <Deco>🏁</Deco> Battle over!
+            </>
+          }
+          onBack={onExit}
+        >
+          {battle.result}
+          {battle.bars}
+          <button className="big" onClick={onExit} autoFocus>
+            Back to modes
+          </button>
+        </Dialog>
+      )}
+
+      {!battle && !playing && (
         <Dialog title={<>{run.status === 'win' ? <><Deco>🎉</Deco> Level complete!</> : <><Deco>💔</Deco> Game over</>}</>}>
           {run.status === 'win' ? (
             <Summary>

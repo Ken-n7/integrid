@@ -8,7 +8,7 @@ A gamified math-crossword **web app** for Grade 7 integer operations (+, −, ×
 | Used at | Tolosa National High School (action research, 10 participants, later whole Grade 7 classes) |
 | Plan date | 2026-10-15 (updated the same day with the client's answers) |
 | Delivery | **2026-10-29** (2 weeks) |
-| Status | Client answered most questions (§13). Phases 0–2 done, Phase 4 code done and tested locally (Oct 15). Live on Supabase + Vercel (https://integrid-phi.vercel.app), tested against the real database (Oct 15). Waiting on: researchers' puzzles. |
+| Status | Client answered most questions (§13). Phases 0–2 done, Phase 4 code done and tested locally (Oct 15). Live on Supabase + Vercel (https://integrid-phi.vercel.app), tested against the real database (Oct 15). Battle Mode built and tested (Oct 16). Waiting on: researchers' puzzles. |
 
 ---
 
@@ -369,7 +369,16 @@ Client: "5 members each group, G1 vs G2… can those 5 members all join the batt
 8. **Late join / reconnect:** the phone asks the room for the group's current grid and catches up.
 9. **Log:** each member's round is logged as an attempt (`battle-N`) with the group result.
 
-Needs: Supabase Realtime (broadcast + presence), internet (a hotspot is enough), and the researchers' battle puzzles (at least 3 for several rounds).
+Needs: Supabase Realtime (broadcast), internet (a hotspot is enough), and the researchers' battle puzzles (at least 3 for several rounds).
+
+**As built (Oct 16, `src/Battle.tsx`):**
+- The teacher's admin page is the host. It keeps the score, so it must stay open during the battle. Its clock decides the start and the time left; each phone corrects for its own clock.
+- Channels: `ig-<room>` (teacher → everyone: puzzle, time, who's in each group, live bars), repeated every 4 s and at once when something changes. `ig-<room>-<group>` (a group's phones + the teacher): joins, solved boxes, wrong answers. One channel per group keeps each message to a handful of phones: the free plan allows about 100 deliveries a second, so a class of 40 on one channel would hit it. Presence isn't used (5 updates per phone per 30 s); a phone the teacher's list doesn't show yet just says "join" again.
+- Solved boxes only ever get added, so two teammates answering at once is safe. A teammate's box that you had picked gives "A teammate just solved that box!" and costs no heart.
+- Late join / reconnect: the room message carries every group's solved boxes, so a phone catches up within seconds.
+- Ranking: finished groups by time, then most boxes, then fewest wrong answers. During play a phone shows the top 3 plus its own group; the end screen and the teacher show all.
+- Log: each phone saves `battle-N` with the group's result (`win` = 1st place, else `lose`), the group's time, and its own wrong answers, hints (−100 coins each) and mistakes. Leaving early saves `quit`.
+- Tests: in dev mode the same code runs over the browser's BroadcastChannel (tabs of one browser), so a full battle (teacher + 5 phones, 2 groups; 8 groups) is tested in Chromium; the real Realtime path was tested against the live project (join, start, a solved box in ~0.4 s, end).
 
 ## 11. Paper vs. build: decisions and why
 
@@ -400,7 +409,7 @@ Day 1 = Thu Oct 15. Delivery Thu Oct 29.
 
 ### Phase 1 — Screens (Oct 15–16)
 - [x] Landing (math-symbol stickers), How to Play, Student sign in (dev mode), Pre-assessment drill, Choose Mode, Level list
-- [ ] Preview link deployed for the client (needs a Cloudflare Pages / Vercel account)
+- [x] Preview link deployed for the client: https://integrid-phi.vercel.app (Oct 15)
 
 ### Phase 2 — Crossword engine (Oct 16–19)
 - [x] Puzzle parser, equation checker (MDAS, exact division), uniqueness solver, number bank
@@ -427,9 +436,9 @@ Day 1 = Thu Oct 15. Delivery Thu Oct 29.
 - [ ] Live test: sign in, play offline, reconnect, see it on the admin page
 
 ### Phase 5 — Battle Mode, groups (Oct 22–26)
-- [ ] Admin: new battle (puzzle, groups, time), room code, lobby, start, live ranking
-- [ ] Students: join with code, pick group, shared grid (broadcast), catch-up on reconnect, hearts/hints, final ranking
-- [ ] Attempt log for battles
+- [x] Admin: new battle (puzzle, groups, time), room code, lobby, start, live ranking, end now (Oct 16)
+- [x] Students: join with code, pick group, shared grid (broadcast), catch-up on reconnect, hearts/hints, final ranking (Oct 16)
+- [x] Attempt log for battles (Oct 16)
 
 ### Phase 6 — Test & polish (Oct 26–28)
 - [ ] Low-end Android phone (Chrome), school PC (Chrome/Edge), iPhone Safari smoke test
@@ -467,6 +476,7 @@ Day 1 = Thu Oct 15. Delivery Thu Oct 29.
 5. **Undo:** OK to remove? *Built: removed.*
 6. **Puzzles:** the researchers review/approve the generated puzzles (Relax by Oct 19, Expert + Battle by Oct 22)?
 7. **Flow:** How to Play stays before the pre-assessment (docx page order)? *Built: yes.*
+8. **Battle unlock:** Battle opens only after a student wins Expert 5 (the sketch's 🔒). On battle day, a student who hasn't finished Expert can't join the teacher's room. Keep it, or let anyone with the room code join? *Built: locked until Expert 5.*
 
 ## 13b. Accessibility (checked 2026-10-15)
 

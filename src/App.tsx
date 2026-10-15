@@ -1,19 +1,14 @@
 import { useEffect, useEffectEvent, useRef, useState, type FormEvent } from 'react'
 import { Admin } from './Admin.tsx'
+import { BattleRoom } from './Battle.tsx'
 import { HOW_TO, PRE_ASSESSMENT } from './content.ts'
 import { Game } from './Game.tsx'
 import { bestWin, clock, coinsOf, isUnlocked, LEVELS, rankingFor, wonLevels, type Attempt, type Mode, type Rank } from './rules.ts'
 import { db, load, merge, newSave, persist, sync, type Save, type Store } from './store.ts'
 import { useBack } from './back.ts'
 import { focusScreen } from './focus.ts'
+import { puzzleFor } from './puzzles.ts'
 import { Coins, Deco, Dialog, Icon } from './ui.tsx'
-
-// Puzzle files: the researchers' relax-1.csv replaces the placeholder relax-1.sample.csv.
-const files = import.meta.glob('../puzzles/*.csv', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
-const puzzleFor = (id: string) => {
-  const csv = files[`../puzzles/${id}.csv`] ?? files[`../puzzles/${id}.sample.csv`]
-  return csv ? { csv, sample: !files[`../puzzles/${id}.csv`] } : null
-}
 
 type Screen = 'landing' | 'login' | 'howto' | 'pre' | 'modes' | 'settings' | Mode | 'ranking' | { level: string }
 type HowToFrom = 'landing' | 'login' | 'settings'
@@ -141,6 +136,16 @@ function Student() {
     )
   if (screen === 'relax' || screen === 'expert')
     return <Levels mode={screen} attempts={save.attempts} won={won} coins={coins} onPlay={(id) => go({ level: id })} onBack={() => go('modes')} onRanking={() => go('ranking')} />
+  if (screen === 'battle')
+    return (
+      <BattleRoom
+        code={save.code}
+        coins={coins}
+        onExit={() => go('modes')}
+        onProgress={(a) => update((s) => ({ ...s, current: a }))}
+        onFinish={(a) => update((s) => ({ ...s, current: null, attempts: [...s.attempts, a] }))}
+      />
+    )
   if (screen === 'ranking') return <Ranking rows={ranking} attempts={save.attempts} code={save.code} onRefresh={syncNow} onBack={() => go('expert')} />
 
   const level = LEVELS.find((l) => l.id === screen.level)!
@@ -402,7 +407,6 @@ function Pre({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
 }
 
 function Modes(props: { code: string; coins: number; expertOpen: boolean; battleOpen: boolean; onPick: (m: Mode) => void; onSettings: () => void }) {
-  const [note, setNote] = useState('')
   return (
     <main className="screen" tabIndex={-1}>
       <header className="bar">
@@ -434,16 +438,13 @@ function Modes(props: { code: string; coins: number; expertOpen: boolean; battle
           <small>{props.expertOpen ? 'Bigger grids, beat the clock, climb the ranking!' : 'Finish all 4 Relax levels to unlock.'}</small>
         </span>
       </button>
-      <button className="mode battle" disabled={!props.battleOpen} onClick={() => setNote('Battle Mode is coming soon!')}>
+      <button className="mode battle" disabled={!props.battleOpen} onClick={() => props.onPick('battle')}>
         <span className="mode-icon" aria-hidden="true">{props.battleOpen ? '⚔️' : <Icon name="lock" />}</span>
         <span>
           <b>BATTLE MODE</b>
           <small>{props.battleOpen ? 'Team up with your group and race the other groups!' : 'Finish all 5 Expert levels to unlock.'}</small>
         </span>
       </button>
-      <p className="msg" role="status">
-        {note}
-      </p>
     </main>
   )
 }

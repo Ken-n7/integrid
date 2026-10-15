@@ -12,6 +12,11 @@ export type Store = { who: string | null; saves: Record<string, Save> }
 
 const KEY = 'integrid:v1'
 
+// crypto.randomUUID only exists on https/localhost; phones testing over LAN http need the fallback
+export const uuid = () =>
+  crypto.randomUUID?.() ??
+  '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (c) => (+c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (+c / 4)))).toString(16))
+
 export function load(): Store {
   let store: Store = { who: null, saves: {} }
   try {
