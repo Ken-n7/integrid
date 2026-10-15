@@ -226,16 +226,15 @@ Then a **CONTINUE** button. It goes to the pre-assessment if not done yet, other
 - **Live updates:** refreshes every 10 seconds while open and online. Offline it shows "Connect to the internet to see the ranking" with the student's own best time.
 
 ### 5.10 Admin page (`/#admin`, separate login)
+Five tabs (Oct 17). Codes only, no names (decided with Ken).
 - **Sign in:** email + password. The admin account is created by the developer, see §15.
-- **Students table:** code, PIN, each level (✓ best time / attempts), wrong answers, hints, last played.
-- **Add students:** a number box. It creates the next codes (`S01`, `S02`, …) with random 4-digit PINs.
-- **Print codes:** a sheet of cut-out slips with code + PIN.
-- **Ranking:** the same Expert ranking as students see.
-- **Download CSV:**
-  - `attempts.csv`: one row per play: student, level, result, seconds, wrong, sign_errors, hints, coins, played_at.
-  - `students.csv`: one row per student: levels won, best times, totals.
-- **Battle controls:** Phase 5, §10.
-- **Later, only if the researchers make the puzzles themselves:** a **Generate** button per level. It makes a new branching puzzle (same generator as `npm run generate`) and shows a preview, with Approve / Make another buttons. Approved puzzles are saved in Supabase and replace the built-in ones. Until the client answers question 6 (§13), puzzles stay as generated files that the developer updates.
+- **Overview:** learners, who played this week, results, time playing; progress (how many won each level, and Battle); **needs attention** (hasn't played yet, no play for 3+ days, 3+ tries on their current level without a win); the Expert ranking.
+- **Students:** add students (next codes `S01`, `S02`, … with random 4-digit PINs), print code slips, refresh, the progress table (code, PIN, each level ✓ best time / tries, wrong, sign errors, hints, coins, last played). Tap a code for the learner's **record**: every level's tries, best time, wrong answers and hints, time on task, their mistakes (answer vs. placed) and how many were **sign errors**, and their test scores. Downloads:
+  - `attempts.csv`: one row per play: student, level, result, seconds, wrong, sign_errors, hints, coins, puzzle (version), played_at.
+  - `students.csv`: one row per student: levels won, best times, totals, seconds played.
+- **Puzzles:** each level's puzzle (answers shown in the boxes), sample or approved; **Approve this puzzle**, or **Generate another** → preview → **Use the new puzzle** (same generator and checks as `npm run generate`, run off the main thread; Expert 5 takes ~4 s). Approved puzzles are saved in Supabase (`puzzles`) and reach every phone the next time it opens the app (cached for offline). Every result saves its puzzle's version; the Expert ranking only compares results on the same version. Swapping a puzzle learners already played asks first (§13, question 9).
+- **Research:** the paper's instrument (Appendix 5), typed in from the paper forms: Part I test before and after (✓/✗ per item, answer key shown) and the Part II survey (1–4 per statement, or type all 20 digits). It works out: RQ1–2 (N, mean, median, SD, MPS, DepEd mastery level), RQ3 (mean gain, Shapiro–Wilk on the gains, paired t-test with Cohen's d, Wilcoxon signed-rank, and which one the normality check supports, in a sentence), results by operation, RQ4 (mean, SD and Table 1 interpretation per dimension, each statement, overall), and the pilot's instrument check (item difficulty and discrimination with a suggested keep/revise/discard, KR-20, Cronbach's α per dimension). `research.csv` has every item for SPSS/jamovi. The statistics are checked against scipy in `npm run check`. Saved in Supabase (`research`), admins only.
+- **Battle:** the room host, §10.
 
 ## 6. Game rules (all in `src/rules.ts`, one place to change)
 
@@ -477,6 +476,7 @@ Day 1 = Thu Oct 15. Delivery Thu Oct 29.
 6. **Puzzles:** the researchers review/approve the generated puzzles (Relax by Oct 19, Expert + Battle by Oct 22)?
 7. **Flow:** How to Play stays before the pre-assessment (docx page order)? *Built: yes.*
 8. **Battle unlock:** answered by the docx: "Battle Mode shall only be accessible after completing Expert Mode." *Built: locked until Expert 5.* In practice, all 10 learners need to finish Expert 5 before battle day.
+9. **Swapping a played puzzle:** once learners have played a level, can the researchers still swap its puzzle (Puzzles tab)? *Built for now: allowed after a warning; earlier results stay tied to their puzzle version, and that level's ranking starts over. A strict lock is a one-line change.* (Ken: ask the researchers.)
 
 ## 13b. Accessibility (checked 2026-10-15)
 
@@ -521,6 +521,9 @@ npm run build          # check + type-check + production build in dist/
 ```
 
 **Supabase (once)**
+
+Already set up with an older schema.sql (the live project, Oct 15)? Run `supabase/update-1.sql` once in the SQL Editor before pushing the Oct 17 admin update: it adds the `puzzles` and `research` tables and each result's puzzle version. Until then the app uses the built-in puzzles and the Research tab can't save.
+
 1. **The client** signs up at supabase.com (free, no card) and makes the project: New project → `integrid`, Region **Singapore** (closest to Leyte), and keeps the database password. Then Organization → Team → invite the dev as **Developer**.
    Why not the dev's account: the dev's free plan is full (2 projects), and Owner/Administrator roles count toward that limit while Developer doesn't. A Developer can still run SQL, add Auth users and read the API keys, so steps 2–4 are the dev's. The client owns the student data from day one; nothing to transfer later.
 2. SQL Editor → paste `supabase/schema.sql` → Run.

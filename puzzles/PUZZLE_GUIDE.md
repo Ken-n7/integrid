@@ -2,11 +2,12 @@
 
 **Every level already has a puzzle**, made by a rule-based generator (not AI) in the style of printable math crosswords. Each one is checked to have exactly one answer that can be found one equation at a time, and to practice the sign rules.
 
-**Your part:** your paper says the math problems are the researchers' own work, so please **review every puzzle** before the study:
-1. Play it in the app. Each level shows a red SAMPLE tag until you approve it.
-2. Happy with it? Tell the developer. Approving removes the SAMPLE tag.
-3. Want changes? Ask for a new layout, or edit the puzzle yourself using the rules below.
-4. Prefer your own puzzle? Make it in Google Sheets with the rules below and send the CSV. The app checks it automatically and tells you exactly what to fix.
+**Your part:** your paper says the math problems are the researchers' own work, so please **review every puzzle** before the study, on the admin page's **Puzzles** tab:
+1. Each level shows its puzzle with the answers in the yellow boxes (untick "Show the answers" to see it as students do). Play it in the app too: it shows a red SAMPLE tag until approved.
+2. Happy with it? Press **Approve this puzzle**. Phones get it the next time they open the app, and the SAMPLE tag goes away.
+3. Not happy? Press **Generate another** as often as you like, then **Use the new puzzle** on one you like. Every generated puzzle passes the same checks.
+4. Approve every level **before the study starts**: all learners should solve the same problems. (If you swap a puzzle someone already played, the page asks first; their results stay tied to the old puzzle and that level's ranking starts over.)
+5. Prefer to write your own puzzle? Make it in Google Sheets with the rules below and send the CSV to the developer. The app checks it automatically and tells you exactly what to fix.
 
 ## 1. Set up the sheet (do this first!)
 

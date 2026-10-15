@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { useBack } from './back.ts'
 import { clue, guideFor, sayNum, sayPattern, SIGN_RULES } from './content.ts'
 import { bankOf, blanksOf, equations, key, lenOf, parse } from './puzzle.ts'
+import { versionOf } from './puzzles.ts'
 import { clock, HEARTS, MODES, reward, type Attempt, type Level, type Result } from './rules.ts'
 import { uuid } from './store.ts'
 import { Coins, Deco, Dialog, Icon, Num } from './ui.tsx'
@@ -49,9 +50,9 @@ type Props = {
 
 export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, onExit, onNext, battle }: Props) {
   const rules = MODES[level.mode]
-  const { grid, eqs, blanks, bank } = useMemo(() => {
+  const { grid, eqs, blanks, bank, version } = useMemo(() => {
     const grid = parse(csv)
-    return { grid, eqs: equations(grid).eqs, blanks: blanksOf(grid).map(key), bank: bankOf(grid) }
+    return { grid, eqs: equations(grid).eqs, blanks: blanksOf(grid).map(key), bank: bankOf(grid), version: versionOf(csv) }
   }, [csv])
   const answerOf = (k: string) => {
     const [r, c] = k.split(',').map(Number)
@@ -151,6 +152,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
     coins: earned - r.hints * rules.hintCost,
     mistakes: r.mistakes,
     at: r.at,
+    puzzle: version,
   })
 
   function commit(next: Run) {

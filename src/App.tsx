@@ -7,7 +7,7 @@ import { bestWin, clock, coinsOf, isUnlocked, LEVELS, rankingFor, wonLevels, typ
 import { db, load, merge, newSave, persist, sync, type Save, type Store } from './store.ts'
 import { useBack } from './back.ts'
 import { focusScreen } from './focus.ts'
-import { puzzleFor } from './puzzles.ts'
+import { isCurrent, puzzleFor, refreshPuzzles } from './puzzles.ts'
 import { Coins, Deco, Dialog, Icon } from './ui.tsx'
 
 type Screen = 'landing' | 'login' | 'howto' | 'pre' | 'modes' | 'settings' | Mode | 'ranking' | { level: string }
@@ -28,6 +28,7 @@ function Student() {
   const [screen, setScreen] = useState<Screen>('landing')
   const [ranking, setRanking] = useState<Rank[] | null>(null) // null = not fetched yet (offline)
   const [howtoFrom, setHowtoFrom] = useState<HowToFrom>('landing') // How to Play's back goes there
+  const [, setPuzzles] = useState(0) // bumped when the researchers' approved puzzles arrive
   const latest = useRef(store)
   const busy = useRef(false)
   const save = store.who ? store.saves[store.who] : null
@@ -38,6 +39,7 @@ function Student() {
   }, [store])
   useEffect(() => {
     void navigator.storage?.persist?.() // ask the browser not to clear unsynced results
+    void refreshPuzzles().then((changed) => changed && setPuzzles((n) => n + 1))
   }, [])
 
   const update = (fn: (s: Save) => Save) => setStore((st) => (st.who ? { ...st, saves: { ...st.saves, [st.who]: fn(st.saves[st.who]) } } : st))
@@ -153,13 +155,13 @@ function Student() {
   const next = LEVELS[LEVELS.indexOf(level) + 1]
   return (
     <Game
-      key={level.id}
+      key={`${level.id}-${puzzle.version}`}
       level={level}
       csv={puzzle.csv}
       sample={puzzle.sample}
       coins={coins}
       rankOf={(seconds, wrong) =>
-        ranking ? rankingFor(ranking, level.id, { level: level.id, code: save.code, seconds, wrong }).findIndex((r) => r.code === save.code) + 1 : null
+        ranking ? rankingFor(ranking.filter((r) => isCurrent(r.level, r.puzzle)), level.id, { level: level.id, code: save.code, seconds, wrong }).findIndex((r) => r.code === save.code) + 1 : null
       }
       onProgress={(a) => update((s) => ({ ...s, current: a }))}
       onFinish={(a) => update((s) => ({ ...s, current: null, attempts: [...s.attempts, a] }))}
@@ -566,8 +568,9 @@ function Ranking(props: { rows: Rank[] | null; attempts: Attempt[]; code: string
     const t = setInterval(refresh, 10_000) // live while open
     return () => clearInterval(t)
   }, [])
-  const mine = bestWin(props.attempts, id)
-  const list = rankingFor(props.rows ?? [], id, mine && { level: id, code: props.code, seconds: mine.seconds, wrong: mine.wrong })
+  // only results on the level's current puzzle (a swapped puzzle starts a new ranking)
+  const mine = bestWin(props.attempts.filter((a) => isCurrent(a.level, a.puzzle)), id)
+  const list = rankingFor((props.rows ?? []).filter((r) => isCurrent(r.level, r.puzzle)), id, mine && { level: id, code: props.code, seconds: mine.seconds, wrong: mine.wrong })
 
   return (
     <main className="screen" tabIndex={-1}>

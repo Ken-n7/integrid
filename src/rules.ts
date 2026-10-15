@@ -13,10 +13,11 @@ export type Attempt = {
   coins: number // reward minus hint costs
   mistakes: [answer: number, placed: number][]
   at: string // ISO start time
+  puzzle?: string // version of the puzzle played (puzzles.ts)
   synced?: boolean
 }
 export type Level = { id: string; mode: Mode; n: number; title: string; ops: Op[] }
-export type Rank = { level: string; code: string; seconds: number; wrong: number }
+export type Rank = { level: string; code: string; seconds: number; wrong: number; puzzle?: string | null }
 
 export const START_COINS = 60
 export const HEARTS = 5

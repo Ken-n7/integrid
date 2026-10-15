@@ -5,7 +5,8 @@
 //  2. Hide: blank out numbers one by one, keeping a blank only if the puzzle can still be solved
 //     one equation at a time (some equation always has a single missing number). That makes the
 //     answer unique and solvable by reasoning, never by guessing.
-import { calc, equations, holds, key, type Cell, type Eq, type Grid, type Op, type Pos } from './puzzle.ts'
+import { calc, equations, holds, key, parse, validate, type Cell, type Eq, type Grid, type Op, type Pos } from './puzzle.ts'
+import { ALL_OPS, LEVELS } from './rules.ts'
 
 export type GenOptions = {
   ops: Op[]
@@ -241,3 +242,56 @@ function solvable(grid: Grid, eqs: Eq[], hidden: Set<string>) {
 const CSV_OP: Record<Op, string> = { '+': '+', '−': '-', '×': 'x', '÷': '/' }
 export const toCsv = (g: Grid) =>
   g.map((row) => row.map((c) => (!c ? '' : c.t === 'eq' ? '=' : c.t === 'op' ? CSV_OP[c.op] : (c.hidden ? '?' : '') + c.v)).join(',')).join('\n') + '\n'
+
+// ---------- one puzzle per level (npm run generate, and the admin page's Generate button) ----------
+
+type Preset = Omit<GenOptions, 'ops'>
+const relax: Preset = { width: 7, height: 11, equations: 7, steps: [1], max: 20, factor: 10, hide: 0.45, perEquation: 2 }
+const expert: Preset = { width: 9, height: 11, equations: 11, steps: [1], max: 50, factor: 12, hide: 0.5, perEquation: 2 }
+const PRESETS: Record<string, Preset> = {
+  'relax-1': relax,
+  'relax-2': relax,
+  'relax-3': { ...relax, max: 100 },
+  'relax-4': { ...relax, max: 100 },
+  'expert-1': expert,
+  'expert-2': { ...expert, max: 144 },
+  'expert-3': { ...expert, max: 100, factor: 10 },
+  'expert-4': { ...expert, steps: [2], equations: 8, max: 100, factor: 10 }, // multi-step: a + b × c = d
+  'expert-5': { ...expert, steps: [1, 2], equations: 12, max: 100, factor: 10, hide: 0.55 },
+  battle: { ...expert, max: 100, factor: 10 },
+}
+
+// The lesson is sign rules: at least a third of the numbers negative, and in Relax every
+// sign pair (+)(+) (+)(−) (−)(+) (−)(−) appears at least once.
+function teachesSigns(grid: Grid, relax: boolean) {
+  const nums = grid.flat().flatMap((c) => (c?.t === 'num' ? [c.v] : []))
+  if (nums.filter((v) => v < 0).length < nums.length / 3) return false
+  if (!relax) return true
+  const pairs = equations(grid).eqs.map((e) =>
+    (e.left.ops.length ? e.left : e.right).nums.map(([r, c]) => ((grid[r][c] as { v: number }).v > 0 ? '+' : '−')).join(''),
+  )
+  return new Set(pairs).size === 4
+}
+
+// From `seed` on, keep the most open layout (fewest filled squares for its size: the branching
+// worksheet look, not a packed block) among the first 30 that pass every check, or whatever has
+// been found when `budgetMs` runs out. Expert 5 is the slow one (~12 s for all 30).
+export function makePuzzle(id: string, seed: number, budgetMs = Infinity) {
+  const level = LEVELS.find((l) => l.id === id)
+  const preset = PRESETS[id] ?? PRESETS.battle
+  const opts = { ...preset, ops: level?.ops ?? ALL_OPS }
+  const oneOp = level?.mode === 'relax'
+  const until = Date.now() + budgetMs
+  let best: { seed: number; csv: string; fill: number; info: string } | null = null
+  for (let s = seed, found = 0; s < seed + 500 && found < 30 && !(best && Date.now() > until); s++) {
+    const p = generate(opts, rng(s))
+    if (!p || p.equations < preset.equations - 1) continue
+    const csv = toCsv(p.grid)
+    if (validate(parse(csv), { ops: opts.ops, oneOp }).length || !teachesSigns(p.grid, oneOp)) continue
+    found++
+    const fill = p.grid.flat().filter(Boolean).length / (p.grid.length * p.grid[0].length)
+    if (!best || fill < best.fill) best = { seed: s, csv, fill, info: `${p.grid[0].length}×${p.grid.length}  ${p.equations} equations  ${p.blanks} blanks` }
+  }
+  return best
+}
+

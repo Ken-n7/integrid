@@ -15,7 +15,7 @@ import { db, uuid } from './store.ts'
 import { Deco, Icon } from './ui.tsx'
 
 type Bar = { cells: string[]; wrong: number; done: number | null } // done = seconds when the grid was full
-type Room = { puzzle: string; seconds: number; state: 'lobby' | 'live' | 'done'; startedAt: number | null; sentAt: number; members: string[][]; bars: Bar[] }
+type Room = { puzzle: string; csv: string; seconds: number; state: 'lobby' | 'live' | 'done'; startedAt: number | null; sentAt: number; members: string[][]; bars: Bar[] }
 type GroupMsg = { t: 'join'; code: string } | { t: 'leave'; code: string } | { t: 'cell'; k: string; hint: boolean } | { t: 'wrong'; code: string; wrong: number }
 
 function channel<M>(name: string, onMsg: (m: M) => void, onReady: () => void = () => {}) {
@@ -46,10 +46,7 @@ function channel<M>(name: string, onMsg: (m: M) => void, onReady: () => void = (
   }
 }
 
-const totalOf = (puzzle: string) => {
-  const p = puzzleFor(puzzle)
-  return p ? blanksOf(parse(p.csv)).length : 0
-}
+const totalOf = (csv: string) => blanksOf(parse(csv)).length
 
 // Finished groups first (by time), then most boxes solved, then fewest wrong answers (§10).
 const standings = (bars: Bar[]) =>
@@ -184,7 +181,7 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
 
   if (inGame) {
     const level = BATTLES.find((b) => b.id === snap.puzzle)!
-    const p = puzzleFor(snap.puzzle)!
+    const p = { csv: snap.csv, sample: !!puzzleFor(snap.puzzle)?.sample } // the teacher's copy: every grid in the room is the same
     const place = standings(snap.bars).findIndex((b) => b.g === group) + 1
     const link: BattleLink = {
       title: `Group ${group + 1}`,
@@ -192,7 +189,7 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
       seconds: snap.seconds,
       shared: { ...Object.fromEntries((snap.bars[group]?.cells ?? []).map((k) => [k, false])), ...shared },
       over: snap.state === 'done',
-      bars: <Bars bars={snap.bars} total={totalOf(snap.puzzle)} mine={group} top={snap.state === 'done' ? Infinity : 3} />,
+      bars: <Bars bars={snap.bars} total={totalOf(snap.csv)} mine={group} top={snap.state === 'done' ? Infinity : 3} />,
       result:
         place === 1 ? (
           <p className="result">
@@ -317,7 +314,7 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
 type Host = Omit<Room, 'bars' | 'sentAt'> & { room: string; total: number; cells: string[][]; wrongs: Record<string, number>[]; done: (number | null)[] }
 
 const barsOf = (h: Host): Bar[] => h.cells.map((cells, g) => ({ cells, wrong: Object.values(h.wrongs[g]).reduce((a, b) => a + b, 0), done: h.done[g] }))
-const roomOf = (h: Host): Room => ({ puzzle: h.puzzle, seconds: h.seconds, state: h.state, startedAt: h.startedAt, sentAt: Date.now(), members: h.members, bars: barsOf(h) })
+const roomOf = (h: Host): Room => ({ puzzle: h.puzzle, csv: h.csv, seconds: h.seconds, state: h.state, startedAt: h.startedAt, sentAt: Date.now(), members: h.members, bars: barsOf(h) })
 
 function apply(h: Host, g: number, m: GroupMsg): Host {
   if (m.t === 'join' || m.t === 'leave') {
@@ -379,7 +376,8 @@ export function BattleHost() {
   function create() {
     const room = String(crypto.getRandomValues(new Uint16Array(1))[0] % 10000).padStart(4, '0')
     const empty = <T,>(f: () => T) => Array.from({ length: groups }, f)
-    setH({ room, puzzle, total: totalOf(puzzle), seconds: minutes * 60, state: 'lobby', startedAt: null, members: empty(() => []), cells: empty(() => []), wrongs: empty(() => ({})), done: empty(() => null) })
+    const csv = puzzleFor(puzzle)!.csv
+    setH({ room, puzzle, csv, total: totalOf(csv), seconds: minutes * 60, state: 'lobby', startedAt: null, members: empty(() => []), cells: empty(() => []), wrongs: empty(() => ({})), done: empty(() => null) })
   }
 
   if (!h)

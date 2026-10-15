@@ -97,3 +97,72 @@ export function clue(grid: Grid, e: Eq) {
   const [a, b] = (e.left.ops.length ? e.left : e.right).nums.map(val)
   return { pattern, rule: ruleFor(ops[0], a, b) }
 }
+
+// The paper's research instrument (Appendix 5), for the admin page's Research tab.
+// Part I: the pretest/posttest, 20 items. `a` is the answer key; `op` lets results compare operations.
+export const RESEARCH_TEST: { q: string; a: number; op: Op }[] = [
+  { q: '(−24) + (−17)', a: -41, op: '+' },
+  { q: '(−39) + 15', a: -24, op: '+' },
+  { q: '92 + (−73)', a: 19, op: '+' },
+  { q: '(−25) − (−5)', a: -20, op: '−' },
+  { q: '4 − (−6)', a: 10, op: '−' },
+  { q: '(−13) − 6', a: -19, op: '−' },
+  { q: '(−3)(−13)', a: 39, op: '×' },
+  { q: '(5)(−9)', a: -45, op: '×' },
+  { q: '(−18) ÷ (−6)', a: 3, op: '÷' },
+  { q: '(−94) ÷ 2', a: -47, op: '÷' },
+  { q: '14 + (−7)', a: 7, op: '+' },
+  { q: '5(−5)', a: -25, op: '×' },
+  { q: '−15 ÷ 3', a: -5, op: '÷' },
+  { q: '9(−3)', a: -27, op: '×' },
+  { q: '−10 + 15', a: 5, op: '+' },
+  { q: '−6 − 8', a: -14, op: '−' },
+  { q: '24 ÷ (−6)', a: -4, op: '÷' },
+  { q: '−7(8)', a: -56, op: '×' },
+  { q: '−30 ÷ 2', a: -15, op: '÷' },
+  { q: '17 − 12', a: 5, op: '−' },
+]
+
+// Part II: the learning-experience survey, 4-point scale, five items per dimension (RQ4).
+export const RESEARCH_SURVEY = [
+  {
+    dim: 'Attention',
+    items: [
+      'INTEGRID activities were interesting and enjoyable.',
+      'INTEGRID kept my attention throughout the lesson.',
+      'The crossword format made learning integer operations more fun.',
+      'The visual presentation in INTEGRID made the lesson easier to understand.',
+      'INTEGRID encouraged me to participate actively during the lesson.',
+    ],
+  },
+  {
+    dim: 'Relevance',
+    items: [
+      'INTEGRID helped me understand the rules in adding and subtracting integers.',
+      'The activities in INTEGRID helped me connect the lesson to real-life situations.',
+      'The exercises in INTEGRID helped improve my problem-solving skills in mathematics.',
+      'The examples provided in INTEGRID were easy to follow.',
+      'INTEGRID helped me distinguish positive and negative integers clearly.',
+    ],
+  },
+  {
+    dim: 'Confidence',
+    items: [
+      'INTEGRID was easy to use during the lesson.',
+      'The instructions in INTEGRID were clear and easy to understand.',
+      'I was able to navigate INTEGRID without difficulty.',
+      'I quickly learned how to use INTEGRID without difficulty.',
+      'I became more confident in solving integer operations after using INTEGRID.',
+    ],
+  },
+  {
+    dim: 'Satisfaction',
+    items: [
+      'The layout and design of INTEGRID helped me complete the activities.',
+      'I felt motivated to complete the activities in INTEGRID.',
+      'The activities in INTEGRID helped me avoid mistakes in integer operations.',
+      'I was satisfied with my learning experience while using INTEGRID.',
+      'I would like to use INTEGRID again in future lessons.',
+    ],
+  },
+]
