@@ -10,7 +10,7 @@ import { useBack } from './back.ts'
 import { Game, type BattleLink } from './Game.tsx'
 import { blanksOf, parse } from './puzzle.ts'
 import { puzzleFor } from './puzzles.ts'
-import { BATTLES, clock, type Attempt } from './rules.ts'
+import { BATTLES, clock, HEARTS, type Attempt } from './rules.ts'
 import { db, uuid } from './store.ts'
 import { Deco, Icon } from './ui.tsx'
 
@@ -47,6 +47,9 @@ function channel<M>(name: string, onMsg: (m: M) => void, onReady: () => void = (
 }
 
 const totalOf = (csv: string) => blanksOf(parse(csv)).length
+const sum = (w: Record<string, number>) => Object.values(w).reduce((a, b) => a + b, 0)
+// A member's running count of wrong answers: keep the highest, so a repeated message counts once.
+const countWrong = (w: Record<string, number>, code: string, n: number) => ({ ...w, [code]: Math.max(w[code] ?? 0, n) })
 
 // Finished groups first (by time), then most boxes solved, then fewest wrong answers (§10).
 const standings = (bars: Bar[]) =>
@@ -75,7 +78,7 @@ function Bars({ bars, total, mine, members, top = Infinity }: { bars: Bar[]; tot
             ) : (
               `${b.cells.length} of ${total}`
             )}
-            <span className="muted"> · {b.wrong} wrong</span>
+            <span className="muted"> · {b.done === null && b.wrong >= HEARTS ? 'out of hearts' : `${b.wrong} wrong`}</span>
           </span>
           <span className="meter" aria-hidden="true">
             <i style={{ width: `${(100 * b.cells.length) / (total || 1)}%` }} />
@@ -97,6 +100,7 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
   const [snap, setSnap] = useState<Room | null>(null)
   const [group, setGroup] = useState<number | null>(null)
   const [shared, setShared] = useState<Record<string, boolean>>({}) // boxes my group solved
+  const [wrongs, setWrongs] = useState<Record<string, number>>({}) // each member's wrong answers, for the group's hearts
   const send = useRef<(m: GroupMsg) => void>(() => {})
   const [inBattle, setInBattle] = useState(false) // was in the grid while the round ran
   const last = useRef<Attempt | null>(null) // my run so far, from the game
@@ -132,7 +136,10 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
     if (!room || group === null) return
     const ch = channel<GroupMsg>(
       `ig-${room}-${group}`,
-      (m) => m.t === 'cell' && setShared((s) => (m.k in s ? s : { ...s, [m.k]: m.hint })),
+      (m) => {
+        if (m.t === 'cell') setShared((s) => (m.k in s ? s : { ...s, [m.k]: m.hint }))
+        if (m.t === 'wrong') setWrongs((w) => countWrong(w, m.code, m.wrong))
+      },
       () => ch.send({ t: 'join', code }),
     )
     send.current = ch.send
@@ -140,6 +147,7 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
       ch.send({ t: 'leave', code })
       ch.close()
       send.current = () => {}
+      setWrongs({})
     }
   }, [room, group, code])
 
@@ -188,6 +196,8 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
       startedAt: snap.startedAt ?? 0, // always set once the round has started
       seconds: snap.seconds,
       shared: { ...Object.fromEntries((snap.bars[group]?.cells ?? []).map((k) => [k, false])), ...shared },
+      // teammates' messages arrive at once; the teacher's total covers any that were missed
+      hearts: Math.max(0, HEARTS - Math.max(sum(wrongs), snap.bars[group]?.wrong ?? 0)),
       over: snap.state === 'done',
       bars: <Bars bars={snap.bars} total={totalOf(snap.csv)} mine={group} top={snap.state === 'done' ? Infinity : 3} />,
       result:
@@ -202,7 +212,10 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
         setShared((s) => ({ ...s, [k]: hint }))
         send.current({ t: 'cell', k, hint })
       },
-      onWrong: (wrong) => send.current({ t: 'wrong', code, wrong }),
+      onWrong: (wrong) => {
+        setWrongs((w) => countWrong(w, code, wrong))
+        send.current({ t: 'wrong', code, wrong })
+      },
     }
     return (
       <Game
@@ -313,7 +326,7 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
 
 type Host = Omit<Room, 'bars' | 'sentAt'> & { room: string; total: number; cells: string[][]; wrongs: Record<string, number>[]; done: (number | null)[] }
 
-const barsOf = (h: Host): Bar[] => h.cells.map((cells, g) => ({ cells, wrong: Object.values(h.wrongs[g]).reduce((a, b) => a + b, 0), done: h.done[g] }))
+const barsOf = (h: Host): Bar[] => h.cells.map((cells, g) => ({ cells, wrong: sum(h.wrongs[g]), done: h.done[g] }))
 const roomOf = (h: Host): Room => ({ puzzle: h.puzzle, csv: h.csv, seconds: h.seconds, state: h.state, startedAt: h.startedAt, sentAt: Date.now(), members: h.members, bars: barsOf(h) })
 
 function apply(h: Host, g: number, m: GroupMsg): Host {
@@ -322,8 +335,8 @@ function apply(h: Host, g: number, m: GroupMsg): Host {
     if (m.t === 'join') members[g] = [...members[g], m.code].sort()
     return { ...h, members }
   }
-  if (m.t === 'wrong') return { ...h, wrongs: h.wrongs.map((w, i) => (i === g ? { ...w, [m.code]: Math.max(w[m.code] ?? 0, m.wrong) } : w)) }
-  if (h.state !== 'live' || h.cells[g].includes(m.k)) return h
+  if (m.t === 'wrong') return { ...h, wrongs: h.wrongs.map((w, i) => (i === g ? countWrong(w, m.code, m.wrong) : w)) }
+  if (h.state !== 'live' || h.cells[g].includes(m.k) || sum(h.wrongs[g]) >= HEARTS) return h // out of hearts: no more boxes
   const cells = h.cells.map((c, i) => (i === g ? [...c, m.k] : c))
   const done = h.done.map((d, i) => (i === g && d === null && cells[g].length >= h.total ? Math.floor((Date.now() - h.startedAt!) / 1000) : d))
   return { ...h, cells, done }
@@ -354,8 +367,8 @@ export function BattleHost() {
       setNow(Date.now())
       const cur = latest.current
       if (!cur) return
-      if (cur.state === 'live' && (Date.now() - cur.startedAt! >= cur.seconds * 1000 || cur.done.every((d) => d !== null))) {
-        setH({ ...cur, state: 'done' }) // time's up, or every group finished
+      if (cur.state === 'live' && (Date.now() - cur.startedAt! >= cur.seconds * 1000 || cur.done.every((d, g) => d !== null || sum(cur.wrongs[g]) >= HEARTS))) {
+        setH({ ...cur, state: 'done' }) // time's up, or every group finished or ran out of hearts
         return
       }
       const r = roomOf(cur)

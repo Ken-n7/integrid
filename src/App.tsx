@@ -7,6 +7,7 @@ import { bestWin, clock, coinsOf, isUnlocked, LEVELS, rankingFor, wonLevels, typ
 import { db, load, merge, newSave, persist, sync, type Save, type Store } from './store.ts'
 import { useBack } from './back.ts'
 import { focusScreen } from './focus.ts'
+import { setSoundOn, sfx, soundOn } from './sound.ts'
 import { isCurrent, puzzleFor, refreshPuzzles } from './puzzles.ts'
 import { Coins, Deco, Dialog, Icon } from './ui.tsx'
 
@@ -454,6 +455,7 @@ function Modes(props: { code: string; coins: number; expertOpen: boolean; battle
 // Settings: How to Play again, and signing out (asks first: the student needs the slip to come back).
 function Settings({ code, onBack, onHowTo, onSignOut }: { code: string; onBack: () => void; onHowTo: () => void; onSignOut: () => void }) {
   const [confirm, setConfirm] = useState(false)
+  const [sound, setSound] = useState(soundOn)
   useBack(onBack)
   return (
     <main className="screen" tabIndex={-1}>
@@ -473,6 +475,27 @@ function Settings({ code, onBack, onHowTo, onSignOut }: { code: string; onBack: 
         </span>
         <span className="level-state">
           <Icon name="next" />
+        </span>
+      </button>
+      <button
+        className="level"
+        role="switch"
+        aria-checked={sound}
+        onClick={() => {
+          setSoundOn(!sound)
+          setSound(!sound)
+          if (!sound) sfx.right() // a sample, so you hear it's on
+        }}
+      >
+        <span className="level-n">
+          <Deco>{sound ? '🔊' : '🔇'}</Deco>
+        </span>
+        <span className="level-text">
+          <b>Sound effects</b>
+          <small>A “ding” when right, a low sound when wrong</small>
+        </span>
+        <span className={`toggle${sound ? ' on' : ''}`} aria-hidden="true">
+          {sound ? 'On' : 'Off'}
         </span>
       </button>
       <section className="card account">

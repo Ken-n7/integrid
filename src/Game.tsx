@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useBack } from './back.ts'
-import { clue, guideFor, sayNum, sayPattern, SIGN_RULES } from './content.ts'
+import { clue, guideFor, sayNum, sayPattern, SIGN_RULES, type RuleSection } from './content.ts'
 import { bankOf, blanksOf, equations, key, lenOf, parse } from './puzzle.ts'
 import { versionOf } from './puzzles.ts'
 import { clock, HEARTS, MODES, reward, type Attempt, type Level, type Result } from './rules.ts'
+import { sfx } from './sound.ts'
 import { uuid } from './store.ts'
 import { Coins, Deco, Dialog, Icon, Num } from './ui.tsx'
 
@@ -28,6 +29,7 @@ export type BattleLink = {
   startedAt: number
   seconds: number // round time
   shared: Record<string, boolean> // boxes the group solved, teammates' too
+  hearts: number // the group's shared hearts left: any member's wrong answer costs one
   over: boolean
   bars: ReactNode
   result: ReactNode
@@ -61,7 +63,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
 
   const [run, setRun] = useState(() => (battle ? { ...newRun(), start: battle.startedAt, at: new Date(battle.startedAt).toISOString() } : newRun()))
   const [sel, setSel] = useState<string | null>(null)
-  const [flash, setFlash] = useState<{ k: string; v: number; t: number } | null>(null)
+  const [flash, setFlash] = useState<{ k: string; v: number; ok: boolean; t: number } | null>(null) // the box that just got an answer: blinks green or red
   const [msg, setMsg] = useState<ReactNode>('')
   const [nudge, setNudge] = useState(false)
   const [dialog, setDialog] = useState<'rules' | 'leave' | 'restart' | null>(null)
@@ -125,7 +127,20 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
   const allDone = blanks.every((k) => k in filled)
   const seconds = started ? Math.max(0, Math.floor(((run.end ?? now) - run.start) / 1000)) : 0
   const left = battle ? Math.max(0, battle.seconds - Math.floor((now - run.start) / 1000)) : 0
-  const playing = run.status === 'play' && !(battle && (allDone || battle.over))
+  const hearts = battle ? battle.hearts : run.hearts
+  // When hearts go down (a teammate's mistake too, in Battle), the heart that broke falls with a −1.
+  const [prevHearts, setPrevHearts] = useState(hearts)
+  const [drop, setDrop] = useState<{ i: number; t: number } | null>(null)
+  if (hearts !== prevHearts) {
+    setPrevHearts(hearts)
+    if (hearts < prevHearts) setDrop({ i: hearts, t: (drop?.t ?? 0) + 1 })
+  }
+  useEffect(() => {
+    if (!drop) return
+    const t = setTimeout(() => setDrop(null), 900)
+    return () => clearTimeout(t)
+  }, [drop])
+  const playing = run.status === 'play' && !(battle && (allDone || battle.over || hearts <= 0))
   // after a finish, the app's balance already includes this run's coins
   const balance = playing ? coins - run.hints * rules.hintCost : coins
   const canHint = playing && run.hints < rules.hintLimit && balance >= rules.hintCost
@@ -194,11 +209,9 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
     const v = tiles[i].v
     if (v === want) {
       setSel(null)
-      setMsg(
-        <>
-          <Deco>✓</Deco> Correct!
-        </>,
-      )
+      setMsg('') // the green blink says it; a screen reader hears "Correct!" below
+      setFlash({ k: sel, v, ok: true, t: (flash?.t ?? 0) + 1 })
+      sfx.right()
       const mine = { ...run.filled, [sel]: false }
       commit({ ...run, filled: mine })
       battle?.onSolve(sel, false)
@@ -206,20 +219,10 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
       if (next) requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-cell="${next}"]`)?.focus())
       return
     }
-    setFlash({ k: sel, v, t: (flash?.t ?? 0) + 1 }) // t restarts the shake animation
-    setMsg(
-      <>
-        Oops! <Deco>−1 💗</Deco>
-        <span className="sr">&nbsp;You lost a heart.</span>
-        {rules.clue && (
-          <>
-            {' '}
-            <Deco>Tap (!) for a clue</Deco>
-            <span className="sr">&nbsp;For a free clue, use the Rules and a free clue button.</span>
-          </>
-        )}
-      </>,
-    )
+    // The red blink and the falling heart say it; in Relax the (!) wiggles toward the free clue.
+    setFlash({ k: sel, v, ok: false, t: (flash?.t ?? 0) + 1 }) // t restarts the animation
+    setMsg('')
+    sfx.wrong()
     if (rules.clue) setWiggle(true)
     battle?.onWrong(run.wrong + 1)
     commit({ ...run, hearts: run.hearts - 1, wrong: run.wrong + 1, mistakes: [...run.mistakes, [want, v]] })
@@ -235,6 +238,16 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
     setSel(null)
     battle?.onSolve(target, true)
     commit({ ...run, hints: run.hints + 1, filled: { ...run.filled, [target]: true } })
+  }
+
+  // Undo takes back your last correct number (filled keeps placement order). Hints and lost hearts stay.
+  const undoable = battle ? undefined : Object.keys(run.filled).findLast((k) => !run.filled[k])
+  function undo() {
+    if (!playing || !undoable) return
+    const { [undoable]: _, ...rest } = run.filled
+    setSel(undoable)
+    setMsg('Number taken back.')
+    commit({ ...run, filled: rest })
   }
 
   function closeInfo() {
@@ -286,7 +299,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
         })
       : []
   const guide = guideFor(level.ops, eqs.some((e) => e.left.ops.length + e.right.ops.length > 1))
-  const sharedRule = clues.every((c) => c.rule === clues[0].rule) // Across and Down often share one: say it once
+  const sharedRule = clues.every((c) => c.pat === clues[0].pat && c.text === clues[0].text) // Across and Down often share one: say it once
   const rank = playing || run.status === 'lose' || !rules.ranked ? undefined : rankOf(seconds, run.wrong)
   const [heading, subheading] = battle ? [level.title, battle.title] : [`Level ${level.n}`, level.title]
 
@@ -312,9 +325,18 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
       </header>
 
       <div className="stats">
-        <span className="hearts" role="img" aria-label={`${run.hearts} of ${HEARTS} lives left`}>
-          {'💗'.repeat(run.hearts)}
-          <span className="lost">{'🤍'.repeat(HEARTS - run.hearts)}</span>
+        <span className="hearts" role="img" aria-label={`${hearts} of ${HEARTS} ${battle ? 'group lives' : 'lives'} left`}>
+          {Array.from({ length: HEARTS }, (_, i) => (
+            <span key={i} className="heart">
+              {i < hearts ? '💗' : <span className="lost">🤍</span>}
+              {drop?.i === i && (
+                <span key={drop.t} className="drop">
+                  <span className="fall">💗</span>
+                  <span className="minus">−1</span>
+                </span>
+              )}
+            </span>
+          ))}
         </span>
         <span className="clock">
           <span className="timer">
@@ -361,12 +383,12 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
                   </span>
                 )
               const done = k in filled
-              const wrongHere = flash?.k === k
-              const shown = done ? c.v : wrongHere ? flash.v : null
-              const cls = `cell blank${done ? (filled[k] ? ' hinted' : ' solved') : ''}${sel === k ? ' sel' : ''}${wrongHere ? ' bad' : ''}`
+              const flashHere = flash?.k === k
+              const shown = done ? c.v : flashHere ? flash.v : null
+              const cls = `cell blank${done ? (filled[k] ? ' hinted' : ' solved') : ''}${sel === k ? ' sel' : ''}${flashHere ? (flash.ok ? ' good' : ' bad') : ''}`
               return (
                 <button
-                  key={wrongHere ? `${k}-${flash.t}` : k}
+                  key={flashHere ? `${k}-${flash.t}` : k}
                   className={cls}
                   data-len={shown === null ? 1 : lenOf(shown)}
                   onClick={() => select(k)}
@@ -385,8 +407,14 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
 
       {/* pinned to the bottom like a keyboard, so the bank stays in reach on tall grids */}
       <div className="tray">
+        <p className="sr" role="status">
+          {flash &&
+            (flash.ok
+              ? 'Correct!'
+              : `Wrong. ${battle ? 'Your group' : 'You'} lost a heart.${rules.clue ? ' For a free clue, use the Rules and a free clue button.' : ''}`)}
+        </p>
         <p className="msg" role="status">
-          {battle && !battle.over && !playing ? (allDone ? 'Your group finished! Waiting for the other groups…' : 'Out of hearts! Cheer your group on.') : msg}
+          {battle && !battle.over && !playing ? (allDone ? 'Your group finished! Waiting for the other groups…' : 'Your group is out of hearts! Wait for the final ranking.') : msg}
         </p>
 
         <Bank tiles={tiles} disabled={!playing} onPick={place} />
@@ -395,6 +423,11 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
           <button onClick={() => setDialog('rules')}>
             <Deco>📖</Deco> Rules
           </button>
+          {!battle && (
+            <button className={playing && undoable ? '' : 'off'} onClick={undo}>
+              <Deco>↩️</Deco> Undo
+            </button>
+          )}
           <button className={canHint ? '' : 'off'} onClick={hint}>
             <Deco>💡</Deco> Hint{' '}
             <small aria-hidden="true">
@@ -416,30 +449,18 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
                 <Deco>🔎</Deco> Clue for your box
               </h3>
               {clues.map((c) => (
-                <p key={c.dir}>
-                  <b>{c.dir}:</b> <span className="pattern" aria-hidden="true">{c.pattern}</span>
-                  <span className="sr">{sayPattern(c.pattern)}</span>
-                  {!sharedRule && (
-                    <>
-                      <br />
-                      {c.rule}
-                    </>
-                  )}
-                </p>
+                <div key={c.dir}>
+                  <p>
+                    <b>{c.dir}:</b> <Pattern p={c.pattern} />
+                  </p>
+                  {!sharedRule && <Why pat={c.pat} text={c.text} />}
+                </div>
               ))}
-              {sharedRule && <p>{clues[0].rule}</p>}
+              {sharedRule && <Why pat={clues[0].pat} text={clues[0].text} />}
             </section>
           )}
           {guide.map((s) => (
-            <section key={s.title} className="rule">
-              <h3>{s.title}</h3>
-              {s.lines.map((l) => (
-                <p key={l} className={l.startsWith('(') ? 'pat' : undefined}>
-                  <Deco>{l}</Deco>
-                  <span className="sr">{l.startsWith('(') ? sayPattern(l) : l}</span>
-                </p>
-              ))}
-            </section>
+            <RuleCard key={s.title} s={s} />
           ))}
           {rules.clue && !clues.length && (
             <p className="note">
@@ -463,15 +484,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
           onClose={() => setDialog(null)}
         >
           {SIGN_RULES.map((s) => (
-            <section key={s.title} className="rule">
-              <h3>{s.title}</h3>
-              {s.lines.map((l) => (
-                <p key={l} className={l.startsWith('(') ? 'pat' : undefined}>
-                  <Deco>{l}</Deco>
-                  <span className="sr">{l.startsWith('(') ? sayPattern(l) : l}</span>
-                </p>
-              ))}
-            </section>
+            <RuleCard key={s.title} s={s} />
           ))}
           <button className="big" onClick={() => setDialog(null)} autoFocus>
             Got it!
@@ -569,6 +582,48 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
 }
 
 const Summary = ({ children }: { children: ReactNode }) => <dl className="summary">{children}</dl>
+
+const Pattern = ({ p }: { p: string }) => (
+  <>
+    <span className="pattern" aria-hidden="true">
+      {p}
+    </span>
+    <span className="sr">{sayPattern(p)}</span>
+  </>
+)
+
+// One rule: each group of sign patterns, then its line in plain words.
+const RuleCard = ({ s }: { s: RuleSection }) => (
+  <section className="rule">
+    <h3>{s.title}</h3>
+    {s.groups.map((g) => (
+      <div key={g.text} className="rule-group">
+        <p className="pats">
+          {g.pats.map((l) => (
+            <span key={l} className="pat">
+              <Pattern p={l} />
+            </span>
+          ))}
+        </p>
+        <p className="rule-text">{g.text}</p>
+      </div>
+    ))}
+  </section>
+)
+
+// The clue's rule: the add-the-opposite pattern for subtraction, then the plain-words line.
+const Why = ({ pat, text }: { pat: string | null; text: string }) => (
+  <>
+    {pat && (
+      <p>
+        <span className="pat">
+          <Pattern p={pat} />
+        </span>
+      </p>
+    )}
+    <p className="rule-text">{text}</p>
+  </>
+)
 
 // Number bank: always two rows (smaller half on top), swiped sideways when it doesn't fit.
 // An arrow shows on each side that still has numbers hidden past the edge.

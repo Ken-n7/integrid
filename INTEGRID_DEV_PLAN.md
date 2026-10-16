@@ -47,7 +47,8 @@ Students fill in missing numbers in a crossword grid made of integer equations, 
 | App | React 19 + TypeScript + Vite | Client confirmed a web app. Small bundle, fast on cheap phones, easy to fix fast |
 | Offline / install | PWA via `vite-plugin-pwa` | Works offline after first open and can be added to the home screen. Fixes reach every phone on the next open |
 | Styling | Plain CSS with design tokens | Simple UI (cells and buttons), no framework needed |
-| Font | Nunito, bundled (`@fontsource-variable/nunito`) | Rounded like the mockups, and works offline (no Google Fonts call) |
+| Font | Nunito, bundled (`@fontsource-variable/nunito`), 18px base | Rounded like the mockups, and works offline (no Google Fonts call). Base raised from 16px (researchers, Oct 16: "a bit small"); a percentage, so the phone's own text-size setting still applies |
+| Sound | Web Audio, generated in the browser (`src/sound.ts`) | No audio files to download, works offline; on/off switch in Settings |
 | Backend | Supabase (Postgres + Auth + Realtime) | SQL data that exports straight to CSV. Realtime for Battle. Row-level security for minors' data |
 | Hosting | Cloudflare Pages or Vercel (free) | Static site, HTTPS (required for offline/PWA) |
 | Puzzles | CSV files exported from Google Sheets, checked automatically before every build | Researchers write the problems themselves (paper's AI clause), and a wrong puzzle can't ship |
@@ -146,7 +147,7 @@ Then a **CONTINUE** button. It goes to the pre-assessment if not done yet, other
   - **Relax** (green): "Go at your own pace! Free clues, no pressure."
   - **Expert** (orange, 🔒 until Relax 4 is won): "Bigger grids, beat the clock, climb the ranking!"
   - **Battle** (blue, 🔒 until Expert 5 is won): "Team up with your group and race the other groups!"
-- Coin balance and student code are shown, with a gear for Settings (How to Play, Sign out).
+- Coin balance and student code are shown, with a gear for Settings (How to Play, Sound effects on/off, Sign out).
 
 ### 5.6 Level list
 - **Relax:**
@@ -189,14 +190,15 @@ Then a **CONTINUE** button. It goes to the pre-assessment if not done yet, other
 - **Tray:** the number bank and the Rules/Hint buttons sit at the bottom of the frame. On very short screens (a phone on its side) the page scrolls instead.
 - **Placing a number:** tap a yellow cell, then a bank number. If no cell is selected, the yellow cells pulse and "Tap a yellow box first!" floats above the tray.
 - **Instant check:**
-  - **Correct:** the cell turns green and locks, and that bank tile is used up.
-  - **Wrong:** the cell flashes red and shakes, −1 💗, and the tile stays in the bank. The mistake is logged. In Relax the (!) button wiggles and the message says "Tap (!) for a clue".
+  - **Correct:** the box blinks green twice, then stays green and locks, and that bank tile is used up. No "Correct!" pop-up (Ken, Oct 16): the box is the feedback.
+  - **Wrong:** the box blinks red and shakes, and the tile stays in the bank. The heart that broke falls and fades while a red −1 rises from it (in Battle, a teammate's mistake shows it too). No "Oops" pop-up (Ken, Oct 16). The mistake is logged. In Relax the (!) button wiggles toward the free clue.
+  - **Sounds:** a rising "ding-ding" when right, a short low tone when wrong. Settings → Sound effects turns them off (remembered per phone).
 - **Negative numbers** show in parentheses in the grid, e.g. `(−7)`, the same as the paper's test items.
 - **(!) popup:** replaces the old Clue button and blue box.
-  - **Opens automatically when a level starts.** It shows the sign rules for that level's operation (Subtraction also shows Addition; mixed multi-step levels also show MDAS).
+  - **Opens automatically when a level starts.** It shows the sign rules for that level's operation (Subtraction also shows Addition; mixed multi-step levels also show MDAS). **Signs first** (researchers, Oct 16: easier for learners still building their English), then one short plain-English line under each group, e.g. "Same signs: add, then keep the sign." Different-sign addition is shown with examples like `(+5) + (−3) = (+2)`.
   - **The timer starts when it closes**, so reading costs no coins.
   - **Closing:** with the **X at the upper left** or the big button. Tapping (!) opens it again any time.
-  - **In Relax, with a box selected:** it also shows the **free clue** for that box (the client's "guided practice"): the sign pattern of its equation(s), e.g. `(+) − (−) = (+)`, plus the like/unlike rule. It never shows the number itself. Expert has no free clue (client: free "since it's still Relax mode").
+  - **In Relax, with a box selected:** it also shows the **free clue** for that box (the client's "guided practice"): the sign pattern of its equation(s), e.g. `(+) − (−) = (+)`; for subtraction also the add-the-opposite pattern, e.g. `(+) − (−) = (+) + (+)`; then the matching plain-English rule line. It never shows the number itself. Expert has no free clue (client: free "since it's still Relax mode").
 - **💡 Hint (paid).** Fills the selected cell (or the first empty one) with the right number ("hints provide direct answers").
   - Disabled when the student can't afford it, or has reached the Expert per-level limit.
   - The button shows the cost.
@@ -207,7 +209,7 @@ Then a **CONTINUE** button. It goes to the pre-assessment if not done yet, other
   - The yellow chip (+N) shows the coins the student would get by finishing now.
 - **‹ Back / ↻ Restart:** asks "Leave/restart this level?" first. A level the student actually played (placed, missed, or hinted) is logged as `quit`.
 - **📖 Rules:** a pop-up with all sign rules and MDAS (from the sketch). The timer keeps running.
-- **Undo (in the sketch): removed.** With instant checking, a wrong number never stays on the board and a correct one is locked, so there's nothing to undo. *(Still to confirm, §13.)*
+- **Undo (in the sketch): kept** (researchers, Oct 16). With instant checking a wrong number never stays on the board, so Undo takes back your last correct number. Hints and lost hearts aren't undone, and Battle has no Undo (shared grid).
 - **Result:**
   - **Win:** time, wrong answers, hints, coins earned; in Expert also "Rank #N". Then Next level / Levels.
   - **0 hearts:** "Game Over", then **Try again** (unlimited) / Levels.
@@ -240,9 +242,9 @@ Five tabs, in this order: Students (opens first), Battle, Overview, Puzzles, Res
 
 | Rule | Relax | Expert | Battle | Source |
 |---|---|---|---|---|
-| Hearts | 5 per try | 5 per try | 5 per member (default) | client |
+| Hearts | 5 per try | 5 per try | 5 shared by the group | client (Oct 16) |
 | Wrong answer | −1 💗 | −1 💗 | −1 💗 | docx |
-| At 0 hearts | Game Over → Try again, unlimited | same | that member is out; the group continues | client / default |
+| At 0 hearts | Game Over → Try again, unlimited | same | the whole group is out; its boxes so far still count | client |
 | Timer | counts up, never ends the level | counts up, never ends the level | round time set by admin | client |
 | Coins for finishing | ≤1 min 60 · ≤2 40 · ≤3 30 · ≤4 20 · ≤5 10 · later 10 | ≤2 min 120 · ≤3 100 · ≤4 80 · ≤5 60 · later 60 | none: prizes are physical | docx / client; "later" = lowest bracket is our default |
 | Hint (direct answer) | 60 coins, unlimited while coins last | 120 coins, **max 2 per level** | 100 coins | docx / client |
@@ -363,7 +365,7 @@ Client: "5 members each group, G1 vs G2… can those 5 members all join the batt
 3. **Start:** the admin presses Start. Every group gets **the same puzzle**, and each group shares **one grid**. Any member can fill any cell. A correct cell appears on every teammate's screen instantly (Realtime broadcast). A solved cell can't be lost, so two members answering at once is safe.
 4. **Live ranking:** a bar per group (cells solved / total, wrong answers, time) on every screen and the admin's.
 5. **Winner:** first group to finish. If time runs out, the group with the most solved cells wins, and fewer wrong answers breaks a tie.
-6. **Hearts and hints:** each member has 5 💗 (default). A member at 0 is out but can watch; the group plays on. Hints cost the member who uses them 100 coins.
+6. **Hearts and hints:** the group shares 5 💗 (researchers, Oct 16): any member's wrong answer costs the group one. At 0 the whole group is out and waits for the final ranking; the round ends early once every group has finished or run out. Hints cost the member who uses them 100 coins.
 7. **Prizes:** physical (food, materials), given by the researchers. The app only shows the final ranking.
 8. **Late join / reconnect:** the phone asks the room for the group's current grid and catches up.
 9. **Log:** each member's round is logged as an attempt (`battle-N`) with the group result.
@@ -387,8 +389,8 @@ Needs: Supabase Realtime (broadcast), internet (a hotspot is enough), and the re
 | Platform | web application | PWA web app, works offline after first open | Client confirmed web. No APK installs, and bug fixes reach all phones |
 | Time limit | paper: Relax "five-minute duration", Expert "timed" | Timer never ends a level; it decides coins (and Expert ranking) | Client: "the timer is the basis for the leaderboard and coins" |
 | Finishing after 5:00 | not specified | Still earns the lowest reward (Relax 10, Expert 60) | Finishing should always pay something for low-mastery learners |
-| Guided practice | listed, not described | Free Clue: sign pattern + like/unlike rule | Client's description |
-| Undo | in the hand sketch | Removed | Instant checking leaves nothing to undo |
+| Guided practice | listed, not described | Free Clue: sign pattern (+ add-the-opposite for subtraction) and one plain rule line | Client's description; signs first (Oct 16) |
+| Undo | in the hand sketch | Kept (researchers, Oct 16) | Takes back the last correct number; not hints, hearts, or Battle |
 | "Stay Calm & Play / no clocks" card | Canva mockup | Replaced by the client's 4 written cards + coins card | The docx is the client's newer, written spec |
 | Battle "Team math!" vs "competitive" | mockup vs paper | Both: groups compete, members cooperate on one grid | Client's answer |
 | Pre-assessment | "mandatory pre-assessment" | Mandatory once; a drill with instant feedback; not recorded | Client's answer |
@@ -468,14 +470,14 @@ Day 1 = Thu Oct 15. Delivery Thu Oct 29.
 | Admin? | Need an admin account, separate login from students | `/#admin` + link on sign-in |
 
 **Still open (defaults in place)**
-1. **AI clause** in the paper: not answered yet.
+1. **AI clause** in the paper: done (researchers, Oct 16).
 2. **Expert hints:** the answers say both "provide 5 hints" and "1–2 hints per Expert level". *Built: 2 per level.*
 3. **60 coins:** one-time starting coins, or 60 every time they log in (e.g. once a day)? *Built: one-time.*
-4. **Battle:** does each member get 5 hearts, or does the group share 5? Do students pick their group, or does the admin assign them? *Default: 5 each; students pick.*
-5. **Undo:** OK to remove? *Built: removed.*
+4. **Battle:** hearts answered: the group shares 5 (researchers, Oct 16). Still open: do students pick their group, or does the admin assign them? *Default: students pick.*
+5. **Undo:** keep it (researchers, Oct 16). *Built: takes back the last correct number.*
 6. **Puzzles: who makes the levels, and how?** To ask after the researchers have played the game, with choices: (a) approve the generated ones / generate others on the Puzzles tab, (b) make our own in Google Sheets with the guide, (c) a mix, (d) we already have problems on paper for the developer to type in, (e) none of the above. Deadlines: Relax by Oct 19, Expert + Battle by Oct 22.
 7. **Flow:** How to Play stays before the pre-assessment (docx page order)? *Built: yes.*
-8. **Battle unlock:** answered by the docx: "Battle Mode shall only be accessible after completing Expert Mode." *Built: locked until Expert 5.* In practice, all 10 learners need to finish Expert 5 before battle day.
+8. **Battle unlock:** confirmed by the researchers (Oct 16) and the docx: "Battle Mode shall only be accessible after completing Expert Mode." *Built: locked until Expert 5.* In practice, all 10 learners need to finish Expert 5 before battle day.
 9. **Swapping a played puzzle:** once learners have played a level, can the researchers still swap its puzzle (Puzzles tab)? *Built for now: allowed after a warning; earlier results stay tied to their puzzle version, and that level's ranking starts over. A strict lock is a one-line change.* To ask after the researchers have played the game, with choices: (a) lock once anyone played, (b) allow with a warning (current), (c) allow until the study starts, then lock everything (would add a "Start the study" switch), (d) none of the above.
 
 ## 13b. Accessibility (checked 2026-10-15)
@@ -488,7 +490,7 @@ Day 1 = Thu Oct 15. Delivery Thu Oct 29.
 - **New screens:** the screen's heading is announced ("Sign in, heading level 1").
 - **Pre-assessment:** each new question is read out.
 - **Yellow boxes:** each one speaks its equations, so the puzzle can be solved by ear: "Row 1, column 3, empty. Across: this box plus blank equals negative 7. Down: …". Filled boxes are spoken as numbers, and the rest of the grid is hidden from the screen reader as drawing.
-- **Choosing a number:** selecting a box moves focus to the number bank ("Place negative 12"). A right answer says "Correct!" and moves to the next empty box; a wrong one says "Oops! You lost a heart. For a free clue, use the Rules and a free clue button."
+- **Choosing a number:** selecting a box moves focus to the number bank ("Place negative 12"). A right answer says "Correct!" (screen readers only; on screen the box blinks green) and moves to the next empty box; a wrong one says "Oops! You lost a heart. For a free clue, use the Rules and a free clue button."
 - **Pop-ups:** they read their contents. Tab stays inside, Escape and the X close them, and focus returns to whatever opened them.
 - **Rule patterns:** read as words ("negative plus negative equals negative"). Decorative emoji and arrows are hidden from screen readers.
 

@@ -14,6 +14,8 @@
   --green-ink: #1e6b34;
   --red: #ff8a80;
   --red-ink: #a3221a;
+  --green-flash: #7ddc92; /* the blinks' bright half */
+  --red-flash: #ff5c50;
   --violet: #e6dcff;
   --violet-ink: #5b3cc4;
   --blue: #3456c7;
@@ -26,6 +28,11 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* 18px base (researchers, Oct 16: the text was a bit small). A percentage, so a phone's own
+   bigger-text setting still adds on top. Everything else is in rem and scales with it. */
+html {
+  font-size: 112.5%;
+}
 * {
   box-sizing: border-box;
 }
@@ -431,6 +438,20 @@ label.inline input {
   font-size: 0.85rem;
 }
 
+.toggle {
+  min-width: 52px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--line);
+  color: var(--brown);
+  font-weight: 900;
+  text-align: center;
+}
+.toggle.on {
+  background: var(--green);
+  color: var(--green-ink);
+}
+
 /* ---------- how to play ---------- */
 .howto {
   display: flex;
@@ -792,8 +813,56 @@ label.inline input {
   letter-spacing: 1px;
   white-space: nowrap;
 }
+.heart {
+  position: relative;
+  display: inline-block;
+}
 .hearts .lost {
   opacity: 0.45;
+}
+/* a mistake: the heart that broke falls and fades while a −1 rises from the same spot */
+.drop {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+.drop .fall {
+  position: absolute;
+  inset: 0;
+  animation: heart-fall 0.9s ease-in forwards;
+}
+.drop .minus {
+  position: absolute;
+  left: 50%;
+  bottom: 60%;
+  translate: -50% 0;
+  color: var(--red-ink);
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  animation: minus-rise 0.9s ease-out forwards;
+}
+@keyframes heart-fall {
+  to {
+    transform: translateY(28px) rotate(25deg);
+    opacity: 0;
+  }
+}
+@keyframes minus-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  20%,
+  70% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
 }
 .timer {
   display: inline-flex;
@@ -895,10 +964,37 @@ label.inline input {
   background: var(--violet);
   color: var(--violet-ink);
 }
+/* Answer feedback on the box itself: green blinks twice and stays, red blinks and shakes.
+   Not color alone: a right number stays put, a wrong one shakes and disappears. */
+.cell.good {
+  animation: blink-good 0.7s;
+}
 .cell.bad {
   background: var(--red);
   color: var(--red-ink);
-  animation: shake 0.35s;
+  animation:
+    shake 0.35s,
+    blink-bad 0.7s;
+}
+@keyframes blink-good {
+  0%,
+  50% {
+    background: var(--green-flash);
+  }
+  25%,
+  75% {
+    background: var(--green);
+  }
+}
+@keyframes blink-bad {
+  0%,
+  50% {
+    background: var(--red-flash);
+  }
+  25%,
+  75% {
+    background: var(--red);
+  }
 }
 .grid.nudge .cell.blank:not(:disabled) {
   animation: pulse 0.45s 2;
@@ -1134,10 +1230,17 @@ label.inline input {
   font-size: 1rem;
   margin-bottom: 4px;
 }
-.rule p {
+.pats {
   font-size: 0.95rem;
 }
-.rule .pat {
+.rule-group + .rule-group {
+  margin-top: 8px;
+}
+.rule-text {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+.pat {
   display: inline-block;
   margin: 2px 6px 4px 0;
   padding: 1px 8px;

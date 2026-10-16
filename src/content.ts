@@ -43,14 +43,38 @@ export const PRE_ASSESSMENT = [
   },
 ]
 
-// 📖 Rules pop-up (the sketch's "RULES").
+// 📖 Rules pop-up (the sketch's "RULES"). The signs carry the rule; each group gets one short line
+// in plain words, for learners still building their English (researchers, Oct 16).
+// Keep the lines short and the same shape: "Same signs: …" / "Different signs: …".
 export const SIGN_RULES = [
-  { title: 'Addition', lines: ['(+) + (+) = (+)', '(−) + (−) = (−)', 'Same signs: add the numbers and keep the common sign.', 'Different signs: subtract the absolute values and keep the sign of the larger absolute value.'] },
-  { title: 'Subtraction', lines: ['Change subtraction to addition of the opposite: a − b = a + (−b).', 'Then use the addition rules.'] },
-  { title: 'Multiplication', lines: ['(+) × (+) = (+)', '(−) × (−) = (+)', '(+) × (−) = (−)', '(−) × (+) = (−)', 'Same signs: positive. Different signs: negative.'] },
-  { title: 'Division', lines: ['Same signs: the quotient is positive.', 'Different signs: the quotient is negative.'] },
-  { title: 'Order of operations (MDAS)', lines: ['First × and ÷, from left to right.', 'Then + and −, from left to right.'] },
+  {
+    title: 'Addition',
+    groups: [
+      { pats: ['(+) + (+) = (+)', '(−) + (−) = (−)'], text: 'Same signs: add, then keep the sign.' },
+      { pats: ['(+5) + (−3) = (+2)', '(−5) + (+3) = (−2)'], text: 'Different signs: subtract, then keep the sign of the number farther from 0.' },
+    ],
+  },
+  {
+    title: 'Subtraction',
+    groups: [{ pats: ['(+) − (+) = (+) + (−)', '(+) − (−) = (+) + (+)', '(−) − (+) = (−) + (−)', '(−) − (−) = (−) + (+)'], text: 'Change − to +, and flip the next sign. Then add.' }],
+  },
+  {
+    title: 'Multiplication',
+    groups: [
+      { pats: ['(+) × (+) = (+)', '(−) × (−) = (+)'], text: 'Same signs: the answer is positive.' },
+      { pats: ['(+) × (−) = (−)', '(−) × (+) = (−)'], text: 'Different signs: the answer is negative.' },
+    ],
+  },
+  {
+    title: 'Division',
+    groups: [
+      { pats: ['(+) ÷ (+) = (+)', '(−) ÷ (−) = (+)'], text: 'Same signs: the answer is positive.' },
+      { pats: ['(+) ÷ (−) = (−)', '(−) ÷ (+) = (−)'], text: 'Different signs: the answer is negative.' },
+    ],
+  },
+  { title: 'Order of operations (MDAS)', groups: [{ pats: ['× ÷ → + −'], text: 'Do × and ÷ first, then + and −, from left to right.' }] },
 ]
+export type RuleSection = (typeof SIGN_RULES)[number]
 
 // The (!) popup: the rules for this level's operations (subtraction builds on addition).
 const RULES_FOR: Record<Op, string[]> = { '+': ['Addition'], '−': ['Addition', 'Subtraction'], '×': ['Multiplication'], '÷': ['Division'] }
@@ -60,30 +84,34 @@ export function guideFor(ops: Op[], multiStep: boolean) {
   return SIGN_RULES.filter((s) => titles.has(s.title))
 }
 
-const ADD_LIKE = 'add the numbers and keep the common sign.'
-const ADD_UNLIKE = 'subtract the absolute values and keep the sign of the larger absolute value.'
-
-function ruleFor(op: Op, a: number, b: number) {
-  const like = a * b > 0
-  if (op === '+') return a === 0 || b === 0 ? 'Adding 0 does not change the number.' : `Adding ${like ? `like signs: ${ADD_LIKE}` : `unlike signs: ${ADD_UNLIKE}`}`
-  if (op === '−') {
-    if (b === 0) return 'Subtracting 0 does not change the number.'
-    if (a === 0) return 'Subtracting from 0 gives the opposite of the number.'
-    return `Subtracting: change it to adding the opposite → ${sign(a)} + ${sign(-b)}. Now the signs are ${a * -b > 0 ? `like: ${ADD_LIKE}` : `unlike: ${ADD_UNLIKE}`}`
-  }
-  if (op === '×') return a === 0 || b === 0 ? 'Any number times 0 is 0.' : `Multiplying ${like ? 'like signs: the product is positive.' : 'unlike signs: the product is negative.'}`
-  return a === 0 ? '0 divided by a number is 0.' : `Dividing ${like ? 'like signs: the quotient is positive.' : 'unlike signs: the quotient is negative.'}`
-}
-
 const sign = (n: number) => (n > 0 ? '(+)' : n < 0 ? '(−)' : '0')
 
 // What a screen reader should say for numbers and sign patterns ("(−) + (−)" → "negative plus negative").
 export const sayNum = (n: number) => (n < 0 ? `negative ${-n}` : String(n))
-const WORDS: Record<string, string> = { '(+)': 'positive', '(−)': 'negative', '+': 'plus', '−': 'minus', '×': 'times', '÷': 'divided by', '=': 'equals' }
-export const sayPattern = (p: string) => p.split(' ').map((t) => WORDS[t] ?? t).join(' ')
+const WORDS: Record<string, string> = { '(+)': 'positive', '(−)': 'negative', '+': 'plus', '−': 'minus', '×': 'times', '÷': 'divided by', '=': 'equals', '→': 'then' }
+export const sayPattern = (p: string) =>
+  p
+    .split(' ')
+    .map((t) => WORDS[t] ?? t.replace(/^\(([+−])(\d+)\)$/, (_, s: string, n: string) => `${s === '+' ? 'positive' : 'negative'} ${n}`))
+    .join(' ')
 
-// Free clue in Relax (the client's "guided practice"): the equation's sign pattern,
-// e.g. (+) − (−) = (+), and the like/unlike rule for it. Never the number itself.
+// The plain-words line of a rule above: textOf('Addition', 1) = the different-signs line.
+const textOf = (title: string, group: number) => SIGN_RULES.find((s) => s.title === title)!.groups[group].text
+
+function why(op: Op, a: number, b: number): { pat: string | null; text: string } {
+  const g = a * b > 0 ? 0 : 1 // same signs : different signs
+  if (op === '+') return { pat: null, text: a === 0 || b === 0 ? 'Adding 0 does not change the number.' : textOf('Addition', g) }
+  if (op === '−') {
+    if (b === 0) return { pat: null, text: 'Subtracting 0 does not change the number.' }
+    if (a === 0) return { pat: null, text: '0 minus a number gives its opposite.' }
+    return { pat: `${sign(a)} − ${sign(b)} = ${sign(a)} + ${sign(-b)}`, text: textOf('Subtraction', 0) }
+  }
+  if (op === '×') return { pat: null, text: a === 0 || b === 0 ? 'Any number times 0 is 0.' : textOf('Multiplication', g) }
+  return { pat: null, text: a === 0 ? '0 divided by a number is 0.' : textOf('Division', g) }
+}
+
+// Free clue in Relax (the client's "guided practice"): the equation's sign pattern, e.g.
+// (+) + (−) = (−), and the rule line that fits it. Never the number itself.
 export function clue(grid: Grid, e: Eq) {
   const ops = [...e.left.ops, ...e.right.ops]
   if (ops.length !== 1) return null
@@ -95,7 +123,7 @@ export function clue(grid: Grid, e: Eq) {
     })
     .join(' ')
   const [a, b] = (e.left.ops.length ? e.left : e.right).nums.map(val)
-  return { pattern, rule: ruleFor(ops[0], a, b) }
+  return { pattern, ...why(ops[0], a, b) }
 }
 
 // The paper's research instrument (Appendix 5), for the admin page's Research tab.
