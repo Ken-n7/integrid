@@ -43,7 +43,7 @@ export function puzzleFor(id: string) {
 // were played on the built-in file.
 export const isCurrent = (level: string, puzzle?: string | null) => (puzzle ?? builtIn(level)?.version) === puzzleFor(level)?.version
 
-// Phones fetch the approved puzzles whenever they're online. Before supabase/update-1.sql has run
+// Phones fetch the approved puzzles whenever they're online. Until the Oct 17 schema.sql has run
 // there is no puzzles table: the built-in files are used.
 export async function refreshPuzzles() {
   if (!db) return false

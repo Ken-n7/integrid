@@ -522,7 +522,7 @@ npm run build          # check + type-check + production build in dist/
 
 **Supabase (once)**
 
-Already set up with an older schema.sql (the live project, Oct 15)? Run `supabase/update-1.sql` once in the SQL Editor before pushing the Oct 17 admin update: it adds the `puzzles` and `research` tables and each result's puzzle version. Until then the app uses the built-in puzzles and the Research tab can't save.
+`schema.sql` is safe to run again: on a project that already has INTEGRID (the live one, set up Oct 15) it only adds what's missing and keeps every row. So to update, select all of it, paste it into the SQL Editor and Run. Do this before pushing the Oct 17 admin update (it adds the `puzzles` and `research` tables and each result's puzzle version); until then the app uses the built-in puzzles and the Research tab can't save.
 
 1. **The client** signs up at supabase.com (free, no card) and makes the project: New project → `integrid`, Region **Singapore** (closest to Leyte), and keeps the database password. Then Organization → Team → invite the dev as **Developer**.
    Why not the dev's account: the dev's free plan is full (2 projects), and Owner/Administrator roles count toward that limit while Developer doesn't. A Developer can still run SQL, add Auth users and read the API keys, so steps 2–4 are the dev's. The client owns the student data from day one; nothing to transfer later.

@@ -163,7 +163,7 @@ const TABS: [Tab, string][] = [
   ['battle', 'Battle'],
 ]
 const TAB_KEY = 'integrid:admin-tab'
-const NEEDS_UPDATE = 'This needs the database update: run supabase/update-1.sql once in Supabase (SQL Editor). Until then nothing here is saved.'
+const NEEDS_UPDATE = 'This needs the database update: paste all of supabase/schema.sql into Supabase’s SQL Editor and press Run (safe to run again). Until then nothing here is saved.'
 
 function Dashboard({ email, demo = false }: { email: string; demo?: boolean }) {
   const [sample] = useState(() => (demo ? sampleData() : null))

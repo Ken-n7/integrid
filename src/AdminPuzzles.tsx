@@ -73,7 +73,7 @@ function LevelCard({ level, rows, answers, onChange }: { level: Level; rows: Row
       setMsg('Approved. Phones get it the next time they open the app.')
       onChange()
     } catch (e) {
-      setMsg(/puzzles/.test(String((e as Error).message)) ? 'Saving needs the database update: run supabase/update-1.sql once in Supabase.' : `Couldn’t save: ${(e as Error).message}`)
+      setMsg(/puzzles/.test(String((e as Error).message)) ? 'Saving needs the database update: paste all of supabase/schema.sql into Supabase’s SQL Editor and press Run.' : `Couldn’t save: ${(e as Error).message}`)
     }
   }
   const ask = (csv: string) => (played && csv !== current.csv ? setConfirm(csv) : save(csv))

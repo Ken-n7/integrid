@@ -1,20 +1,23 @@
--- INTEGRID database. Run once in the Supabase SQL Editor on an empty project.
+-- INTEGRID database. Paste all of it into the Supabase SQL Editor and press Run.
+-- Safe to run again: on a project that already has INTEGRID it only adds what's missing
+-- (Oct 17: approved puzzles, research results, each result's puzzle version) and updates the
+-- sync function. It never deletes anything.
 --
 -- Students never get a database login: the app calls integrid_sync() with their code + PIN.
 -- Admins sign in with email + password and must be listed in public.admins:
 --   insert into public.admins (uid) select id from auth.users where email = '<admin email>';
 
-create table public.admins (
+create table if not exists public.admins (
   uid uuid primary key references auth.users on delete cascade
 );
 
-create table public.students (
+create table if not exists public.students (
   code text primary key check (code ~ '^[A-Z0-9-]{1,12}$'),
   pin text not null check (pin ~ '^[0-9]{4}$'), -- shown to admins so they can reprint slips
   created_at timestamptz not null default now()
 );
 
-create table public.attempts (
+create table if not exists public.attempts (
   id uuid primary key, -- made on the phone, so re-sending the same attempt is harmless
   student text not null references public.students on delete cascade,
   level text not null check (length(level) <= 20),
@@ -25,66 +28,78 @@ create table public.attempts (
   coins int not null, -- reward minus hint costs
   mistakes jsonb not null default '[]', -- [[answer, placed], …]
   played_at timestamptz not null,
-  synced_at timestamptz not null default now(),
-  puzzle text check (length(puzzle) <= 16) -- which puzzle version was played (approved puzzles change it)
+  synced_at timestamptz not null default now()
 );
-create index on public.attempts (student);
-
-alter table public.admins enable row level security;
-alter table public.students enable row level security;
-alter table public.attempts enable row level security;
-
-create function public.is_admin() returns boolean
-language sql stable security definer set search_path = '' as $$
-  select exists (select 1 from public.admins where uid = auth.uid())
-$$;
-
-create policy "admins see themselves" on public.admins for select to authenticated using (uid = auth.uid());
-create policy "admins read students" on public.students for select to authenticated using (public.is_admin());
-create policy "admins add students" on public.students for insert to authenticated with check (public.is_admin());
-create policy "admins read attempts" on public.attempts for select to authenticated using (public.is_admin());
-
-revoke all on public.admins, public.students, public.attempts from anon;
-grant select on public.admins, public.attempts to authenticated;
-grant select, insert on public.students to authenticated;
+-- which puzzle each result was played on (a swapped puzzle starts a new ranking)
+alter table public.attempts add column if not exists puzzle text check (length(puzzle) <= 16);
+create index if not exists attempts_student_idx on public.attempts (student);
 
 -- Puzzles the researchers approved on the admin page (Puzzles tab). Phones load these; a level
 -- without one uses the built-in file.
-create table public.puzzles (
+create table if not exists public.puzzles (
   level text primary key check (length(level) <= 20),
   csv text not null check (length(csv) <= 4000),
   version text not null check (length(version) <= 16), -- fingerprint saved with every result
   approved_at timestamptz not null default now(),
   approved_by uuid default auth.uid() references auth.users on delete set null
 );
-alter table public.puzzles enable row level security;
-create policy "everyone reads puzzles" on public.puzzles for select to anon, authenticated using (true);
-create policy "admins add puzzles" on public.puzzles for insert to authenticated with check (public.is_admin());
-create policy "admins replace puzzles" on public.puzzles for update to authenticated using (public.is_admin()) with check (public.is_admin());
-grant select on public.puzzles to anon, authenticated;
-grant insert, update on public.puzzles to authenticated;
 
 -- The paper's instrument, typed in from the paper forms (Research tab): Part I test before and
 -- after (20 right/wrong items each) and the Part II survey (20 answers, 1–4). Admins only.
-create table public.research (
+create table if not exists public.research (
   student text primary key references public.students on delete cascade,
   pre jsonb,
   post jsonb,
   survey jsonb,
   updated_at timestamptz not null default now()
 );
+
+alter table public.admins enable row level security;
+alter table public.students enable row level security;
+alter table public.attempts enable row level security;
+alter table public.puzzles enable row level security;
 alter table public.research enable row level security;
-create policy "admins read research" on public.research for select to authenticated using (public.is_admin());
-create policy "admins add research" on public.research for insert to authenticated with check (public.is_admin());
-create policy "admins edit research" on public.research for update to authenticated using (public.is_admin()) with check (public.is_admin());
-revoke all on public.research from anon;
+
+create or replace function public.is_admin() returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.admins where uid = auth.uid())
+$$;
+
+-- Who may do what. Each rule is added only if it isn't there yet, so this file can run again.
+do $$
+declare
+  rule text[];
+begin
+  foreach rule slice 1 in array array[
+    ['admins', 'admins see themselves', 'for select to authenticated using (uid = auth.uid())'],
+    ['students', 'admins read students', 'for select to authenticated using (public.is_admin())'],
+    ['students', 'admins add students', 'for insert to authenticated with check (public.is_admin())'],
+    ['attempts', 'admins read attempts', 'for select to authenticated using (public.is_admin())'],
+    ['puzzles', 'everyone reads puzzles', 'for select to anon, authenticated using (true)'],
+    ['puzzles', 'admins add puzzles', 'for insert to authenticated with check (public.is_admin())'],
+    ['puzzles', 'admins replace puzzles', 'for update to authenticated using (public.is_admin()) with check (public.is_admin())'],
+    ['research', 'admins read research', 'for select to authenticated using (public.is_admin())'],
+    ['research', 'admins add research', 'for insert to authenticated with check (public.is_admin())'],
+    ['research', 'admins edit research', 'for update to authenticated using (public.is_admin()) with check (public.is_admin())']
+  ] loop
+    if not exists (select from pg_policies where schemaname = 'public' and tablename = rule[1] and policyname = rule[2]) then
+      execute format('create policy %I on public.%I %s', rule[2], rule[1], rule[3]);
+    end if;
+  end loop;
+end $$;
+
+revoke all on public.admins, public.students, public.attempts, public.research from anon;
+grant select on public.admins, public.attempts to authenticated;
+grant select, insert on public.students to authenticated;
+grant select on public.puzzles to anon, authenticated;
+grant insert, update on public.puzzles to authenticated;
 grant select, insert, update on public.research to authenticated;
 
 -- The students' only door: check the PIN, store new attempts, and send back the student's
--- full history (so they can switch phones) plus everyone's best Expert times (the ranking).
--- Returns null when the code or PIN is wrong.
+-- full history (so they can switch phones) plus everyone's best Expert times (the ranking,
+-- best per puzzle version). Returns null when the code or PIN is wrong.
 -- ponytail: no lockout after wrong PINs (4 digits, codes only, no names); add a counter if it's ever abused.
-create function public.integrid_sync(p_code text, p_pin text, p_attempts jsonb default '[]')
+create or replace function public.integrid_sync(p_code text, p_pin text, p_attempts jsonb default '[]')
 returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
