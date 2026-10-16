@@ -473,10 +473,10 @@ Day 1 = Thu Oct 15. Delivery Thu Oct 29.
 3. **60 coins:** one-time starting coins, or 60 every time they log in (e.g. once a day)? *Built: one-time.*
 4. **Battle:** does each member get 5 hearts, or does the group share 5? Do students pick their group, or does the admin assign them? *Default: 5 each; students pick.*
 5. **Undo:** OK to remove? *Built: removed.*
-6. **Puzzles:** the researchers review/approve the generated puzzles (Relax by Oct 19, Expert + Battle by Oct 22)?
+6. **Puzzles: who makes the levels, and how?** Asked Oct 17 with choices: (a) approve the generated ones / generate others on the Puzzles tab, (b) make our own in Google Sheets with the guide, (c) a mix, (d) we already have problems on paper for the developer to type in, (e) none of the above. Deadlines: Relax by Oct 19, Expert + Battle by Oct 22.
 7. **Flow:** How to Play stays before the pre-assessment (docx page order)? *Built: yes.*
 8. **Battle unlock:** answered by the docx: "Battle Mode shall only be accessible after completing Expert Mode." *Built: locked until Expert 5.* In practice, all 10 learners need to finish Expert 5 before battle day.
-9. **Swapping a played puzzle:** once learners have played a level, can the researchers still swap its puzzle (Puzzles tab)? *Built for now: allowed after a warning; earlier results stay tied to their puzzle version, and that level's ranking starts over. A strict lock is a one-line change.* (Ken: ask the researchers.)
+9. **Swapping a played puzzle:** once learners have played a level, can the researchers still swap its puzzle (Puzzles tab)? *Built for now: allowed after a warning; earlier results stay tied to their puzzle version, and that level's ranking starts over. A strict lock is a one-line change.* Asked Oct 17 with choices: (a) lock once anyone played, (b) allow with a warning (current), (c) allow until the study starts, then lock everything (would add a "Start the study" switch), (d) none of the above.
 
 ## 13b. Accessibility (checked 2026-10-15)
 
