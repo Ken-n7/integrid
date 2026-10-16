@@ -226,7 +226,7 @@ Then a **CONTINUE** button. It goes to the pre-assessment if not done yet, other
 - **Live updates:** refreshes every 10 seconds while open and online. Offline it shows "Connect to the internet to see the ranking" with the student's own best time.
 
 ### 5.10 Admin page (`/#admin`, separate login)
-Five tabs (Oct 17). Codes only, no names (decided with Ken).
+Five tabs, in this order: Students (opens first), Battle, Overview, Puzzles, Research. Codes only, no names (decided with Ken).
 - **Sign in:** email + password. The admin account is created by the developer, see §15.
 - **Overview:** learners, who played this week, results, time playing; progress (how many won each level, and Battle); **needs attention** (hasn't played yet, no play for 3+ days, 3+ tries on their current level without a win); the Expert ranking.
 - **Students:** add students (next codes `S01`, `S02`, … with random 4-digit PINs), print code slips, refresh, the progress table (code, PIN, each level ✓ best time / tries, wrong, sign errors, hints, coins, last played). Tap a code for the learner's **record**: every level's tries, best time, wrong answers and hints, time on task, their mistakes (answer vs. placed) and how many were **sign errors**, and their test scores. Downloads:
@@ -473,10 +473,10 @@ Day 1 = Thu Oct 15. Delivery Thu Oct 29.
 3. **60 coins:** one-time starting coins, or 60 every time they log in (e.g. once a day)? *Built: one-time.*
 4. **Battle:** does each member get 5 hearts, or does the group share 5? Do students pick their group, or does the admin assign them? *Default: 5 each; students pick.*
 5. **Undo:** OK to remove? *Built: removed.*
-6. **Puzzles: who makes the levels, and how?** Asked Oct 17 with choices: (a) approve the generated ones / generate others on the Puzzles tab, (b) make our own in Google Sheets with the guide, (c) a mix, (d) we already have problems on paper for the developer to type in, (e) none of the above. Deadlines: Relax by Oct 19, Expert + Battle by Oct 22.
+6. **Puzzles: who makes the levels, and how?** To ask after the researchers have played the game, with choices: (a) approve the generated ones / generate others on the Puzzles tab, (b) make our own in Google Sheets with the guide, (c) a mix, (d) we already have problems on paper for the developer to type in, (e) none of the above. Deadlines: Relax by Oct 19, Expert + Battle by Oct 22.
 7. **Flow:** How to Play stays before the pre-assessment (docx page order)? *Built: yes.*
 8. **Battle unlock:** answered by the docx: "Battle Mode shall only be accessible after completing Expert Mode." *Built: locked until Expert 5.* In practice, all 10 learners need to finish Expert 5 before battle day.
-9. **Swapping a played puzzle:** once learners have played a level, can the researchers still swap its puzzle (Puzzles tab)? *Built for now: allowed after a warning; earlier results stay tied to their puzzle version, and that level's ranking starts over. A strict lock is a one-line change.* Asked Oct 17 with choices: (a) lock once anyone played, (b) allow with a warning (current), (c) allow until the study starts, then lock everything (would add a "Start the study" switch), (d) none of the above.
+9. **Swapping a played puzzle:** once learners have played a level, can the researchers still swap its puzzle (Puzzles tab)? *Built for now: allowed after a warning; earlier results stay tied to their puzzle version, and that level's ranking starts over. A strict lock is a one-line change.* To ask after the researchers have played the game, with choices: (a) lock once anyone played, (b) allow with a warning (current), (c) allow until the study starts, then lock everything (would add a "Start the study" switch), (d) none of the above.
 
 ## 13b. Accessibility (checked 2026-10-15)
 

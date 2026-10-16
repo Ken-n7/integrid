@@ -156,11 +156,11 @@ function SignIn() {
 
 type Tab = 'overview' | 'students' | 'puzzles' | 'research' | 'battle'
 const TABS: [Tab, string][] = [
-  ['overview', 'Overview'],
   ['students', 'Students'],
+  ['battle', 'Battle'],
+  ['overview', 'Overview'],
   ['puzzles', 'Puzzles'],
   ['research', 'Research'],
-  ['battle', 'Battle'],
 ]
 const TAB_KEY = 'integrid:admin-tab'
 const NEEDS_UPDATE = 'This needs the database update: paste all of supabase/schema.sql into Supabase’s SQL Editor and press Run (safe to run again). Until then nothing here is saved.'
@@ -176,9 +176,9 @@ function Dashboard({ email, demo = false }: { email: string; demo?: boolean }) {
   const [open, setOpen] = useState<string | null>(null) // a learner's record
   const [tab, setTab] = useState<Tab>(() => {
     try {
-      return (localStorage.getItem(TAB_KEY) as Tab) || 'overview'
+      return (localStorage.getItem(TAB_KEY) as Tab) || 'students'
     } catch {
-      return 'overview'
+      return 'students'
     }
   })
   const [, setPuzzles] = useState(0)
