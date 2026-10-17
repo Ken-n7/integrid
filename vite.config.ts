@@ -23,8 +23,8 @@ export default defineConfig({
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
-      // only the Latin font file: the other scripts' fonts are never shown, so don't download them for offline
-      workbox: { globPatterns: ['**/*.{js,css,html,svg,png}', '**/nunito-latin-wght-*.woff2'] },
+      // the music too, so it plays offline. Only the Latin font file: the other scripts' fonts are never shown, so don't download them for offline
+      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,ogg}', '**/nunito-latin-wght-*.woff2'] },
     }),
   ],
 })

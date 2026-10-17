@@ -1,13 +1,10 @@
-# INTEGRID puzzles: review, edit, or make your own
+# INTEGRID puzzles: sending your problems
 
-**Every level already has a puzzle**, made by a rule-based generator (not AI) in the style of printable math crosswords. Each one is checked to have exactly one answer that can be found one equation at a time, and to practice the sign rules.
+**Your problems, our layout.** Send the problems for each level to the developer, who lays them out as crosswords in the app. Your problems stay exactly as written; only the arrangement of the boxes changes. Once a level has your puzzle, it is **locked** for the whole study, so every learner solves the same problems.
 
-**Your part:** your paper says the math problems are the researchers' own work, so please **review every puzzle** before the study, on the admin page's **Puzzles** tab:
-1. Each level shows its puzzle with the answers in the yellow boxes (untick "Show the answers" to see it as students do). Play it in the app too: it shows a red SAMPLE tag until approved.
-2. Happy with it? Press **Approve this puzzle**. Phones get it the next time they open the app, and the SAMPLE tag goes away.
-3. Not happy? Press **Generate another** as often as you like, then **Use the new puzzle** on one you like. Every generated puzzle passes the same checks.
-4. Approve every level **before the study starts**: all learners should solve the same problems. (If you swap a puzzle someone already played, the page asks first; their results stay tied to the old puzzle and that level's ranking starts over.)
-5. Prefer to write your own puzzle? Make it in Google Sheets with the rules below and send the CSV to the developer. The app checks it automatically and tells you exactly what to fix.
+Until your puzzles arrive, each level has a **sample** made by a rule-based generator (not AI), with a red SAMPLE tag in the app. They're only for trying the game out.
+
+Want to lay out a puzzle yourself? The easiest way is the admin page's **Puzzle maker** tab: it gives each level its grid (Relax 7 × 11, Expert and Battle 9 × 11), checks the puzzle as you build it, and **Use this puzzle** puts it in the game. You can also make it in Google Sheets with the rules below and open the CSV there, or send it to the developer.
 
 ## 1. Set up the sheet (do this first!)
 
@@ -41,8 +38,8 @@ This reads across: (−3) + 5 = 2 and 1 + (−2) = −1. Down: (−3) + 4 = 1, 5
 ## 3. Rules
 
 1. **Every line of 2 or more touching squares must be one complete, correct equation**, both across and down. Put an empty square between equations that shouldn't touch.
-2. **Relax levels: one operation per equation, and only that level's operation.** Level 1: only `+`. Level 2: only `-`. Level 3: only `x`. Level 4: only `/`.
-3. **Expert levels may mix operations.** Level 1: `+ -`. Level 2: `x /`. Levels 3–5: all four. Longer equations like `2 + 3 x 4 = 14` follow **MDAS** (× and ÷ before + and −).
+2. **Two numbers and one operation per equation**, like `-3 + 5 = 2`. No longer ones like `2 + 3 x 4 = 14`.
+3. **Relax levels: only that level's operation.** Level 1: only `+`. Level 2: only `-`. Level 3: only `x`. Level 4: only `/`. **Expert levels may mix operations** across equations. Level 1: `+ -`. Level 2: `x /`. Levels 3–5: all four.
 4. **Division must come out whole.** No dividing by 0.
 5. **At most 9 columns wide**, so it fits on a phone. Rows can go longer.
 6. **Only one answer.** The number bank holds exactly the `?` numbers. There must be only one way to place them all. If two arrangements work, the checker asks you to show one more number.

@@ -1,6 +1,6 @@
-// Which puzzle each level uses: one the researchers approved on the admin page (saved in the
-// database, cached on each phone for offline play), else a file in puzzles/ (relax-1.csv, or the
-// generated relax-1.sample.csv until someone approves one).
+// Which puzzle each level uses: the researchers' file in puzzles/ (relax-1.csv), else one approved
+// on the admin page (saved in the database, cached on each phone for offline play), else the
+// generated sample (relax-1.sample.csv).
 import { db } from './store.ts'
 
 const files = import.meta.glob('../puzzles/*.csv', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
@@ -34,9 +34,12 @@ export function builtIn(id: string) {
   return csv ? { csv, sample: !files[`../puzzles/${id}.csv`], version: versionOf(csv) } : null
 }
 
+// The researchers' own file (relax-1.csv) is final: it beats anything approved on the admin page,
+// so it can't be swapped there (§13, question 9). Approvals only replace samples.
 export function puzzleFor(id: string) {
   const a = approved[id]
-  return a ? { csv: a.csv, sample: false, version: a.version, approvedAt: a.at } : builtIn(id)
+  const file = builtIn(id)
+  return a && file?.sample !== false ? { csv: a.csv, sample: false, version: a.version, approvedAt: a.at } : file
 }
 
 // A result counts for the current puzzle of its level. Results saved before versions existed
@@ -59,7 +62,7 @@ export async function approvePuzzle(level: string, csv: string) {
   const entry = { csv: csv.trim(), version: versionOf(csv), at: new Date().toISOString() }
   if (db) {
     const { error } = await db.from('puzzles').upsert({ level, csv: entry.csv, version: entry.version, approved_at: entry.at })
-    if (error) throw error
+    if (error) throw new Error(/puzzles/.test(error.message) ? 'the database needs its update first: paste all of supabase/schema.sql into Supabase’s SQL Editor and press Run.' : error.message)
   }
   approved = { ...approved, [level]: entry }
   keep()

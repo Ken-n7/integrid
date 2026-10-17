@@ -34,15 +34,22 @@ function tone(freq: number, start: number, dur: number, type: OscillatorType, vo
   o.stop(t + dur + 0.02)
 }
 
-function play(notes: () => void) {
-  if (!soundOn() || typeof AudioContext === 'undefined') return
+// One audio context for effects and music. Made on the first tap: browsers only allow sound after one.
+export function audio() {
   try {
-    ctx ??= new AudioContext() // made on the first tap: browsers only allow sound after one
+    ctx ??= new AudioContext()
     if (ctx.state === 'suspended') void ctx.resume()
-    notes()
+    return ctx
   } catch {
-    // no audio on this device: the blinks still show what happened
+    return null // no audio on this device: the blinks still show what happened
   }
+}
+
+// App in the background (another app, screen off): silence everything until it's back.
+export const pauseAudio = (paused: boolean) => void (paused ? ctx?.suspend() : ctx?.resume())
+
+function play(notes: () => void) {
+  if (soundOn() && audio()) notes()
 }
 
 export const sfx = {

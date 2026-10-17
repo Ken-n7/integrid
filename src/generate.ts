@@ -5,7 +5,7 @@
 //  2. Hide: blank out numbers one by one, keeping a blank only if the puzzle can still be solved
 //     one equation at a time (some equation always has a single missing number). That makes the
 //     answer unique and solvable by reasoning, never by guessing.
-import { calc, equations, holds, key, parse, validate, type Cell, type Eq, type Grid, type Op, type Pos } from './puzzle.ts'
+import { calc, equations, fmt, holds, key, MAX_COLS, parse, validate, type Cell, type Eq, type Grid, type Op, type Pos } from './puzzle.ts'
 import { ALL_OPS, LEVELS } from './rules.ts'
 
 export type GenOptions = {
@@ -19,7 +19,7 @@ export type GenOptions = {
   hide: number // share of the numbers to blank out, 0–1
   perEquation: number // most blanks in one equation
 }
-type Equation = { nums: number[]; ops: Op[]; result: number } // number slots: operands first, result last
+export type Equation = { nums: number[]; ops: Op[]; result: number } // number slots: operands first, result last
 
 // Seeded random numbers (mulberry32), so a seed always makes the same puzzle.
 export function rng(seed: number) {
@@ -32,18 +32,67 @@ export function rng(seed: number) {
   }
 }
 
+function shuffleWith<T>(xs: T[], rand: () => number) {
+  const a = [...xs]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
+const tokens = (e: Equation): Cell[] => [
+  ...e.nums.flatMap((v, i): Cell[] => [...(i ? [{ t: 'op', op: e.ops[i - 1] } as Cell] : []), { t: 'num', v, hidden: false }]),
+  { t: 'eq' },
+  { t: 'num', v: e.result, hidden: false },
+]
+const step = (p: Pos, across: boolean, n: number): Pos => (across ? [p[0], p[1] + n] : [p[0] + n, p[1]])
+
+// An empty board with crossword rules: equations only touch where they share a number,
+// so every row/column run stays exactly one equation.
+function board(width: number, height: number) {
+  const grid: Grid = Array.from({ length: height }, () => Array<Cell>(width).fill(null))
+  const dirs = new Map<string, Set<boolean>>() // number cell → directions it is used in (true = across)
+  const placedEqs: Pos[][] = [] // number cells of each equation, oldest first
+  const inside = ([r, c]: Pos) => r >= 0 && c >= 0 && r < height && c < width
+  const at = (p: Pos) => (inside(p) ? grid[p[0]][p[1]] : null)
+
+  function fits(cells: Cell[], start: Pos, across: boolean) {
+    if (at(step(start, across, -1)) || at(step(start, across, cells.length))) return false // runs must not join
+    return cells.every((cell, i) => {
+      const p = step(start, across, i)
+      if (!inside(p)) return false
+      const old = at(p)
+      if (old) return old.t === 'num' && cell!.t === 'num' && old.v === cell!.v && !dirs.get(key(p))?.has(across)
+      const sides: Pos[] = across ? [[p[0] - 1, p[1]], [p[0] + 1, p[1]]] : [[p[0], p[1] - 1], [p[0], p[1] + 1]]
+      return sides.every((s) => !at(s)) // touching neighbours would form a stray run
+    })
+  }
+  function place(cells: Cell[], start: Pos, across: boolean) {
+    const nums: Pos[] = []
+    cells.forEach((cell, i) => {
+      const p = step(start, across, i)
+      grid[p[0]][p[1]] = cell
+      if (cell!.t !== 'num') return
+      nums.push(p)
+      dirs.set(key(p), (dirs.get(key(p)) ?? new Set()).add(across))
+    })
+    placedEqs.push(nums)
+  }
+  return { grid, dirs, placedEqs, at, fits, place }
+}
+
+export const crop = (grid: Grid): Grid => {
+  const rows = grid.flatMap((row, r) => (row.some(Boolean) ? [r] : []))
+  const cols = [...Array(grid[0].length).keys()].filter((c) => grid.some((row) => row[c]))
+  return grid.slice(rows[0], rows[rows.length - 1] + 1).map((row) => row.slice(cols[0], cols[cols.length - 1] + 1))
+}
+
 export function generate(o: GenOptions, rand: () => number) {
   const int = (lo: number, hi: number) => lo + Math.floor(rand() * (hi - lo + 1))
   const signed = (lo: number, hi: number) => (rand() < 0.5 ? -1 : 1) * int(lo, hi)
   const pick = <T>(xs: T[]) => xs[Math.floor(rand() * xs.length)]
-  const shuffle = <T>(xs: T[]) => {
-    const a = [...xs]
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(rand() * (i + 1))
-      ;[a[i], a[j]] = [a[j], a[i]]
-    }
-    return a
-  }
+  const shuffle = <T>(xs: T[]) => shuffleWith(xs, rand)
   const isMul = (op?: Op) => op === '×' || op === '÷'
   const divisors = (n: number) => {
     const ds: number[] = []
@@ -108,43 +157,9 @@ export function generate(o: GenOptions, rand: () => number) {
     return null
   }
 
-  const tokens = (e: Equation): Cell[] => [
-    ...e.nums.flatMap((v, i): Cell[] => [...(i ? [{ t: 'op', op: e.ops[i - 1] } as Cell] : []), { t: 'num', v, hidden: false }]),
-    { t: 'eq' },
-    { t: 'num', v: e.result, hidden: false },
-  ]
-
   // 1. Grow
-  const grid: Grid = Array.from({ length: o.height }, () => Array<Cell>(o.width).fill(null))
-  const dirs = new Map<string, Set<boolean>>() // number cell → directions it is used in (true = across)
-  const placedEqs: Pos[][] = [] // number cells of each equation, oldest first
+  const { grid, dirs, placedEqs, at, fits, place } = board(o.width, o.height)
   const crossings = (i: number) => placedEqs[i].filter((p) => dirs.get(key(p))!.size === 2).length
-  const inside = ([r, c]: Pos) => r >= 0 && c >= 0 && r < o.height && c < o.width
-  const at = (p: Pos) => (inside(p) ? grid[p[0]][p[1]] : null)
-  const step = (p: Pos, across: boolean, n: number): Pos => (across ? [p[0], p[1] + n] : [p[0] + n, p[1]])
-
-  function fits(cells: Cell[], start: Pos, across: boolean) {
-    if (at(step(start, across, -1)) || at(step(start, across, cells.length))) return false // runs must not join
-    return cells.every((cell, i) => {
-      const p = step(start, across, i)
-      if (!inside(p)) return false
-      const old = at(p)
-      if (old) return old.t === 'num' && cell!.t === 'num' && old.v === cell!.v && !dirs.get(key(p))?.has(across)
-      const sides: Pos[] = across ? [[p[0] - 1, p[1]], [p[0] + 1, p[1]]] : [[p[0], p[1] - 1], [p[0], p[1] + 1]]
-      return sides.every((s) => !at(s)) // touching neighbours would form a stray run
-    })
-  }
-  function place(cells: Cell[], start: Pos, across: boolean) {
-    const nums: Pos[] = []
-    cells.forEach((cell, i) => {
-      const p = step(start, across, i)
-      grid[p[0]][p[1]] = cell
-      if (cell!.t !== 'num') return
-      nums.push(p)
-      dirs.set(key(p), (dirs.get(key(p)) ?? new Set()).add(across))
-    })
-    placedEqs.push(nums)
-  }
 
   const first = equation(pick(o.steps))
   if (!first) return null
@@ -176,12 +191,8 @@ export function generate(o: GenOptions, rand: () => number) {
     }
   }
 
-  // crop to the used area
-  const rows = grid.flatMap((row, r) => (row.some(Boolean) ? [r] : []))
-  const cols = [...Array(o.width).keys()].filter((c) => grid.some((row) => row[c]))
-  const out: Grid = grid.slice(rows[0], rows[rows.length - 1] + 1).map((row) => row.slice(cols[0], cols[cols.length - 1] + 1))
-
   // 2. Hide
+  const out = crop(grid)
   const { eqs } = equations(out)
   const numbers = out.flatMap((row, r) => row.flatMap((c, col) => (c?.t === 'num' ? [key([r, col])] : [])))
   const hidden = new Set<string>()
@@ -256,9 +267,16 @@ const PRESETS: Record<string, Preset> = {
   'expert-1': expert,
   'expert-2': { ...expert, max: 144 },
   'expert-3': { ...expert, max: 100, factor: 10 },
-  'expert-4': { ...expert, steps: [2], equations: 8, max: 100, factor: 10 }, // multi-step: a + b × c = d
-  'expert-5': { ...expert, steps: [1, 2], equations: 12, max: 100, factor: 10, hide: 0.55 },
+  // The client wants two numbers per equation only (Oct 17), so no steps: [2] (a + b × c = d) any more.
+  'expert-4': { ...expert, max: 100, factor: 10 },
+  'expert-5': { ...expert, equations: 12, max: 100, factor: 10, hide: 0.55 },
   battle: { ...expert, max: 100, factor: 10 },
+}
+
+// The grid a level's puzzle fits in (the puzzle maker's canvas): Relax 7 × 11, the rest 9 × 11.
+export const sizeOf = (id: string) => {
+  const { width, height } = PRESETS[id] ?? PRESETS.battle
+  return { width, height }
 }
 
 // The lesson is sign rules: at least a third of the numbers negative, and in Relax every
@@ -280,14 +298,14 @@ export function makePuzzle(id: string, seed: number, budgetMs = Infinity) {
   const level = LEVELS.find((l) => l.id === id)
   const preset = PRESETS[id] ?? PRESETS.battle
   const opts = { ...preset, ops: level?.ops ?? ALL_OPS }
-  const oneOp = level?.mode === 'relax'
+  const relax = level?.mode === 'relax'
   const until = Date.now() + budgetMs
   let best: { seed: number; csv: string; fill: number; info: string } | null = null
   for (let s = seed, found = 0; s < seed + 500 && found < 30 && !(best && Date.now() > until); s++) {
     const p = generate(opts, rng(s))
     if (!p || p.equations < preset.equations - 1) continue
     const csv = toCsv(p.grid)
-    if (validate(parse(csv), { ops: opts.ops, oneOp }).length || !teachesSigns(p.grid, oneOp)) continue
+    if (validate(parse(csv), { ops: opts.ops }).length || !teachesSigns(p.grid, relax)) continue
     found++
     const fill = p.grid.flat().filter(Boolean).length / (p.grid.length * p.grid[0].length)
     if (!best || fill < best.fill) best = { seed: s, csv, fill, info: `${p.grid[0].length}×${p.grid.length}  ${p.equations} equations  ${p.blanks} blanks` }
@@ -295,3 +313,107 @@ export function makePuzzle(id: string, seed: number, budgetMs = Infinity) {
   return best
 }
 
+
+// ---------- the researchers' own equations as a crossword (npm run layout) ----------
+
+// Every link becomes a crossing: an equation crosses one already placed wherever they share a
+// number, answers included (two problems with the same answer then share its box). Problems that
+// can't connect go last, beside or below the connected part: those that share no number with any
+// other, and those whose links got used up (one square holds only two equations). Each step takes
+// the spot that adds the fewest rows: on a phone the rows decide the square size, and width is
+// capped at 9 anyway. Of `tries` random layouts, keeps the one with the most crossings, then the
+// fewest left alone among them, then the shortest longer side (the puzzle box is about square),
+// then the smallest area. The blanks are the problems' answers, so learners solve the
+// researchers' items as written.
+export function layoutPuzzle(given: Equation[], seed: number, tries = 2000) {
+  const nums = (cells: Cell[]) => cells.flatMap((c) => (c?.t === 'num' ? [c.v] : []))
+  const shares = (a: Cell[], b: Cell[]) => a !== b && nums(a).some((v) => nums(b).includes(v))
+  type Spot = { cells: Cell[]; start: Pos; across: boolean; score: number }
+  let best: { grid: Grid; score: number[] } | null = null
+  for (let s = seed; s < seed + tries; s++) {
+    const rand = rng(s)
+    const b = board(MAX_COLS, given.length * 6)
+    let [top, bottom, left, right] = [Infinity, -Infinity, Infinity, -Infinity]
+    const put = ({ cells, start, across }: Spot) => {
+      b.place(cells, start, across)
+      const end = step(start, across, cells.length - 1)
+      ;[top, bottom, left, right] = [Math.min(top, start[0]), Math.max(bottom, end[0]), Math.min(left, start[1]), Math.max(right, end[1])]
+    }
+    const spot = (cells: Cell[], start: Pos, across: boolean, first = false): Spot => {
+      const end = step(start, across, cells.length - 1)
+      const rows = Math.max(bottom, end[0]) - Math.min(top, start[0]) + 1
+      const cols = Math.max(right, end[1]) - Math.min(left, start[1]) + 1
+      return { cells, start, across, score: rows + cols / 10 + rand() / 2 - (first ? 100 : 0) }
+    }
+    const alone = () => b.placedEqs.filter((ns) => ns.every((p) => b.dirs.get(key(p))!.size === 1))
+    const first = (cells: Cell[]) => {
+      const across = rand() < 0.5
+      return spot(cells, [given.length * 3, Math.floor(rand() * (across ? MAX_COLS - cells.length + 1 : MAX_COLS))], across)
+    }
+    // crossing an equation that is still alone goes first, so a new group never stays a single equation
+    const crossing = (todo: Cell[][], lonely = new Set(alone().flat().map(key))) =>
+      todo.flatMap((cells) =>
+        b.placedEqs.flat().flatMap((p) => {
+          const ds = b.dirs.get(key(p))!
+          const v = (b.at(p) as { v: number }).v
+          const across = !ds.has(true)
+          return ds.size === 2 ? [] : cells.flatMap((c, i) => (c?.t === 'num' && c.v === v && b.fits(cells, step(p, across, -i), across) ? [spot(cells, step(p, across, -i), across, lonely.has(key(p)))] : []))
+        }),
+      )
+    const free = (todo: Cell[][], ok?: (ps: Pos[]) => boolean) =>
+      todo.flatMap((cells) => {
+        const found: Spot[] = []
+        for (let y = top - cells.length - 1; y <= bottom + 2; y++)
+          for (let x = 0; x < MAX_COLS; x++)
+            for (const across of [true, false])
+              if (b.fits(cells, [y, x], across) && (!ok || ok(cells.map((_, i) => step([y, x], across, i))))) found.push(spot(cells, [y, x], across))
+        return found
+      })
+    const take = (todo: Cell[][], found: Spot[]) => {
+      const sp = found.reduce((a, x) => (x.score < a.score ? x : a))
+      put(sp)
+      todo.splice(todo.indexOf(sp.cells), 1)
+    }
+
+    // 1. The connected part
+    const todo = shuffleWith(given, rand).map(tokens)
+    const loners: Cell[][] = []
+    while (todo.length) {
+      let found = crossing(todo)
+      if (!found.length) {
+        // nothing crosses: what shares no number with the rest can't connect any more; start a new group
+        for (const cells of todo.filter((c) => !todo.some((o) => shares(o, c)))) loners.push(...todo.splice(todo.indexOf(cells), 1))
+        if (!todo.length) break
+        found = top === Infinity ? [first(todo[0])] : free(todo)
+      }
+      if (!found.length) break
+      take(todo, found)
+    }
+    const stranded = alone().length // in the connected part but crossing nothing
+    // 2. The loners, clear of it
+    const [t, bt, l, r] = [top - 1, bottom + 1, left - 1, right + 1]
+    while (loners.length) {
+      const found = top === Infinity ? [first(loners[0])] : free(loners, (ps) => ps.every(([y, x]) => y < t || y > bt || x < l || x > r))
+      if (!found.length) break
+      take(loners, found)
+    }
+    if (b.placedEqs.length < given.length) continue
+
+    const crossings = [...b.dirs.values()].filter((d) => d.size === 2).length
+    const score = [-crossings, stranded, Math.max(bottom - top, right - left) + 1, (bottom - top + 1) * (right - left + 1)]
+    if (!best || (score.map((x, i) => x - best!.score[i]).find(Boolean) ?? 0) < 0) best = { grid: crop(b.grid), score } // first difference decides
+  }
+  if (!best) return null
+  const { grid } = best
+  for (const { cells } of equations(grid).eqs) {
+    const [r, c] = cells[cells.length - 1]
+    grid[r][c] = { ...(grid[r][c] as { t: 'num'; v: number }), hidden: true }
+  }
+  return { grid, info: `${grid[0].length}×${grid.length}  ${-best.score[0]} crossings` }
+}
+
+// For the command line: blanks in [brackets].
+export const preview = (csv: string) =>
+  parse(csv)
+    .map((row) => '    ' + row.map((c) => (!c ? '·' : c.t === 'eq' ? '=' : c.t === 'op' ? c.op : c.hidden ? `[${fmt(c.v)}]` : fmt(c.v)).padStart(6)).join(''))
+    .join('\n')

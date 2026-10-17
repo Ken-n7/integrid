@@ -1,9 +1,11 @@
-// Puzzles tab: the researchers review each level's puzzle, approve it, or generate another
-// (same generator and checks as `npm run generate`). Approved puzzles reach every phone the next
-// time it opens the app. Swapping a puzzle that learners already played asks first (§13, question 9).
+// Puzzles tab: each level's puzzle. Puzzle files from the researchers (puzzles/<level>.csv) are
+// locked for the whole study (§13, question 9). Otherwise a level's puzzle is built in the Puzzle
+// maker (AdminMaker.tsx), or a sample is approved or regenerated (same generator and checks as
+// `npm run generate`); either reaches every phone the next time it opens the app, and swapping one
+// that learners already played asks first.
 import { useState } from 'react'
 import { blanksOf, parse } from './puzzle.ts'
-import { approvePuzzle, isCurrent, puzzleFor } from './puzzles.ts'
+import { approvePuzzle, builtIn, isCurrent, puzzleFor } from './puzzles.ts'
 import { BATTLES, LEVELS, type Level } from './rules.ts'
 import { Dialog } from './ui.tsx'
 
@@ -47,7 +49,7 @@ function makeAnother(id: string) {
   })
 }
 
-function LevelCard({ level, rows, answers, onChange }: { level: Level; rows: Row[]; answers: boolean; onChange: () => void }) {
+function LevelCard({ level, rows, answers, onChange, onEdit }: { level: Level; rows: Row[]; answers: boolean; onChange: () => void; onEdit: () => void }) {
   const current = puzzleFor(level.id)!
   const [next, setNext] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -55,6 +57,7 @@ function LevelCard({ level, rows, answers, onChange }: { level: Level; rows: Row
   const [confirm, setConfirm] = useState<string | null>(null)
   const played = rows.filter((r) => r.level === level.id && isCurrent(level.id, r.puzzle)).length
   const approved = 'approvedAt' in current
+  const final = builtIn(level.id)?.sample === false
   const title = level.mode === 'battle' ? level.title : `${level.mode === 'relax' ? 'Relax' : 'Expert'} ${level.n} · ${level.title}`
 
   async function generate() {
@@ -73,7 +76,7 @@ function LevelCard({ level, rows, answers, onChange }: { level: Level; rows: Row
       setMsg('Approved. Phones get it the next time they open the app.')
       onChange()
     } catch (e) {
-      setMsg(/puzzles/.test(String((e as Error).message)) ? 'Saving needs the database update: paste all of supabase/schema.sql into Supabase’s SQL Editor and press Run.' : `Couldn’t save: ${(e as Error).message}`)
+      setMsg(`Couldn’t save: ${(e as Error).message}`)
     }
   }
   const ask = (csv: string) => (played && csv !== current.csv ? setConfirm(csv) : save(csv))
@@ -82,10 +85,12 @@ function LevelCard({ level, rows, answers, onChange }: { level: Level; rows: Row
     <section className="card pz-card" aria-labelledby={`pz-${level.id}`}>
       <header className="pz-head">
         <h3 id={`pz-${level.id}`}>{title}</h3>
-        {approved ? (
+        {final ? (
+          <span className="badge ok">✓ Researchers’ puzzle · locked</span>
+        ) : approved ? (
           <span className="badge ok">✓ Approved {new Date(current.approvedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
         ) : (
-          <span className="badge warn">{current.sample ? 'Sample: not approved yet' : 'From puzzles/ file'}</span>
+          <span className="badge warn">Sample</span>
         )}
       </header>
       <div className="pz-pair">
@@ -103,32 +108,37 @@ function LevelCard({ level, rows, answers, onChange }: { level: Level; rows: Row
           </figure>
         )}
       </div>
-      <div className="row wrap">
-        {next ? (
-          <>
-            <button className="big" onClick={() => ask(next)}>
-              Use the new puzzle
-            </button>
-            <button className="big secondary" onClick={generate} disabled={busy}>
-              {busy ? 'Making a puzzle…' : 'Generate another'}
-            </button>
-            <button className="big secondary" onClick={() => setNext(null)}>
-              Keep the current one
-            </button>
-          </>
-        ) : (
-          <>
-            {!approved && (
-              <button className="big" onClick={() => ask(current.csv)}>
-                Approve this puzzle
+      {!final && (
+        <div className="row wrap">
+          {next ? (
+            <>
+              <button className="big" onClick={() => ask(next)}>
+                Use the new puzzle
               </button>
-            )}
-            <button className="big secondary" onClick={generate} disabled={busy}>
-              {busy ? 'Making a puzzle…' : 'Generate another'}
-            </button>
-          </>
-        )}
-      </div>
+              <button className="big secondary" onClick={generate} disabled={busy}>
+                {busy ? 'Making a puzzle…' : 'Generate another'}
+              </button>
+              <button className="big secondary" onClick={() => setNext(null)}>
+                Keep the current one
+              </button>
+            </>
+          ) : (
+            <>
+              {!approved && (
+                <button className="big" onClick={() => ask(current.csv)}>
+                  Approve this puzzle
+                </button>
+              )}
+              <button className="big secondary" onClick={generate} disabled={busy}>
+                {busy ? 'Making a puzzle…' : 'Generate another'}
+              </button>
+              <button className="big secondary" onClick={onEdit}>
+                Edit in the puzzle maker
+              </button>
+            </>
+          )}
+        </div>
+      )}
       <p className="note" role="status">
         {msg}
       </p>
@@ -152,26 +162,27 @@ function LevelCard({ level, rows, answers, onChange }: { level: Level; rows: Row
   )
 }
 
-export function Puzzles({ rows }: { rows: Row[] }) {
+export function Puzzles({ rows, onEdit }: { rows: Row[]; onEdit: (level: string) => void }) {
   const [answers, setAnswers] = useState(true)
   const [, setTick] = useState(0)
   const all = [...LEVELS, ...BATTLES].filter((l) => puzzleFor(l.id))
-  const waiting = all.filter((l) => !('approvedAt' in puzzleFor(l.id)!)).length
+  const own = all.filter((l) => !puzzleFor(l.id)!.sample).length
   return (
     <>
       <section className="card">
         <h2>Puzzles</h2>
         <p>
-          Every level already has a puzzle made by the generator: each one has exactly one answer, can be solved one equation at a time, and practices the sign rules. Your
-          paper says the math problems are the researchers’ work, so <b>check each puzzle and approve it</b>, or generate another until you like one.
+          The study uses <b>the researchers’ own problems</b>. Build each level’s puzzle in the <b>Puzzle maker</b>; until then it has a <b>sample</b> from the generator,
+          which you can approve or swap for another. Learners get a new puzzle the next time they open the app. Swapping one they already played asks first, so everyone
+          solves the same problems.
         </p>
-        <p className="muted">{waiting ? `${waiting} of ${all.length} puzzles still need approval.` : `All ${all.length} puzzles are approved.`}</p>
+        <p className="muted">{own === all.length ? `All ${all.length} levels have their own puzzle.` : `${own} of ${all.length} levels have their own puzzle; the rest use a sample.`}</p>
         <label className="check">
           <input type="checkbox" checked={answers} onChange={(e) => setAnswers(e.target.checked)} /> Show the answers in the yellow boxes
         </label>
       </section>
       {all.map((l) => (
-        <LevelCard key={l.id} level={l} rows={rows} answers={answers} onChange={() => setTick((n) => n + 1)} />
+        <LevelCard key={l.id} level={l} rows={rows} answers={answers} onChange={() => setTick((n) => n + 1)} onEdit={() => onEdit(l.id)} />
       ))}
     </>
   )

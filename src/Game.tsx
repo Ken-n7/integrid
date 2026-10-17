@@ -21,6 +21,10 @@ type Run = {
   status: 'play' | 'win' | 'lose'
 }
 
+// The (!) button and the pop-up it opens when a level starts: hidden Oct 17 (Ken: it repeated 📖 Rules,
+// which now holds Relax's free clue). true brings both back.
+const INFO = false
+
 const newRun = (): Run => ({ id: uuid(), at: new Date().toISOString(), start: Date.now(), filled: {}, hearts: HEARTS, wrong: 0, hints: 0, mistakes: [], status: 'play' })
 
 // Battle Mode: the group's shared grid and live ranking, from the room (Battle.tsx).
@@ -67,8 +71,8 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
   const [msg, setMsg] = useState<ReactNode>('')
   const [nudge, setNudge] = useState(false)
   const [dialog, setDialog] = useState<'rules' | 'leave' | 'restart' | null>(null)
-  const [info, setInfo] = useState(!battle) // the (!) popup opens when the level starts…
-  const [started, setStarted] = useState(!!battle) // …and the clock starts when it closes, so reading costs no coins
+  const [info, setInfo] = useState(INFO && !battle) // the (!) popup opens when the level starts…
+  const [started, setStarted] = useState(!!battle || !INFO) // …and the clock starts when it closes, so reading costs no coins
   const [wiggle, setWiggle] = useState(false)
   const board = useRef<HTMLDivElement>(null)
   const [clear, setClear] = useState<'top' | 'left' | null>(null) // side kept clear for the (!) corner
@@ -105,12 +109,13 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
   // the box keeps a strip clear on whichever side (top or left) shrinks the squares less.
   // Decided from the box's full size, so adding the strip can't flip the answer back.
   useEffect(() => {
+    if (!INFO) return
     const el = board.current!
     const ICON = 44
     const check = () => {
       const w = el.clientWidth - 4 // minus the box's 2px padding
       const h = el.clientHeight - 4
-      const fit = (w: number, h: number) => Math.min(44, w / grid[0].length, h / grid.length) // same sizing as the CSS
+      const fit = (w: number, h: number) => Math.min(44, w / grid[0].length, Math.max(30, h / grid.length)) // same sizing as the CSS
       const box = fit(w, h)
       const left = (w - box * grid[0].length) / 2
       const top = (h - box * grid.length) / 2
@@ -219,7 +224,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
       if (next) requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-cell="${next}"]`)?.focus())
       return
     }
-    // The red blink and the falling heart say it; in Relax the (!) wiggles toward the free clue.
+    // The red blink and the falling heart say it; in Relax the (!) (or 📖 Rules) wiggles toward the free clue.
     setFlash({ k: sel, v, ok: false, t: (flash?.t ?? 0) + 1 }) // t restarts the animation
     setMsg('')
     sfx.wrong()
@@ -271,7 +276,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
     setDialog(null)
   }
 
-  // Relax's free clue for the selected box (the client's "guided practice"), shown in the (!) popup
+  // Relax's free clue for the selected box (the client's "guided practice"), shown in the (!) popup or 📖 Rules
   // What a screen reader says about a yellow box: each equation it's in, as words.
   const SAY = { '+': 'plus', '−': 'minus', '×': 'times', '÷': 'divided by' }
   const describe = (k: string) =>
@@ -300,6 +305,22 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
       : []
   const guide = guideFor(level.ops, eqs.some((e) => e.left.ops.length + e.right.ops.length > 1))
   const sharedRule = clues.every((c) => c.pat === clues[0].pat && c.text === clues[0].text) // Across and Down often share one: say it once
+  const clueBox = clues.length > 0 && (
+    <section className="clue">
+      <h3>
+        <Deco>🔎</Deco> Clue for your box
+      </h3>
+      {clues.map((c) => (
+        <div key={c.dir}>
+          <p>
+            <b>{c.dir}:</b> <Pattern p={c.pattern} />
+          </p>
+          {!sharedRule && <Why pat={c.pat} text={c.text} />}
+        </div>
+      ))}
+      {sharedRule && <Why pat={clues[0].pat} text={clues[0].text} />}
+    </section>
+  )
   const rank = playing || run.status === 'lose' || !rules.ranked ? undefined : rankOf(seconds, run.wrong)
   const [heading, subheading] = battle ? [level.title, battle.title] : [`Level ${level.n}`, level.title]
 
@@ -357,14 +378,16 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
 
       {/* the puzzle box: fills the space between the header and the tray, and the grid scales to fit it */}
       <div ref={board} className={`board${clear ? ` clear-${clear}` : ''}`}>
-        <button
-          className={`info${wiggle ? ' wiggle' : ''}`}
-          onClick={() => setInfo(true)}
-          aria-label={rules.clue ? 'Rules and a free clue' : 'Rules for this level'}
-          aria-haspopup="dialog"
-        >
-          <Icon name="info" />
-        </button>
+        {INFO && (
+          <button
+            className={`info${wiggle ? ' wiggle' : ''}`}
+            onClick={() => setInfo(true)}
+            aria-label={rules.clue ? 'Rules and a free clue' : 'Rules for this level'}
+            aria-haspopup="dialog"
+          >
+            <Icon name="info" />
+          </button>
+        )}
         <div className={`grid${nudge ? ' nudge' : ''}`} style={{ '--cols': grid[0].length, '--rows': grid.length } as CSSProperties}>
           {grid.flatMap((row, r) =>
             row.map((c, col) => {
@@ -420,7 +443,12 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
         <Bank tiles={tiles} disabled={!playing} onPick={place} />
 
         <div className="tools">
-          <button onClick={() => setDialog('rules')}>
+          <button
+            className={!INFO && wiggle ? 'wiggle' : ''}
+            onClick={() => setDialog('rules')}
+            aria-label={!INFO && rules.clue ? 'Rules and a free clue' : undefined}
+            aria-haspopup="dialog"
+          >
             <Deco>📖</Deco> Rules
           </button>
           {!battle && (
@@ -443,22 +471,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
 
       {info && (
         <Dialog title={battle ? level.title : `Level ${level.n} · ${level.title}`} onClose={closeInfo} onBack={started ? closeInfo : onExit}>
-          {clues.length > 0 && (
-            <section className="clue">
-              <h3>
-                <Deco>🔎</Deco> Clue for your box
-              </h3>
-              {clues.map((c) => (
-                <div key={c.dir}>
-                  <p>
-                    <b>{c.dir}:</b> <Pattern p={c.pattern} />
-                  </p>
-                  {!sharedRule && <Why pat={c.pat} text={c.text} />}
-                </div>
-              ))}
-              {sharedRule && <Why pat={clues[0].pat} text={clues[0].text} />}
-            </section>
-          )}
+          {clueBox}
           {guide.map((s) => (
             <RuleCard key={s.title} s={s} />
           ))}
@@ -486,6 +499,9 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
           {SIGN_RULES.map((s) => (
             <RuleCard key={s.title} s={s} />
           ))}
+          {/* last, beside the button the pop-up scrolls to */}
+          {!INFO && clueBox}
+          {!INFO && rules.clue && !clues.length && <p className="note">Tip: tap a yellow box, then tap Rules for a free clue about that box.</p>}
           <button className="big" onClick={() => setDialog(null)} autoFocus>
             Got it!
           </button>

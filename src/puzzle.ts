@@ -103,6 +103,20 @@ export function calc(nums: number[], ops: Op[]): number | string {
   return terms.reduce((sum, t, i) => (i === 0 ? t : signs[i - 1] === '+' ? sum + t : sum - t), 0)
 }
 
+// One typed equation like "-12 + (-7) = -19" (the researchers' lists, the puzzle maker). Without
+// "= …" the answer is worked out. null: not an equation; a string: what's wrong with it.
+const EQUATION = /^\(?(-?\d+)\)?\s*([-+x×*/÷])\s*\(?(-?\d+)\)?\s*(?:=\s*\(?(-?\d+)\)?)?$/i
+export function readEquation(text: string): { nums: number[]; ops: Op[]; result: number } | string | null {
+  const m = EQUATION.exec(text.replace(/[−–—]/g, '-').trim())
+  if (!m) return null
+  const nums = [Number(m[1]), Number(m[3])]
+  const ops = [OPS[m[2].toLowerCase()]]
+  const result = calc(nums, ops)
+  if (typeof result === 'string') return result
+  if (m[4] !== undefined && Number(m[4]) !== result) return `${fmt(nums[0])} ${ops[0]} ${fmt(nums[1])} is ${fmt(result)}, not ${fmt(Number(m[4]))}`
+  return { nums, ops, result }
+}
+
 // true / false, undefined while a blank in it is still empty, or a string when the math breaks
 export function holds(e: Eq, val: Lookup): boolean | undefined | string {
   const l = value(e.left, val)
@@ -130,7 +144,7 @@ export function text(grid: Grid, e: Eq) {
 }
 
 // Everything wrong with a puzzle, in words the researchers can act on. Empty = good.
-export function validate(grid: Grid, rules: { ops: Op[]; oneOp: boolean }): string[] {
+export function validate(grid: Grid, rules: { ops: Op[] }): string[] {
   const errors: string[] = []
   const width = grid[0]?.length ?? 0
   if (width > MAX_COLS) errors.push(`${width} columns wide; phones fit at most ${MAX_COLS}`)
@@ -146,7 +160,8 @@ export function validate(grid: Grid, rules: { ops: Op[]; oneOp: boolean }): stri
     const ops = [...e.left.ops, ...e.right.ops]
     const stray = ops.filter((op) => !rules.ops.includes(op))
     if (stray.length) errors.push(`${label(e)}: uses ${stray.join(' ')}, but this level only allows ${rules.ops.join(' ')}`)
-    if (rules.oneOp && ops.length !== 1) errors.push(`${label(e)}: Relax equations need exactly one operation`)
+    // the client: two numbers and one operation only, N op N = N (Oct 17)
+    if (ops.length !== 1) errors.push(`${label(e)}: use two numbers and one operation, like −3 + 5 = 2`)
     const ok = holds(e, answer(grid))
     if (ok !== true) errors.push(`${label(e)}: ${typeof ok === 'string' ? ok : 'is not true'}  →  ${text(grid, e)}`)
   }

@@ -6,9 +6,10 @@ import { bankOf, countSolutions, equations, parse, validate } from '../src/puzzl
 import { ALL_OPS, LEVELS, rankingFor, reward } from '../src/rules.ts'
 import { cronbach, likert, mastery, pairedT, shapiroWilk, wilcoxon } from '../src/stats.ts'
 
-// The checker itself: a wrong equation, MDAS, inexact division and a two-answer puzzle must all be caught.
-const errs = (csv: string) => validate(parse(csv), { ops: ALL_OPS, oneOp: false })
-assert.deepEqual(errs('?2,+,3,x,4,=,14'), [])
+// The checker itself: a wrong equation, a multi-step one, inexact division and a two-answer puzzle must all be caught.
+const errs = (csv: string) => validate(parse(csv), { ops: ALL_OPS })
+assert.deepEqual(errs('?2,x,4,=,8'), [])
+assert.match(errs('?2,+,3,x,4,=,14')[0], /two numbers and one operation/)
 assert.match(errs('?2,+,3,=,6')[0], /is not true/)
 assert.match(errs('?7,/,2,=,3')[0], /not a whole number/)
 assert.match(errs('?2,+,?3,=,5')[0], /more than one way/) // 2+3 or 3+2
@@ -38,7 +39,7 @@ for (const file of readdirSync('puzzles').filter((f) => f.endsWith('.csv')).sort
   if (!level && !/^battle-\d+$/.test(id)) problems = [`unknown file name; use ${LEVELS.map((l) => l.id).join(', ')} or battle-1, battle-2, …`]
   else {
     try {
-      problems = validate(parse(readFileSync(`puzzles/${file}`, 'utf8')), { ops: level?.ops ?? ALL_OPS, oneOp: level?.mode === 'relax' })
+      problems = validate(parse(readFileSync(`puzzles/${file}`, 'utf8')), { ops: level?.ops ?? ALL_OPS })
     } catch (e) {
       problems = [(e as Error).message]
     }

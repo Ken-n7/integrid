@@ -7,7 +7,8 @@ import { bestWin, clock, coinsOf, isUnlocked, LEVELS, rankingFor, wonLevels, typ
 import { db, load, merge, newSave, persist, sync, type Save, type Store } from './store.ts'
 import { useBack } from './back.ts'
 import { focusScreen } from './focus.ts'
-import { setSoundOn, sfx, soundOn } from './sound.ts'
+import { musicOn, setMusicOn, startMusic, stopMusic } from './music.ts'
+import { pauseAudio, setSoundOn, sfx, soundOn } from './sound.ts'
 import { isCurrent, puzzleFor, refreshPuzzles } from './puzzles.ts'
 import { Coins, Deco, Dialog, Icon } from './ui.tsx'
 
@@ -21,7 +22,19 @@ export default function App() {
     addEventListener('hashchange', onHash)
     return () => removeEventListener('hashchange', onHash)
   }, [])
-  return admin ? <Admin /> : <Student />
+  return admin ? (
+    <Admin />
+  ) : (
+    <>
+      <Student />
+      {/* covers the game on a sideways phone (CSS decides when): the grid and bank only fit upright */}
+      <div className="upright" role="alert">
+        <Deco>📱</Deco>
+        <b>Turn your phone upright</b>
+        <span>INTEGRID plays standing up.</span>
+      </div>
+    </>
+  )
 }
 
 function Student() {
@@ -38,6 +51,21 @@ function Student() {
     latest.current = store
     persist(store)
   }, [store])
+  // Music starts on the first tap (browsers allow sound only after one), pauses while the app is in
+  // the background, and stops on the admin page.
+  useEffect(() => {
+    const tap = () => void startMusic()
+    const away = () => pauseAudio(document.hidden)
+    addEventListener('pointerup', tap)
+    addEventListener('keydown', tap)
+    document.addEventListener('visibilitychange', away)
+    return () => {
+      removeEventListener('pointerup', tap)
+      removeEventListener('keydown', tap)
+      document.removeEventListener('visibilitychange', away)
+      stopMusic()
+    }
+  }, [])
   useEffect(() => {
     void navigator.storage?.persist?.() // ask the browser not to clear unsynced results
     void refreshPuzzles().then((changed) => changed && setPuzzles((n) => n + 1))
@@ -124,7 +152,8 @@ function Student() {
       />
     )
 
-  const won = wonLevels(save.attempts)
+  // Dev server only: ?unlock opens every level for a look around. It adds no wins, so nothing fake syncs.
+  const won = import.meta.env.DEV && new URLSearchParams(location.search).has('unlock') ? new Set(LEVELS.map((l) => l.id)) : wonLevels(save.attempts)
   const coins = coinsOf(save.attempts)
   if (screen === 'modes')
     return (
@@ -456,6 +485,7 @@ function Modes(props: { code: string; coins: number; expertOpen: boolean; battle
 function Settings({ code, onBack, onHowTo, onSignOut }: { code: string; onBack: () => void; onHowTo: () => void; onSignOut: () => void }) {
   const [confirm, setConfirm] = useState(false)
   const [sound, setSound] = useState(soundOn)
+  const [music, setMusic] = useState(musicOn)
   useBack(onBack)
   return (
     <main className="screen" tabIndex={-1}>
@@ -496,6 +526,26 @@ function Settings({ code, onBack, onHowTo, onSignOut }: { code: string; onBack: 
         </span>
         <span className={`toggle${sound ? ' on' : ''}`} aria-hidden="true">
           {sound ? 'On' : 'Off'}
+        </span>
+      </button>
+      <button
+        className="level"
+        role="switch"
+        aria-checked={music}
+        onClick={() => {
+          setMusicOn(!music)
+          setMusic(!music)
+        }}
+      >
+        <span className="level-n">
+          <Deco>{music ? '🎵' : '🔇'}</Deco>
+        </span>
+        <span className="level-text">
+          <b>Music</b>
+          <small>Background music while you play</small>
+        </span>
+        <span className={`toggle${music ? ' on' : ''}`} aria-hidden="true">
+          {music ? 'On' : 'Off'}
         </span>
       </button>
       <section className="card account">

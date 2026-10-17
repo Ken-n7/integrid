@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js'
 import { useEffect, useEffectEvent, useState, type FormEvent, type ReactNode } from 'react'
+import { PuzzleMaker } from './AdminMaker.tsx'
 import { Puzzles } from './AdminPuzzles.tsx'
 import { ResearchTab, type Research } from './AdminResearch.tsx'
 import { BattleHost } from './Battle.tsx'
@@ -154,12 +155,13 @@ function SignIn() {
   )
 }
 
-type Tab = 'overview' | 'students' | 'puzzles' | 'research' | 'battle'
+type Tab = 'overview' | 'students' | 'puzzles' | 'maker' | 'research' | 'battle'
 const TABS: [Tab, string][] = [
   ['students', 'Students'],
   ['battle', 'Battle'],
   ['overview', 'Overview'],
   ['puzzles', 'Puzzles'],
+  ['maker', 'Puzzle maker'],
   ['research', 'Research'],
 ]
 const TAB_KEY = 'integrid:admin-tab'
@@ -182,8 +184,10 @@ function Dashboard({ email, demo = false }: { email: string; demo?: boolean }) {
     }
   })
   const [, setPuzzles] = useState(0)
-  function go(t: Tab) {
+  const [makerLevel, setMakerLevel] = useState<string>() // the level a Puzzles card sent to the maker
+  function go(t: Tab, level?: string) {
     setTab(t)
+    setMakerLevel(level)
     try {
       localStorage.setItem(TAB_KEY, t)
     } catch {
@@ -286,7 +290,8 @@ function Dashboard({ email, demo = false }: { email: string; demo?: boolean }) {
         {tab === 'students' && (
           <StudentsTab students={students} byStudent={byStudent} rows={rows} research={research} onAdd={addStudents} onReload={reload} open={open} onOpen={setOpen} />
         )}
-        {tab === 'puzzles' && <Puzzles rows={rows} />}
+        {tab === 'puzzles' && <Puzzles rows={rows} onEdit={(level) => go('maker', level)} />}
+        {tab === 'maker' && <PuzzleMaker rows={rows} level={makerLevel} />}
         {tab === 'research' && <ResearchTab codes={students.map((s) => s.code)} data={research} saveIssue={researchIssue} onSave={saveResearch} />}
         {tab === 'battle' && <BattleHost />}
       </div>

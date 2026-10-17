@@ -48,7 +48,7 @@ Students fill in missing numbers in a crossword grid made of integer equations, 
 | Offline / install | PWA via `vite-plugin-pwa` | Works offline after first open and can be added to the home screen. Fixes reach every phone on the next open |
 | Styling | Plain CSS with design tokens | Simple UI (cells and buttons), no framework needed |
 | Font | Nunito, bundled (`@fontsource-variable/nunito`), 18px base | Rounded like the mockups, and works offline (no Google Fonts call). Base raised from 16px (researchers, Oct 16: "a bit small"); a percentage, so the phone's own text-size setting still applies |
-| Sound | Web Audio, generated in the browser (`src/sound.ts`) | No audio files to download, works offline; on/off switch in Settings |
+| Sound | Effects generated with Web Audio (`src/sound.ts`); music: "Swinging Sweet" by hernandack, CC0 ([OpenGameArt](https://opengameart.org/content/short-loops-background-music-pack)), `public/music/`, looped gaplessly with Web Audio (`src/music.ts`) | Effects need no files; the 400 KB track is saved for offline. Music at 18% volume (the file is mastered at −11 LUFS). Separate on/off switches in Settings. To change the track: new file in `public/music/`, change `SRC` |
 | Backend | Supabase (Postgres + Auth + Realtime) | SQL data that exports straight to CSV. Realtime for Battle. Row-level security for minors' data |
 | Hosting | Cloudflare Pages or Vercel (free) | Static site, HTTPS (required for offline/PWA) |
 | Puzzles | CSV files exported from Google Sheets, checked automatically before every build | Researchers write the problems themselves (paper's AI clause), and a wrong puzzle can't ship |
@@ -64,15 +64,18 @@ integrid/
 ├─ INTEGRID_DEV_PLAN.md      this file
 ├─ puzzles/                  level CSVs: relax-1.csv … expert-5.csv, battle-*.csv
 │  ├─ *.sample.csv           placeholders until the researchers' puzzles arrive
+│  ├─ <level>.txt            a plain list of problems, for npm run layout
 │  └─ PUZZLE_GUIDE.md        guide to send to the researchers
 ├─ scripts/check.ts          puzzle + rules checker (runs before every build)
-├─ scripts/generate.ts       makes the puzzles (npm run generate)
+├─ scripts/generate.ts       makes the sample puzzles (npm run generate)
+├─ scripts/layout.ts         lays out the researchers' problems (npm run layout)
 ├─ supabase/schema.sql       tables, security rules, sync function
 ├─ public/                   icons
 └─ src/
    ├─ App.tsx                screen flow + simple screens
    ├─ Game.tsx               the crossword game screen
    ├─ Admin.tsx              admin page (/#admin)
+   ├─ AdminMaker.tsx         Puzzle maker tab (researchers build puzzles)
    ├─ puzzle.ts              parse / validate / solve puzzles (pure)
    ├─ generate.ts            branching crossword generator (pure)
    ├─ rules.ts               all game numbers, rewards, unlock + ranking logic (pure)
@@ -147,7 +150,8 @@ Then a **CONTINUE** button. It goes to the pre-assessment if not done yet, other
   - **Relax** (green): "Go at your own pace! Free clues, no pressure."
   - **Expert** (orange, 🔒 until Relax 4 is won): "Bigger grids, beat the clock, climb the ranking!"
   - **Battle** (blue, 🔒 until Expert 5 is won): "Team up with your group and race the other groups!"
-- Coin balance and student code are shown, with a gear for Settings (How to Play, Sound effects on/off, Sign out).
+- Coin balance and student code are shown, with a gear for Settings (How to Play, Sound effects on/off, Music on/off, Sign out).
+- **Sideways phone:** a "Turn your phone upright" screen covers the app (landscape and under 500px tall, so tablets, laptops and the admin page are never blocked). The installed app also locks to portrait (manifest). Music starts on the first tap, pauses when the app goes to the background, and stops on the admin page.
 
 ### 5.6 Level list
 - **Relax:**
@@ -168,7 +172,7 @@ Then a **CONTINUE** button. It goes to the pre-assessment if not done yet, other
 
 ### 5.7 Game screen (from the client's sketch, boxes styled like a printed math-crossword worksheet)
 ```
- ‹  ↻   Level 1                                   (!)
+ ‹  ↻   Level 1
         Addition of Integers
  💗💗💗💗💗  ⏱ 01:32  [+40]                    🪙 60
           ┌───┬───┬───┬───┬────┐
@@ -184,6 +188,7 @@ Then a **CONTINUE** button. It goes to the pre-assessment if not done yet, other
 ```
 - **Boxes:** square, joined edge to edge with shared dark lines, like the printed worksheets.
 - **Puzzle box:** the screen is a fixed frame (header, stats, puzzle box, tray). The puzzle box keeps its size; the grid scales to fit inside it, so a bigger puzzle just gets smaller squares (at most 44px). Nothing goes under the tray.
+  - **Tall puzzles scroll:** squares never go below 30px for height; a taller puzzle (more than about 11 rows on a small phone) scrolls up and down inside the box. After a right answer, the next empty box scrolls into view.
   - Each square sizes its own number. Below 26px, the parentheses on negatives drop off so the digits stay readable.
   - **Comfortable sizes:** Relax 7×11 and Expert 9×11 give 30px+ squares on a 360×640 phone and 39–44px on a 390×844 phone.
   - **Bigger puzzles:** an 11×15 test puzzle (22-number bank) gets 22px squares on 360×640 and 32px on 390×844. That's readable but small to tap on the smaller phone, so about 9×11 stays the comfortable size for phones.
@@ -191,10 +196,10 @@ Then a **CONTINUE** button. It goes to the pre-assessment if not done yet, other
 - **Placing a number:** tap a yellow cell, then a bank number. If no cell is selected, the yellow cells pulse and "Tap a yellow box first!" floats above the tray.
 - **Instant check:**
   - **Correct:** the box blinks green twice, then stays green and locks, and that bank tile is used up. No "Correct!" pop-up (Ken, Oct 16): the box is the feedback.
-  - **Wrong:** the box blinks red and shakes, and the tile stays in the bank. The heart that broke falls and fades while a red −1 rises from it (in Battle, a teammate's mistake shows it too). No "Oops" pop-up (Ken, Oct 16). The mistake is logged. In Relax the (!) button wiggles toward the free clue.
+  - **Wrong:** the box blinks red and shakes, and the tile stays in the bank. The heart that broke falls and fades while a red −1 rises from it (in Battle, a teammate's mistake shows it too). No "Oops" pop-up (Ken, Oct 16). The mistake is logged. In Relax the 📖 Rules button wiggles toward the free clue.
   - **Sounds:** a rising "ding-ding" when right, a short low tone when wrong. Settings → Sound effects turns them off (remembered per phone).
 - **Negative numbers** show in parentheses in the grid, e.g. `(−7)`, the same as the paper's test items.
-- **(!) popup:** replaces the old Clue button and blue box.
+- **(!) popup: hidden** (Ken, Oct 17: it repeated 📖 Rules). The code stays: `INFO = true` in `Game.tsx` brings back the button and its level-start pop-up. With it hidden, the clock starts as soon as the level opens, and Relax's free clue moved into 📖 Rules. What it did:
   - **Opens automatically when a level starts.** It shows the sign rules for that level's operation (Subtraction also shows Addition; mixed multi-step levels also show MDAS). **Signs first** (researchers, Oct 16: easier for learners still building their English), then one short plain-English line under each group, e.g. "Same signs: add, then keep the sign." Different-sign addition is shown with examples like `(+5) + (−3) = (+2)`.
   - **The timer starts when it closes**, so reading costs no coins.
   - **Closing:** with the **X at the upper left** or the big button. Tapping (!) opens it again any time.
@@ -208,7 +213,7 @@ Then a **CONTINUE** button. It goes to the pre-assessment if not done yet, other
   - In Expert it also decides the ranking (client: "the timer is the basis for the leaderboard and for how many coins").
   - The yellow chip (+N) shows the coins the student would get by finishing now.
 - **‹ Back / ↻ Restart:** asks "Leave/restart this level?" first. A level the student actually played (placed, missed, or hinted) is logged as `quit`.
-- **📖 Rules:** a pop-up with all sign rules and MDAS (from the sketch). The timer keeps running.
+- **📖 Rules:** a pop-up with all sign rules and MDAS (from the sketch). The timer keeps running. **In Relax** it also holds the free clue for the selected box, at the bottom next to Got it! (where the pop-up opens scrolled to), or a tip to tap a yellow box first.
 - **Undo (in the sketch): kept** (researchers, Oct 16). With instant checking a wrong number never stays on the board, so Undo takes back your last correct number. Hints and lost hearts aren't undone, and Battle has no Undo (shared grid).
 - **Result:**
   - **Win:** time, wrong answers, hints, coins earned; in Expert also "Rank #N". Then Next level / Levels.
@@ -228,13 +233,20 @@ Then a **CONTINUE** button. It goes to the pre-assessment if not done yet, other
 - **Live updates:** refreshes every 10 seconds while open and online. Offline it shows "Connect to the internet to see the ranking" with the student's own best time.
 
 ### 5.10 Admin page (`/#admin`, separate login)
-Five tabs, in this order: Students (opens first), Battle, Overview, Puzzles, Research. Codes only, no names (decided with Ken).
+Six tabs, in this order: Students (opens first), Battle, Overview, Puzzles, Puzzle maker, Research. Codes only, no names (decided with Ken).
 - **Sign in:** email + password. The admin account is created by the developer, see §15.
 - **Overview:** learners, who played this week, results, time playing; progress (how many won each level, and Battle); **needs attention** (hasn't played yet, no play for 3+ days, 3+ tries on their current level without a win); the Expert ranking.
 - **Students:** add students (next codes `S01`, `S02`, … with random 4-digit PINs), print code slips, refresh, the progress table (code, PIN, each level ✓ best time / tries, wrong, sign errors, hints, coins, last played). Tap a code for the learner's **record**: every level's tries, best time, wrong answers and hints, time on task, their mistakes (answer vs. placed) and how many were **sign errors**, and their test scores. Downloads:
   - `attempts.csv`: one row per play: student, level, result, seconds, wrong, sign_errors, hints, coins, puzzle (version), played_at.
   - `students.csv`: one row per student: levels won, best times, totals, seconds played.
-- **Puzzles:** each level's puzzle (answers shown in the boxes), sample or approved; **Approve this puzzle**, or **Generate another** → preview → **Use the new puzzle** (same generator and checks as `npm run generate`, run off the main thread; Expert 5 takes ~4 s). Approved puzzles are saved in Supabase (`puzzles`) and reach every phone the next time it opens the app (cached for offline). Every result saves its puzzle's version; the Expert ranking only compares results on the same version. Swapping a puzzle learners already played asks first (§13, question 9).
+- **Puzzles:** each level's puzzle (answers shown in the boxes). The researchers' puzzles (`puzzles/<level>.csv`) show **✓ Researchers' puzzle · locked** with no buttons (§13, question 9). Until they arrive, a sample can be approved, or **Generate another** → preview → **Use the new puzzle** (same generator and checks as `npm run generate`, run off the main thread; Expert 5 takes ~4 s). Approved samples are saved in Supabase (`puzzles`) and reach every phone the next time it opens the app (cached for offline). Every result saves its puzzle's version; the Expert ranking only compares results on the same version. Swapping a sample learners already played asks first. Each card also has **Edit in the puzzle maker**.
+- **Puzzle maker** (Ken, Oct 17: the researchers build their own puzzles at the game's sizes): pick a level and build its puzzle on that level's grid, **Relax 7 × 11, Expert and Battle 9 × 11** (the generator's sizes, `sizeOf` in `generate.ts`), with row and column numbers.
+  - **Typing, spreadsheet style:** select a square and type a number like −7 or + − × ÷ =; Enter moves on across or down; arrows move; `?` makes a number an answer box; Delete clears. On touch: the square's field below the grid, plus buttons for the level's operations, =, ± sign, Answer box and Clear.
+  - **Write an equation:** type `-12 + (-7) = -19` (or leave out `= …` and the answer is worked out) and place it across or down from the selected square. If that square holds a number the equation uses, it crosses there. Wrong math, the wrong operation for the level, no room or a clash are refused with the reason. Its answer becomes a yellow box unless unticked.
+  - **Check, live:** the same checker as `npm run check` (`validate`), each problem a link to its square, with the squares marked red and "!"; the number bank; equation and answer-box counts. **Learner view** hides the answers.
+  - **Undo/Redo** (Ctrl+Z / Ctrl+Y), **Open a CSV** (made in Sheets with the guide; refused if bigger than the grid), **Download CSV**, **Load the current puzzle**, **Clear the grid**.
+  - **Use this puzzle** (once Check passes): saved like an approval, cropped to the used squares; asks first if learners played the current one; locked levels (a file in `puzzles/`) can't be replaced. Unsaved work is kept on that computer, one draft per level, until it's used.
+  - Tested in Chromium (Oct 17): built by typing and by equations, errors found and fixed, used, then played to a win as a student; draft survives a reload; 375 / 820 / 1280 px wide with no sideways scrolling; axe: no issues.
 - **Research:** the paper's instrument (Appendix 5), typed in from the paper forms: Part I test before and after (✓/✗ per item, answer key shown) and the Part II survey (1–4 per statement, or type all 20 digits). It works out: RQ1–2 (N, mean, median, SD, MPS, DepEd mastery level), RQ3 (mean gain, Shapiro–Wilk on the gains, paired t-test with Cohen's d, Wilcoxon signed-rank, and which one the normality check supports, in a sentence), results by operation, RQ4 (mean, SD and Table 1 interpretation per dimension, each statement, overall), and the pilot's instrument check (item difficulty and discrimination with a suggested keep/revise/discard, KR-20, Cronbach's α per dimension). `research.csv` has every item for SPSS/jamovi. The statistics are checked against scipy in `npm run check`. Saved in Supabase (`research`), admins only.
 - **Battle:** the room host, §10.
 
@@ -259,7 +271,17 @@ Five tabs, in this order: Students (opens first), Battle, Overview, Puzzles, Res
 
 ## 7. Puzzles: generator, review, format
 
-**Generated, then reviewed.** Puzzles look like printable math-crossword worksheets: equations branch off each other at shared numbers. `npm run generate` writes one per level to `puzzles/<level>.sample.csv` (tagged SAMPLE in the app).
+**The researchers' problems, our layout** (§13, questions 6 and 9). The researchers give Ken their problems (from a standardized test); Ken lays them out as crosswords in `puzzles/<level>.csv`, problems unchanged. Those files are final: they beat any approval on the admin page and are locked there. Until they arrive, every level uses a generated sample.
+
+**Relax 1–4 (Oct 17):** back to the samples (Ken). Ken's adapted grids (`integrid_relax_csv_app_ready.zip`, 5 × 21–29, from the researchers' handwritten drafts) didn't fit the game's sizes, so the researchers build theirs in the admin page's **Puzzle maker** (§5.10) on the 7 × 11 / 9 × 11 grid instead.
+
+**Laying out a plain list** (if a level comes as a list of equations instead): paste it into `puzzles/<level>.txt` (one equation per line, like `-12 + (-7) = -19`; headings are skipped), then `npm run layout -- <level>`. It checks every line is true and uses the level's operation, then:
+- **Connects every link it can:** equations cross wherever they share a number, answers included, so two problems with the same answer share one box. Problems that can't connect sit apart, beside or below the rest.
+- **Blanks each problem's answer**, so learners solve the items as written.
+- Picks the most crossings, then the smallest grid, out of 2000 random layouts (~10 s).
+- Won't replace an existing `<level>.csv` without `--force`, since it's locked for the study.
+
+**Samples.** Puzzles look like printable math-crossword worksheets: equations branch off each other at shared numbers. `npm run generate` writes one per level to `puzzles/<level>.sample.csv` (tagged SAMPLE in the app).
 
 How the generator works (`src/generate.ts`):
 1. **Grow:** place one equation, then keep crossing a number already on the grid with a new equation in the other direction. It mostly branches from the newest equations, and rarely from ones that already have two crossings, so the shape forks like roots instead of a comb. Equations only touch where they share a number.
@@ -272,21 +294,20 @@ How the generator works (`src/generate.ts`):
 - No 0s, no ×1 or ÷1, no x ÷ x = 1.
 - Partial products stay within the level's limit.
 - Relax: one operation per equation, max 7 columns (bigger boxes).
-- Expert: max 9 columns. Expert 4–5 add multi-step equations like `(−28) + 78 ÷ (−6) = (−41)` (MDAS).
+- **Two numbers per equation, every level:** `N op N = N` (client, Oct 17). No multi-step equations like `(−28) + 78 ÷ (−6) = (−41)`; `npm run check` rejects them. The generator can still make them (`steps: [2]`), no preset uses it.
+- Expert: max 9 columns.
 
 | Level | Numbers up to | Grid | Equations |
 |---|---|---|---|
 | Relax 1–2 (+, −) | ±20 | 7 × 11 | 7 |
 | Relax 3–4 (×, ÷) | ±100, factors ≤ 10 | 7 × 11 | 7 |
 | Expert 1 (+ −) / 2 (× ÷) / 3 (all) | ±50 / ±144 / ±100 | 9 × 11 | 11 |
-| Expert 4 (multi-step) / 5 (mixed) | ±100 | 9 × 11 | 8 / 11–12 |
+| Expert 4 / 5 (all four) | ±100 | 9 × 11 | 11 / 11–12 |
 | Battle 1–3 | ±100, all four operations | 9 × 11 | 10–11 |
 
-**Review = approval.**
-- The researchers play or look over each generated puzzle. Renaming `relax-1.sample.csv` → `relax-1.csv` approves it and removes the SAMPLE tag.
-- They can change any puzzle in Google Sheets, or write their own with the rules below.
-- Don't like one? Run `npm run generate -- relax-1 --seed 50` for a different layout.
-- *Paper note:* the generator is rule-based, not AI. But the paper says the problems are the researchers' own work, so they should review every puzzle and describe it as "generated with a rule-based puzzle generator, then reviewed and validated by the researchers".
+**Samples during development:**
+- Don't like one? Run `npm run generate -- relax-1 --seed 50` for a different layout, or use **Generate another** on the Puzzles tab.
+- *Paper note:* the samples are placeholders. The study's problems are the researchers' own, which matches the paper's AI clause.
 
 **Rules for a puzzle sheet** (the full guide for researchers is `puzzles/PUZZLE_GUIDE.md`)
 1. **Before typing**, set the whole sheet to Format → Number → **Plain text**, otherwise Sheets treats `=`, `+` and `-` as formulas.
@@ -297,8 +318,8 @@ How the generator works (`src/generate.ts`):
    - An operator: `+`, `-`, `x`, `/`
    - An equals sign: `=`
 4. **Equations** read left→right and top→bottom. Every row/column run of 2+ filled squares must be one complete, correct equation, like `-3 + 5 = 2` or `?6 = 2 x 3`. Separate neighbouring equations with an empty square.
-5. **Operations per mode:** Relax equations use one operation each (Level 1 only +, Level 2 only −, …). Expert may mix and chain them.
-6. **Math:** mixed operations follow MDAS. Division must come out whole, and nothing is divided by 0.
+5. **Operations per mode:** every equation has two numbers and one operation, `N op N = N` (client, Oct 17). Relax uses that level's operation only (Level 1 only +, Level 2 only −, …). Expert may mix operations across equations.
+6. **Math:** division must come out whole, and nothing is divided by 0.
 7. **Size:** max **9 columns** wide (phone screens).
 8. **One answer only:** using the number bank, there must be exactly one way to fill all `?` squares.
 9. **Export:** File → Download → CSV, named by level (`relax-1.csv` … `relax-4.csv`, `expert-1.csv` … `expert-5.csv`, `battle-1.csv` …).
@@ -423,7 +444,7 @@ Day 1 = Thu Oct 15. Delivery Thu Oct 29.
 - [x] Branching puzzle generator + sign-rule filter; all 9 levels + battle-1..3 generated and passing the checker
 - [x] `PUZZLE_GUIDE.md` written
 - [ ] Send the guide to the researchers: they review/approve the generated puzzles (or edit/write their own)
-- [ ] Relax 1–4 approved, **by Oct 19**
+- [ ] Relax 1–4 approved, **by Oct 19**. *Samples in place; the researchers build theirs in the Puzzle maker (Oct 17).*
 - [ ] Expert 1–5 approved, **by Oct 22**
 - [ ] Battle 1–3 approved, **by Oct 22**
 - [ ] Researchers review the Clue/rule wording in `content.ts`
@@ -475,10 +496,10 @@ Day 1 = Thu Oct 15. Delivery Thu Oct 29.
 3. **60 coins:** one-time starting coins, or 60 every time they log in (e.g. once a day)? *Built: one-time.*
 4. **Battle:** hearts answered: the group shares 5 (researchers, Oct 16). Still open: do students pick their group, or does the admin assign them? *Default: students pick.*
 5. **Undo:** keep it (researchers, Oct 16). *Built: takes back the last correct number.*
-6. **Puzzles: who makes the levels, and how?** To ask after the researchers have played the game, with choices: (a) approve the generated ones / generate others on the Puzzles tab, (b) make our own in Google Sheets with the guide, (c) a mix, (d) we already have problems on paper for the developer to type in, (e) none of the above. Deadlines: Relax by Oct 19, Expert + Battle by Oct 22.
+6. **Puzzles: who makes the levels, and how?** Answered (researchers, Oct 16): the researchers write the problems, based on a standardized test, and give them to Ken, who puts them in (`puzzles/<level>.csv`). The problems stay exactly as written; only the layout of the boxes is ours. The generated samples stay in use until then (still in development). Deadlines: Relax by Oct 19, Expert + Battle by Oct 22.
 7. **Flow:** How to Play stays before the pre-assessment (docx page order)? *Built: yes.*
 8. **Battle unlock:** confirmed by the researchers (Oct 16) and the docx: "Battle Mode shall only be accessible after completing Expert Mode." *Built: locked until Expert 5.* In practice, all 10 learners need to finish Expert 5 before battle day.
-9. **Swapping a played puzzle:** once learners have played a level, can the researchers still swap its puzzle (Puzzles tab)? *Built for now: allowed after a warning; earlier results stay tied to their puzzle version, and that level's ranking starts over. A strict lock is a one-line change.* To ask after the researchers have played the game, with choices: (a) lock once anyone played, (b) allow with a warning (current), (c) allow until the study starts, then lock everything (would add a "Start the study" switch), (d) none of the above.
+9. **Swapping a played puzzle:** answered (researchers, Oct 16): no changes once a puzzle is set, since the problems come from a standardized test. *Built: a researchers' file in `puzzles/` beats anything approved on the Puzzles tab, which shows it as locked with no buttons. Samples can still be approved or regenerated (with a warning if played) until then.*
 
 ## 13b. Accessibility (checked 2026-10-15)
 
@@ -490,7 +511,7 @@ Day 1 = Thu Oct 15. Delivery Thu Oct 29.
 - **New screens:** the screen's heading is announced ("Sign in, heading level 1").
 - **Pre-assessment:** each new question is read out.
 - **Yellow boxes:** each one speaks its equations, so the puzzle can be solved by ear: "Row 1, column 3, empty. Across: this box plus blank equals negative 7. Down: …". Filled boxes are spoken as numbers, and the rest of the grid is hidden from the screen reader as drawing.
-- **Choosing a number:** selecting a box moves focus to the number bank ("Place negative 12"). A right answer says "Correct!" (screen readers only; on screen the box blinks green) and moves to the next empty box; a wrong one says "Oops! You lost a heart. For a free clue, use the Rules and a free clue button."
+- **Choosing a number:** selecting a box moves focus to the number bank ("Place negative 12"). A right answer says "Correct!" (screen readers only; on screen the box blinks green) and moves to the next empty box; a wrong one says "Wrong. You lost a heart. For a free clue, use the Rules and a free clue button." (in Relax, 📖 Rules is named "Rules and a free clue").
 - **Pop-ups:** they read their contents. Tab stays inside, Escape and the X close them, and focus returns to whatever opened them.
 - **Rule patterns:** read as words ("negative plus negative equals negative"). Decorative emoji and arrows are hidden from screen readers.
 
