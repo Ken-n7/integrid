@@ -9,6 +9,7 @@ const KEY = 'integrid:music'
 let buffer: Promise<AudioBuffer> | null = null
 let playing: AudioBufferSourceNode | null = null
 let starting = false
+let wanted = false // false once stopMusic() runs, even while the file is still loading
 
 export function musicOn() {
   try {
@@ -33,12 +34,13 @@ export async function startMusic() {
   const ctx = audio()
   if (!ctx) return
   starting = true
+  wanted = true
   try {
     buffer ??= fetch(SRC)
       .then((r) => r.arrayBuffer())
       .then((b) => ctx.decodeAudioData(b))
     const buf = await buffer
-    if (!musicOn()) return // switched off while it loaded
+    if (!musicOn() || !wanted) return // switched off, or the student app closed (admin page), while it loaded
     const gain = ctx.createGain()
     gain.gain.value = VOLUME
     gain.connect(ctx.destination)
@@ -55,6 +57,7 @@ export async function startMusic() {
 }
 
 export function stopMusic() {
+  wanted = false
   playing?.stop()
   playing = null
 }

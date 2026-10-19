@@ -15,6 +15,10 @@ assert.match(errs('?7,/,2,=,3')[0], /not a whole number/)
 assert.match(errs('?2,+,?3,=,5')[0], /more than one way/) // 2+3 or 3+2
 assert.match(errs('?5,5,=,5')[0], /expected an operator/)
 assert.throws(() => parse('?5,abc'), /row 1, column 2/)
+assert.deepEqual(errs('?2,(+),3,(=),5'), []) // symbols typed in brackets, as in Google Sheets
+assert.deepEqual(errs('-12,+,?-7,=,-19,+,?14,=,-5'), []) // a chain: -12 + (-7) = -19, then -19 + 14 = -5
+assert.match(errs('-12,+,?-7,=,-19,+,14,=,-6')[0], /is not true/) // each link of a chain is checked
+assert.match(errs('?2,+,3,=,5,=,5')[0], /exactly one =/) // not a chain: N op N = N = N
 assert.equal(countSolutions(parse('?-3,+,5,=,?2'), equations(parse('?-3,+,5,=,?2')).eqs, [-3, 2]), 1)
 assert.deepEqual(bankOf(parse('?-3,+,?5,=,2')), [-3, 5])
 

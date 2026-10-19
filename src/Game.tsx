@@ -76,6 +76,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
   const [wiggle, setWiggle] = useState(false)
   const board = useRef<HTMLDivElement>(null)
   const [clear, setClear] = useState<'top' | 'left' | null>(null) // side kept clear for the (!) corner
+  const [more, setMore] = useState({ up: false, down: false }) // squares scrolled out of sight above / below
   const [now, setNow] = useState(Date.now)
 
   const ticking = battle ? !battle.over : run.status === 'play' // a battle's clock runs until the round ends
@@ -126,6 +127,25 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
     const resize = new ResizeObserver(check)
     resize.observe(el)
     return () => resize.disconnect()
+  }, [grid])
+
+  // A puzzle taller than the box scrolls inside it (squares never go below 30px): show which edge
+  // has more squares past it, since phones hide the scrollbar until you scroll.
+  useEffect(() => {
+    const el = board.current!
+    const check = () => {
+      const up = el.scrollTop > 2
+      const down = el.scrollTop + el.clientHeight < el.scrollHeight - 2
+      setMore((m) => (m.up === up && m.down === down ? m : { up, down }))
+    }
+    check()
+    el.addEventListener('scroll', check, { passive: true })
+    const resize = new ResizeObserver(check)
+    resize.observe(el)
+    return () => {
+      el.removeEventListener('scroll', check)
+      resize.disconnect()
+    }
   }, [grid])
 
   const filled = battle ? { ...battle.shared, ...run.filled } : run.filled
@@ -310,8 +330,8 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
       <h3>
         <Deco>🔎</Deco> Clue for your box
       </h3>
-      {clues.map((c) => (
-        <div key={c.dir}>
+      {clues.map((c, i) => (
+        <div key={i}>
           <p>
             <b>{c.dir}:</b> <Pattern p={c.pattern} />
           </p>
@@ -377,55 +397,59 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
       {battle?.bars}
 
       {/* the puzzle box: fills the space between the header and the tray, and the grid scales to fit it */}
-      <div ref={board} className={`board${clear ? ` clear-${clear}` : ''}`}>
-        {INFO && (
-          <button
-            className={`info${wiggle ? ' wiggle' : ''}`}
-            onClick={() => setInfo(true)}
-            aria-label={rules.clue ? 'Rules and a free clue' : 'Rules for this level'}
-            aria-haspopup="dialog"
-          >
-            <Icon name="info" />
-          </button>
-        )}
-        <div className={`grid${nudge ? ' nudge' : ''}`} style={{ '--cols': grid[0].length, '--rows': grid.length } as CSSProperties}>
-          {grid.flatMap((row, r) =>
-            row.map((c, col) => {
-              const k = key([r, col])
-              if (!c) return <span key={k} className="cell empty" aria-hidden="true" />
-              if (c.t !== 'num')
-                return (
-                  <span key={k} className="cell sym" aria-hidden="true">
-                    {c.t === 'eq' ? '=' : c.op}
-                  </span>
-                )
-              if (!c.hidden)
-                return (
-                  <span key={k} className="cell given" data-len={lenOf(c.v)} aria-hidden="true">
-                    <Num v={c.v} />
-                  </span>
-                )
-              const done = k in filled
-              const flashHere = flash?.k === k
-              const shown = done ? c.v : flashHere ? flash.v : null
-              const cls = `cell blank${done ? (filled[k] ? ' hinted' : ' solved') : ''}${sel === k ? ' sel' : ''}${flashHere ? (flash.ok ? ' good' : ' bad') : ''}`
-              return (
-                <button
-                  key={flashHere ? `${k}-${flash.t}` : k}
-                  className={cls}
-                  data-len={shown === null ? 1 : lenOf(shown)}
-                  onClick={() => select(k)}
-                  disabled={done || !playing}
-                  aria-pressed={sel === k}
-                  data-cell={k}
-                  aria-label={`Row ${r + 1}, column ${col + 1}: ${done ? sayNum(c.v) : 'empty'}. ${describe(k)}`}
-                >
-                  {shown !== null && <Num v={shown} />}
-                </button>
-              )
-            }),
+      <div className="board-wrap">
+        <div ref={board} className={`board${clear ? ` clear-${clear}` : ''}`}>
+          {INFO && (
+            <button
+              className={`info${wiggle ? ' wiggle' : ''}`}
+              onClick={() => setInfo(true)}
+              aria-label={rules.clue ? 'Rules and a free clue' : 'Rules for this level'}
+              aria-haspopup="dialog"
+            >
+              <Icon name="info" />
+            </button>
           )}
+          <div className={`grid${nudge ? ' nudge' : ''}`} style={{ '--cols': grid[0].length, '--rows': grid.length } as CSSProperties}>
+            {grid.flatMap((row, r) =>
+              row.map((c, col) => {
+                const k = key([r, col])
+                if (!c) return <span key={k} className="cell empty" aria-hidden="true" />
+                if (c.t !== 'num')
+                  return (
+                    <span key={k} className="cell sym" aria-hidden="true">
+                      {c.t === 'eq' ? '=' : c.op}
+                    </span>
+                  )
+                if (!c.hidden)
+                  return (
+                    <span key={k} className="cell given" data-len={lenOf(c.v)} aria-hidden="true">
+                      <Num v={c.v} />
+                    </span>
+                  )
+                const done = k in filled
+                const flashHere = flash?.k === k
+                const shown = done ? c.v : flashHere ? flash.v : null
+                const cls = `cell blank${done ? (filled[k] ? ' hinted' : ' solved') : ''}${sel === k ? ' sel' : ''}${flashHere ? (flash.ok ? ' good' : ' bad') : ''}`
+                return (
+                  <button
+                    key={flashHere ? `${k}-${flash.t}` : k}
+                    className={cls}
+                    data-len={shown === null ? 1 : lenOf(shown)}
+                    onClick={() => select(k)}
+                    disabled={done || !playing}
+                    aria-pressed={sel === k}
+                    data-cell={k}
+                    aria-label={`Row ${r + 1}, column ${col + 1}: ${done ? sayNum(c.v) : 'empty'}. ${describe(k)}`}
+                  >
+                    {shown !== null && <Num v={shown} />}
+                  </button>
+                )
+              }),
+            )}
+          </div>
         </div>
+        {more.up && <span className="board-more up" aria-hidden="true" />}
+        {more.down && <span className="board-more down" aria-hidden="true" />}
       </div>
 
       {/* pinned to the bottom like a keyboard, so the bank stays in reach on tall grids */}

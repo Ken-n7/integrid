@@ -273,12 +273,6 @@ const PRESETS: Record<string, Preset> = {
   battle: { ...expert, max: 100, factor: 10 },
 }
 
-// The grid a level's puzzle fits in (the puzzle maker's canvas): Relax 7 × 11, the rest 9 × 11.
-export const sizeOf = (id: string) => {
-  const { width, height } = PRESETS[id] ?? PRESETS.battle
-  return { width, height }
-}
-
 // The lesson is sign rules: at least a third of the numbers negative, and in Relax every
 // sign pair (+)(+) (+)(−) (−)(+) (−)(−) appears at least once.
 function teachesSigns(grid: Grid, relax: boolean) {

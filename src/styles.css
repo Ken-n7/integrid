@@ -821,15 +821,56 @@ label.inline input {
   min-height: 0;
   padding-bottom: 0;
 }
+.board-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 .board {
   position: relative;
   flex: 1;
   min-height: 0;
-  overflow: auto; /* safety net only: the grid always scales to fit */
+  overflow: auto; /* a puzzle too tall for 30px squares scrolls up and down */
   padding: 2px; /* room for the outer box lines */
   container-type: size;
   display: grid;
   place-items: safe center;
+}
+/* more squares past this edge: a shadow and a small arrow (taps go through to the squares) */
+.board-more {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  height: 26px;
+  pointer-events: none;
+}
+.board-more.up {
+  top: 0;
+  background: linear-gradient(rgb(92 58 30 / 0.28), transparent);
+}
+.board-more.down {
+  bottom: 0;
+  background: linear-gradient(transparent, rgb(92 58 30 / 0.28));
+}
+.board-more::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border: solid var(--brown);
+  border-width: 0 3px 3px 0;
+}
+.board-more.down::after {
+  bottom: 7px;
+  transform: translateX(-50%) rotate(45deg);
+}
+.board-more.up::after {
+  top: 9px;
+  transform: translateX(-50%) rotate(-135deg);
 }
 /* keep the (!) corner clear */
 .board.clear-top {
@@ -1680,6 +1721,7 @@ html:has(.admin-tabs) {
   gap: 20px;
 }
 .pz-pair figure {
+  max-width: 100%;
   margin: 0;
   display: grid;
   gap: 6px;
@@ -1693,22 +1735,18 @@ html:has(.admin-tabs) {
   color: var(--green-ink);
 }
 .pz {
-  --pz: 30px;
+  /* 30px squares, smaller on a phone so a 13-column puzzle fits the card (a preview never scrolls) */
+  --pz: min(30px, calc((100vw - 80px) / var(--cols, 9)));
   display: grid;
   width: max-content;
   max-width: 100%;
-}
-@media (max-width: 420px) {
-  .pz {
-    --pz: 26px;
-  }
 }
 .pz span {
   width: var(--pz);
   height: var(--pz);
   display: grid;
   place-items: center;
-  font-size: 0.7rem;
+  font-size: calc(var(--pz) * 0.42);
   font-weight: 800;
 }
 .pz-cell,
@@ -1837,6 +1875,10 @@ html:has(.admin-tabs) {
   border-left: 0; /* one line between them, without overlapping the targets */
 }
 /* row and column numbers, so "row 5, column 3" in Check is easy to find */
+/* on phones 13 columns don't fit: the grid scrolls sideways inside the card, never the page */
+.mk-scroll {
+  overflow-x: auto;
+}
 .mk-grid {
   --mk: clamp(28px, calc((100cqw - 1.5rem) / var(--w)), 52px);
   display: grid;

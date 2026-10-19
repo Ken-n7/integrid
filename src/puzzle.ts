@@ -9,7 +9,9 @@ type Side = { nums: Pos[]; ops: Op[] }
 export type Eq = { cells: Pos[]; across: boolean; left: Side; right: Side }
 type Lookup = (p: Pos) => number | undefined // undefined = blank not filled yet
 
-export const MAX_COLS = 9
+// The biggest puzzle: 13 × 17, the researchers' pick (Oct 18) after seeing each size in the game on phones.
+export const MAX_COLS = 13
+export const MAX_ROWS = 17
 const OPS: Record<string, Op> = { '+': '+', '-': '−', x: '×', '*': '×', '×': '×', '/': '÷', '÷': '÷' }
 
 export const key = (p: Pos) => `${p[0]},${p[1]}`
@@ -30,14 +32,15 @@ function readCell(raw: string, p: Pos): Cell {
   // Sheets and Docs like to swap "-" for "−" or "–", and people type "(-7)" or "x"
   const s = raw.replace(/["\s]/g, '').replace(/[−–—]/g, '-').toLowerCase()
   if (!s) return null
-  if (s === '=') return { t: 'eq' }
-  if (Object.hasOwn(OPS, s)) return { t: 'op', op: OPS[s] }
+  const sym = s.replace(/^\((.)\)$/, '$1') // "(+)" and "(=)": typed that way so Google Sheets doesn't start a formula
+  if (sym === '=') return { t: 'eq' }
+  if (Object.hasOwn(OPS, sym)) return { t: 'op', op: OPS[sym] }
   const m = /^(\?)?\(?([-+]?\d+)\)?$/.exec(s)
   if (!m) throw new Error(`${where(p)}: can't read "${raw.trim()}"`)
   return { t: 'num', v: Number(m[2]) || 0, hidden: !!m[1] }
 }
 
-// Every row/column run of 2+ filled squares is one equation.
+// Every row/column run of 2+ filled squares is one equation, or a chain of them (below).
 export function equations(grid: Grid) {
   const eqs: Eq[] = []
   const errors: string[] = []
@@ -53,8 +56,9 @@ export function equations(grid: Grid) {
           continue
         }
         if (run.length > 1) {
-          const e = compile(grid, run, across)
+          const e = chain(grid, run, across) ?? compile(grid, run, across)
           if (typeof e === 'string') errors.push(e)
+          else if (Array.isArray(e)) eqs.push(...e)
           else eqs.push(e)
         }
         run = []
@@ -62,6 +66,15 @@ export function equations(grid: Grid) {
     }
   }
   return { eqs, errors }
+}
+
+// A chain, as in the researchers' drafts: -12 + (-7) = -19 + 14 = -5 is two equations, the second
+// starting with the first one's answer (-12 + (-7) = -19, then -19 + 14 = -5). Only runs shaped
+// N op N = N op N = N … count; anything else is checked as a single equation.
+function chain(grid: Grid, cells: Pos[], across: boolean): Eq[] | null {
+  const kind = (i: number) => grid[cells[i][0]][cells[i][1]]!.t
+  if (cells.length < 9 || cells.length % 4 !== 1 || !cells.every((_, i) => kind(i) === (i % 4 === 3 ? 'eq' : i % 2 ? 'op' : 'num'))) return null
+  return Array.from({ length: (cells.length - 1) / 4 }, (_, i) => compile(grid, cells.slice(4 * i, 4 * i + 5), across) as Eq)
 }
 
 function compile(grid: Grid, cells: Pos[], across: boolean): Eq | string {
@@ -147,7 +160,8 @@ export function text(grid: Grid, e: Eq) {
 export function validate(grid: Grid, rules: { ops: Op[] }): string[] {
   const errors: string[] = []
   const width = grid[0]?.length ?? 0
-  if (width > MAX_COLS) errors.push(`${width} columns wide; phones fit at most ${MAX_COLS}`)
+  if (width > MAX_COLS) errors.push(`${width} columns wide; puzzles are at most ${MAX_COLS} × ${MAX_ROWS}`)
+  if (grid.length > MAX_ROWS) errors.push(`${grid.length} rows tall; puzzles are at most ${MAX_COLS} × ${MAX_ROWS}`)
   const { eqs, errors: shape } = equations(grid)
   errors.push(...shape)
   const covered = new Set(eqs.flatMap((e) => e.cells.map(key)))

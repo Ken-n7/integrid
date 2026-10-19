@@ -4,7 +4,7 @@
 
 Until your puzzles arrive, each level has a **sample** made by a rule-based generator (not AI), with a red SAMPLE tag in the app. They're only for trying the game out.
 
-Want to lay out a puzzle yourself? The easiest way is the admin page's **Puzzle maker** tab: it gives each level its grid (Relax 7 × 11, Expert and Battle 9 × 11), checks the puzzle as you build it, and **Use this puzzle** puts it in the game. You can also make it in Google Sheets with the rules below and open the CSV there, or send it to the developer.
+Want to lay out a puzzle yourself? The easiest way is the admin page's **Puzzle maker** tab: it gives you a 13 × 17 grid, checks the puzzle as you build it, and **Use this puzzle** puts it in the game. You can also make it in Google Sheets with the rules below and open the CSV there, or send it to the developer.
 
 ## 1. Set up the sheet (do this first!)
 
@@ -37,11 +37,11 @@ This reads across: (−3) + 5 = 2 and 1 + (−2) = −1. Down: (−3) + 4 = 1, 5
 
 ## 3. Rules
 
-1. **Every line of 2 or more touching squares must be one complete, correct equation**, both across and down. Put an empty square between equations that shouldn't touch.
+1. **Every line of 2 or more touching squares must be one complete, correct equation**, both across and down. Put an empty square between equations that shouldn't touch. One exception: an equation can carry on from the previous one's answer in the same line, like `-12 + (-7) = -19 + 14 = -5`. That reads as `-12 + (-7) = -19` and then `-19 + 14 = -5`, and each part must be correct.
 2. **Two numbers and one operation per equation**, like `-3 + 5 = 2`. No longer ones like `2 + 3 x 4 = 14`.
 3. **Relax levels: only that level's operation.** Level 1: only `+`. Level 2: only `-`. Level 3: only `x`. Level 4: only `/`. **Expert levels may mix operations** across equations. Level 1: `+ -`. Level 2: `x /`. Levels 3–5: all four.
 4. **Division must come out whole.** No dividing by 0.
-5. **At most 9 columns wide**, so it fits on a phone. Rows can go longer.
+5. **At most 13 columns wide and 17 rows tall** (the size you chose). Bigger puzzles get smaller squares on phones, so use only the room your problems need.
 6. **Only one answer.** The number bank holds exactly the `?` numbers. There must be only one way to place them all. If two arrangements work, the checker asks you to show one more number.
 
 ## 4. Send it

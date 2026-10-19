@@ -52,13 +52,18 @@ const sum = (w: Record<string, number>) => Object.values(w).reduce((a, b) => a +
 const countWrong = (w: Record<string, number>, code: string, n: number) => ({ ...w, [code]: Math.max(w[code] ?? 0, n) })
 
 // Finished groups first (by time), then most boxes solved, then fewest wrong answers (§10).
-const standings = (bars: Bar[]) =>
-  bars.map((b, g) => ({ ...b, g })).sort((a, b) => (a.done ?? Infinity) - (b.done ?? Infinity) || b.cells.length - a.cells.length || a.wrong - b.wrong)
+// A group no one joined comes last: with 0 wrong answers it would otherwise beat a group playing.
+const standings = (bars: Bar[], members: string[][]) => {
+  const empty = (g: number) => !members[g]?.length && !bars[g].cells.length && !bars[g].wrong
+  return bars
+    .map((b, g) => ({ ...b, g }))
+    .sort((a, b) => +empty(a.g) - +empty(b.g) || (a.done ?? Infinity) - (b.done ?? Infinity) || b.cells.length - a.cells.length || a.wrong - b.wrong)
+}
 
 // The live ranking: one card per group, leader first. `top` keeps the grid screen short in a big
-// class (8 groups of 5): the leaders plus your own group.
-function Bars({ bars, total, mine, members, top = Infinity }: { bars: Bar[]; total: number; mine?: number; members?: string[][]; top?: number }) {
-  const rows = standings(bars).map((b, i) => ({ ...b, place: i + 1 }))
+// class (8 groups of 5): the leaders plus your own group. `names`: the teacher's page lists members.
+function Bars({ bars, total, mine, members, names = false, top = Infinity }: { bars: Bar[]; total: number; mine?: number; members: string[][]; names?: boolean; top?: number }) {
+  const rows = standings(bars, members).map((b, i) => ({ ...b, place: i + 1 }))
   return (
     <ol className="bars" aria-label="Live ranking">
       {rows.filter((b) => b.place <= top || b.g === mine).map((b) => (
@@ -66,7 +71,7 @@ function Bars({ bars, total, mine, members, top = Infinity }: { bars: Bar[]; tot
           <span className="who-row">
             <span className="place">#{b.place}</span> <b>Group {b.g + 1}</b>
             {b.g === mine && ' (you)'}
-            {members && <small> · {members[b.g]?.join(', ') || 'no one'}</small>}
+            {names && <small> · {members[b.g]?.join(', ') || 'no one'}</small>}
           </span>
           <span className="score">
             {b.done !== null ? (
@@ -163,7 +168,7 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
     logged.current = true
     const start = snap.startedAt ?? Date.now()
     const base = last.current ?? { id: uuid(), level: snap.puzzle, result: 'quit', seconds: 0, wrong: 0, hints: 0, coins: 0, mistakes: [], at: new Date(start).toISOString() }
-    const place = standings(snap.bars).findIndex((b) => b.g === group) + 1
+    const place = standings(snap.bars, snap.members).findIndex((b) => b.g === group) + 1
     const seconds = snap.bars[group]?.done ?? Math.min(snap.seconds, Math.round((Date.now() - start) / 1000))
     onFinish({ ...base, result: place === 1 ? 'win' : 'lose', seconds })
   }, [snap, group, inBattle, onFinish])
@@ -190,7 +195,7 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
   if (inGame) {
     const level = BATTLES.find((b) => b.id === snap.puzzle)!
     const p = { csv: snap.csv, sample: !!puzzleFor(snap.puzzle)?.sample } // the teacher's copy: every grid in the room is the same
-    const place = standings(snap.bars).findIndex((b) => b.g === group) + 1
+    const place = standings(snap.bars, snap.members).findIndex((b) => b.g === group) + 1
     const link: BattleLink = {
       title: `Group ${group + 1}`,
       startedAt: snap.startedAt ?? 0, // always set once the round has started
@@ -199,7 +204,7 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
       // teammates' messages arrive at once; the teacher's total covers any that were missed
       hearts: Math.max(0, HEARTS - Math.max(sum(wrongs), snap.bars[group]?.wrong ?? 0)),
       over: snap.state === 'done',
-      bars: <Bars bars={snap.bars} total={totalOf(snap.csv)} mine={group} top={snap.state === 'done' ? Infinity : 3} />,
+      bars: <Bars bars={snap.bars} total={totalOf(snap.csv)} mine={group} members={snap.members} top={snap.state === 'done' ? Infinity : 3} />,
       result:
         place === 1 ? (
           <p className="result">
@@ -342,10 +347,16 @@ function apply(h: Host, g: number, m: GroupMsg): Host {
   return { ...h, cells, done }
 }
 
+// A number box's text as a whole number in [lo, hi] (empty or junk: the default).
+const clampOf = (text: string, lo: number, hi: number, fallback: number) => Math.max(lo, Math.min(hi, Math.round(Number(text)) || fallback))
+
 export function BattleHost() {
   const [puzzle, setPuzzle] = useState(BATTLES[0].id)
-  const [groups, setGroups] = useState(2)
-  const [minutes, setMinutes] = useState(10)
+  // kept as typed, so clearing a box to type a new number works; clamped when used
+  const [groupsText, setGroupsText] = useState('2')
+  const [minutesText, setMinutesText] = useState('10')
+  const groups = clampOf(groupsText, 2, 8, 2)
+  const minutes = clampOf(minutesText, 1, 60, 10)
   const [h, setH] = useState<Host | null>(null)
   const [now, setNow] = useState(Date.now)
   const send = useRef<(r: Room) => void>(() => {})
@@ -413,11 +424,11 @@ export function BattleHost() {
           </label>
           <label className="inline">
             Groups
-            <input type="number" min={2} max={8} value={groups} onChange={(e) => setGroups(Math.max(2, Math.min(8, Number(e.target.value) || 2)))} />
+            <input type="number" min={2} max={8} value={groupsText} onChange={(e) => setGroupsText(e.target.value)} onBlur={() => setGroupsText(String(groups))} />
           </label>
           <label className="inline">
             Minutes
-            <input type="number" min={1} max={60} value={minutes} onChange={(e) => setMinutes(Math.max(1, Math.min(60, Number(e.target.value) || 10)))} />
+            <input type="number" min={1} max={60} value={minutesText} onChange={(e) => setMinutesText(e.target.value)} onBlur={() => setMinutesText(String(minutes))} />
           </label>
           <button className="big" onClick={create}>
             New battle
@@ -456,7 +467,7 @@ export function BattleHost() {
           <p className="host-clock" role="status">
             {h.state === 'live' ? `${clock(left)} left` : 'Battle over: final ranking'}
           </p>
-          <Bars bars={barsOf(h)} total={h.total} members={h.members} />
+          <Bars bars={barsOf(h)} total={h.total} members={h.members} names />
         </>
       )}
       <div className="row wrap">

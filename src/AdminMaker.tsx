@@ -1,10 +1,10 @@
-// Puzzle maker tab: the researchers build a level's puzzle on the grid the game is laid out for
-// (Relax 7 × 11, Expert and Battle 9 × 11), checked live by the same checker as every build.
+// Puzzle maker tab: the researchers build a level's puzzle on the biggest grid they chose for the
+// game (13 × 17, every level), checked live by the same checker as every build.
 // "Use this puzzle" saves it like an approval on the Puzzles tab: phones get it the next time they
 // open the app. Unsaved work stays on this computer, one draft per level, until it's used.
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
-import { crop, sizeOf, toCsv } from './generate.ts'
-import { bankOf, equations, fmt, key, lenOf, parse, readEquation, validate, type Cell, type Grid, type Op, type Pos } from './puzzle.ts'
+import { crop, toCsv } from './generate.ts'
+import { bankOf, equations, fmt, key, lenOf, MAX_COLS, MAX_ROWS, parse, readEquation, validate, type Cell, type Grid, type Op, type Pos } from './puzzle.ts'
 import { approvePuzzle, builtIn, isCurrent, puzzleFor } from './puzzles.ts'
 import { BATTLES, LEVELS, type Level } from './rules.ts'
 import { Deco, Dialog, Num } from './ui.tsx'
@@ -36,7 +36,7 @@ function onGrid(csv: string, w: number, h: number): Grid | null {
 
 // What a level opens with: the draft left here, else its current puzzle, else an empty grid.
 function opening(id: string): { grid: Grid; note: string } {
-  const { width: w, height: h } = sizeOf(id)
+  const [w, h] = [MAX_COLS, MAX_ROWS]
   try {
     const draft = localStorage.getItem(DRAFT(id))
     const g = draft && onGrid(draft, w, h)
@@ -86,7 +86,7 @@ export function PuzzleMaker({ rows, level }: { rows: Row[]; level?: string }) {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const lv = ALL.find((l) => l.id === id)!
-  const { width: w, height: ht } = sizeOf(id)
+  const [w, ht] = [MAX_COLS, MAX_ROWS]
   const grid = h.grid
   const at = ([r, c]: Pos): Cell => grid[r]?.[c] ?? null
   const here = at(sel)
@@ -154,19 +154,29 @@ export function PuzzleMaker({ rows, level }: { rows: Row[]; level?: string }) {
     remember(LAST, next)
   }
 
+  // The selected square as it will be once what's being typed goes in; undefined if it can't be read.
+  function typedCell(): Cell | undefined {
+    if (draft === null) return here
+    const text = draft.replace(/,/g, '').trim()
+    try {
+      const c = text ? parse(text)[0][0] : null
+      // a new number in an answer box stays an answer box
+      return c?.t === 'num' && here?.t === 'num' && here.hidden && !text.startsWith('?') ? { ...c, hidden: true } : c
+    } catch {
+      return undefined
+    }
+  }
+  const unreadable = () => setSquareError(`Can’t read “${(draft ?? '').trim()}”. Type a number like −7, or one of + − × ÷ =.`)
+  const now = typedCell()
+
   // The typed text goes into the selected square. False (and a message) if it can't be read.
   function commit() {
     if (draft === null) return true
-    const text = draft.replace(/,/g, '').trim()
-    let c: Cell
-    try {
-      c = text ? parse(text)[0][0] : null
-    } catch {
-      setSquareError(`Can’t read “${text}”. Type a number like −7, or one of + − × ÷ =.`)
+    const c = typedCell()
+    if (c === undefined) {
+      unreadable()
       return false
     }
-    // a new number in an answer box stays an answer box
-    if (c?.t === 'num' && here?.t === 'num' && here.hidden && !text.startsWith('?')) c = { ...c, hidden: true }
     setDraft(null)
     setSquareError('')
     if (textOf(c) !== textOf(here) || (c?.t === 'num' && here?.t === 'num' && c.hidden !== here.hidden)) put([[sel, c]])
@@ -190,15 +200,20 @@ export function PuzzleMaker({ rows, level }: { rows: Row[]; level?: string }) {
     put([[sel, c]])
     advance()
   }
+  // These act on what's typed in the square too, not only what's saved there.
   function toggleBox() {
-    if (here?.t !== 'num') return setSquareError('Only a number can be an answer box.')
+    if (now === undefined) return unreadable()
+    if (now?.t !== 'num') return setSquareError('Only a number can be an answer box.')
+    setDraft(null)
     setSquareError('')
-    put([[sel, { ...here, hidden: !here.hidden }]])
+    put([[sel, { ...now, hidden: !now.hidden }]])
   }
   function flipSign() {
-    if (here?.t !== 'num') return setSquareError('Select a number to make it negative or positive.')
+    if (now === undefined) return unreadable()
+    if (now?.t !== 'num') return setSquareError('Select a number to make it negative or positive.')
+    setDraft(null)
     setSquareError('')
-    put([[sel, { ...here, v: -here.v }]])
+    put([[sel, { ...now, v: -now.v }]])
   }
 
   function onGridKey(e: KeyboardEvent) {
@@ -225,7 +240,7 @@ export function PuzzleMaker({ rows, level }: { rows: Row[]; level?: string }) {
     } else if (k === 'Delete') {
       setDraft(null)
       if (here) put([[sel, null]])
-    } else if (k === '?' && draft === null && here?.t === 'num') {
+    } else if (k === '?' && draft === null && now?.t === 'num') {
       e.preventDefault()
       toggleBox()
     } else if (k.length === 1 && k !== ' ') {
@@ -249,19 +264,25 @@ export function PuzzleMaker({ rows, level }: { rows: Row[]; level?: string }) {
       { t: 'eq' },
       { t: 'num', v: e.result, hidden: eqBox },
     ]
+    if (now === undefined) return unreadable()
     const step = (p: Pos, n: number): Pos => (across ? [p[0], p[1] + n] : [p[0] + n, p[1]])
-    const slot = here?.t === 'num' ? [e.nums[0], e.nums[1], e.result].indexOf(here.v) : -1
-    if (here && slot < 0)
-      return setEqError(`The square at ${where(sel)} has ${textOf(here)}, which isn’t in this equation. Select an empty square to start from, or a number the equation uses.`)
-    if (slot >= 0 && (at(step(sel, -1)) || at(step(sel, 1))))
-      return setEqError(`The ${fmt((here as { v: number }).v)} at ${where(sel)} already has an equation going ${across ? 'across' : 'down'}. Choose ${across ? 'Down' : 'Across'} to cross it.`)
+    const slot = now?.t === 'num' ? [e.nums[0], e.nums[1], e.result].indexOf(now.v) : -1
+    if (now && slot < 0)
+      return setEqError(`The square at ${where(sel)} has ${textOf(now)}, which isn’t in this equation. Select an empty square to start from, or a number the equation uses.`)
+    const before = at(step(sel, -1))
+    const after = at(step(sel, 1))
+    // continuing a chain (-12 + (-7) = -19 + 14 = -5): start from the answer that ends an equation,
+    // or end on the number that starts one
+    const chains = (slot === 0 && before?.t === 'eq' && !after) || (slot === 2 && after?.t === 'op' && !before)
+    if (slot >= 0 && (before || after) && !chains)
+      return setEqError(`The ${fmt((now as { v: number }).v)} at ${where(sel)} already has an equation going ${across ? 'across' : 'down'}. Choose ${across ? 'Down' : 'Across'} to cross it.`)
     const start = step(sel, -2 * Math.max(0, slot))
     const out: [Pos, Cell][] = []
     for (const [i, c] of cells.entries()) {
       const p = step(start, i)
       if (p[0] < 0 || p[1] < 0 || p[0] >= ht || p[1] >= w)
         return setEqError(`It doesn’t fit: it needs 5 squares going ${across ? 'right' : 'down'} from ${where(start)}. Select a square further ${across ? 'left' : 'up'}, or choose ${across ? 'Down' : 'Across'}.`)
-      const old = at(p)
+      const old = key(p) === key(sel) ? now : at(p)
       if (old && textOf(old) !== textOf(c)) return setEqError(`There’s already ${textOf(old)} at ${where(p)}. Clear it or start somewhere else.`)
       out.push([p, old?.t === 'num' && c?.t === 'num' ? { ...c, hidden: old.hidden || c.hidden } : c])
     }
@@ -383,56 +404,58 @@ export function PuzzleMaker({ rows, level }: { rows: Row[]; level?: string }) {
           </label>
         </div>
 
-        <div
-          ref={gridRef}
-          className="mk-grid"
-          role="group"
-          aria-label={`Puzzle grid, ${w} columns by ${ht} rows`}
-          aria-describedby="mk-keys"
-          style={{ '--w': w } as CSSProperties}
-          onKeyDown={onGridKey}
-        >
-          <span aria-hidden="true" />
-          {grid[0].map((_, c) => (
-            <span key={c} className="mk-label" aria-hidden="true">
-              {c + 1}
-            </span>
-          ))}
-          {grid.map((row, r) => [
-            <span key={`r${r}`} className="mk-label" aria-hidden="true">
-              {r + 1}
-            </span>,
-            ...row.map((c, col) => {
-              const k = `${r},${col}`
-              const isSel = k === key(sel)
-              const typing = isSel && draft !== null
-              const cls = `mk-cell${c ? (c.t === 'num' && c.hidden ? ' box' : ' on') : ''}${isSel ? ' sel' : ''}${bad.has(k) ? ' bad' : ''}`
-              return (
-                <button
-                  key={k}
-                  data-pos={k}
-                  data-len={c?.t === 'num' && !typing ? lenOf(c.v) : undefined}
-                  className={cls}
-                  tabIndex={isSel ? 0 : -1}
-                  aria-pressed={isSel}
-                  aria-label={`${where([r, col])}: ${typing ? `typing ${draft}` : spoken(c)}${bad.has(k) ? ', has a problem' : ''}`}
-                  onClick={() => select([r, col])}
-                >
-                  {typing ? (
-                    <span className="mk-typing">{draft || ' '}</span>
-                  ) : !c ? (
-                    ''
-                  ) : c.t === 'num' ? (
-                    c.hidden && learner ? '' : <Num v={c.v} />
-                  ) : c.t === 'op' ? (
-                    c.op
-                  ) : (
-                    '='
-                  )}
-                </button>
-              )
-            }),
-          ])}
+        <div className="mk-scroll">
+          <div
+            ref={gridRef}
+            className="mk-grid"
+            role="group"
+            aria-label={`Puzzle grid, ${w} columns by ${ht} rows`}
+            aria-describedby="mk-keys"
+            style={{ '--w': w } as CSSProperties}
+            onKeyDown={onGridKey}
+          >
+            <span aria-hidden="true" />
+            {grid[0].map((_, c) => (
+              <span key={c} className="mk-label" aria-hidden="true">
+                {c + 1}
+              </span>
+            ))}
+            {grid.map((row, r) => [
+              <span key={`r${r}`} className="mk-label" aria-hidden="true">
+                {r + 1}
+              </span>,
+              ...row.map((c, col) => {
+                const k = `${r},${col}`
+                const isSel = k === key(sel)
+                const typing = isSel && draft !== null
+                const cls = `mk-cell${c ? (c.t === 'num' && c.hidden ? ' box' : ' on') : ''}${isSel ? ' sel' : ''}${bad.has(k) ? ' bad' : ''}`
+                return (
+                  <button
+                    key={k}
+                    data-pos={k}
+                    data-len={c?.t === 'num' && !typing ? lenOf(c.v) : undefined}
+                    className={cls}
+                    tabIndex={isSel ? 0 : -1}
+                    aria-pressed={isSel}
+                    aria-label={`${where([r, col])}: ${typing ? `typing ${draft}` : spoken(c)}${bad.has(k) ? ', has a problem' : ''}`}
+                    onClick={() => select([r, col])}
+                  >
+                    {typing ? (
+                      <span className="mk-typing">{draft || ' '}</span>
+                    ) : !c ? (
+                      ''
+                    ) : c.t === 'num' ? (
+                      c.hidden && learner ? '' : <Num v={c.v} />
+                    ) : c.t === 'op' ? (
+                      c.op
+                    ) : (
+                      '='
+                    )}
+                  </button>
+                )
+              }),
+            ])}
+          </div>
         </div>
 
         <div className="mk-square">
@@ -460,13 +483,13 @@ export function PuzzleMaker({ rows, level }: { rows: Row[]; level?: string }) {
                 {s}
               </button>
             ))}
-            <button className="mk-btn" onClick={flipSign} disabled={here?.t !== 'num'}>
+            <button className="mk-btn" onClick={flipSign} disabled={now?.t !== 'num'}>
               ± Sign
             </button>
-            <button className="mk-btn" aria-pressed={here?.t === 'num' && here.hidden} onClick={toggleBox} disabled={here?.t !== 'num'}>
+            <button className="mk-btn" aria-pressed={now?.t === 'num' && now.hidden} onClick={toggleBox} disabled={now?.t !== 'num'}>
               Answer box
             </button>
-            <button className="mk-btn" onClick={() => setSymbol(null)} disabled={!here}>
+            <button className="mk-btn" onClick={() => setSymbol(null)} disabled={!now && draft === null}>
               Clear
             </button>
           </div>
@@ -526,10 +549,10 @@ export function PuzzleMaker({ rows, level }: { rows: Row[]; level?: string }) {
         {!filled && <p className="muted">Write an equation, or select a square and type.</p>}
         {errors.length > 0 && (
           <ul className="mk-errors">
-            {errors.map((e) => {
+            {errors.map((e, i) => {
               const m = /row (\d+), column (\d+)/.exec(e)
               return (
-                <li key={e}>
+                <li key={i}>
                   {m ? (
                     <button className="link" onClick={() => focusSquare([+m[1] - 1, +m[2] - 1])}>
                       {e}

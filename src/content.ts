@@ -6,7 +6,7 @@ export const HOW_TO = [
   { icon: '➗', title: 'Integer Rules', text: 'Apply the rules of addition, subtraction, multiplication, and division of integers, including sign rules.' },
   { icon: '🏦', title: 'Use the Number Bank!', text: 'Pick numbers from your bank at the bottom. Tap a yellow cell, then tap a number to place it. Easy as pie! 🥧' },
   { icon: '💗', title: 'Lives System', text: 'You have 5 lives. Each wrong answer costs 1 life. Lose all lives and it’s game over, but you can always try again!' },
-  { icon: '💰', title: 'Coins & Hints', text: 'Finish faster to earn more coins. Stuck? Tap (!) for the rules, or spend coins on a hint. In Relax Mode, (!) also gives a free clue for the box you picked!' },
+  { icon: '💰', title: 'Coins & Hints', text: 'Finish faster to earn more coins. Stuck? Tap Rules to see the sign rules, or spend coins on a hint. In Relax Mode, Rules also gives a free clue for the box you picked!' },
 ]
 
 // Client's pre-assessment and answer key (integrid.docx, 3rd page). A drill: scores are not recorded.

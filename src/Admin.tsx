@@ -167,6 +167,33 @@ const TABS: [Tab, string][] = [
 const TAB_KEY = 'integrid:admin-tab'
 const NEEDS_UPDATE = 'This needs the database update: paste all of supabase/schema.sql into Supabase’s SQL Editor and press Run (safe to run again). Until then nothing here is saved.'
 
+async function readDashboard(): Promise<
+  | { error: string }
+  | { notAdmin: true }
+  | { students: Student[]; rows: Row[]; research: Record<string, Research>; researchIssue: string }
+> {
+  const me = await db!.from('admins').select('uid')
+  if (me.error) return { error: me.error.message }
+  if (!me.data.length) return { notAdmin: true }
+  const s = await db!.from('students').select('code, pin').order('code')
+  if (s.error) return { error: s.error.message }
+  const rows: Row[] = []
+  for (let from = 0; ; from += 1000) {
+    // the API hands out at most 1000 rows per request
+    const r = await db!.from('attempts').select('*').order('played_at').range(from, from + 999)
+    if (r.error) return { error: r.error.message }
+    rows.push(...(r.data as Row[]))
+    if (r.data.length < 1000) break
+  }
+  const res = await db!.from('research').select('student, pre, post, survey')
+  return {
+    students: s.data,
+    rows,
+    research: Object.fromEntries((res.data ?? []).map((r) => [r.student, { pre: r.pre, post: r.post, survey: r.survey }])),
+    researchIssue: res.error ? NEEDS_UPDATE : '',
+  }
+}
+
 function Dashboard({ email, demo = false }: { email: string; demo?: boolean }) {
   const [sample] = useState(() => (demo ? sampleData() : null))
   const [students, setStudents] = useState<Student[]>(sample?.students ?? [])
@@ -197,26 +224,16 @@ function Dashboard({ email, demo = false }: { email: string; demo?: boolean }) {
 
   async function reload() {
     void refreshPuzzles().then((ok) => ok && setPuzzles((n) => n + 1))
-    if (demo) return setStatus('')
-    const me = await db!.from('admins').select('uid')
-    if (me.error) return setStatus(me.error.message)
-    if (!me.data.length) return setNotAdmin(true)
-    const s = await db!.from('students').select('code, pin').order('code')
-    if (s.error) return setStatus(s.error.message)
-    const all: Row[] = []
-    for (let from = 0; ; from += 1000) {
-      // the API hands out at most 1000 rows per request
-      const r = await db!.from('attempts').select('*').order('played_at').range(from, from + 999)
-      if (r.error) return setStatus(r.error.message)
-      all.push(...(r.data as Row[]))
-      if (r.data.length < 1000) break
-    }
-    const res = await db!.from('research').select('student, pre, post, survey')
-    setResearchIssue(res.error ? NEEDS_UPDATE : '')
-    setResearch(Object.fromEntries((res.data ?? []).map((r) => [r.student, { pre: r.pre, post: r.post, survey: r.survey }])))
-    setStudents(s.data)
-    setRows(all)
-    setStatus('')
+    if (demo) return
+    return readDashboard().then((data) => {
+      if ('error' in data) return setStatus(data.error)
+      if ('notAdmin' in data) return setNotAdmin(true)
+      setResearchIssue(data.researchIssue)
+      setResearch(data.research)
+      setStudents(data.students)
+      setRows(data.rows)
+      setStatus('')
+    })
   }
   const load = useEffectEvent(() => void reload())
   useEffect(() => {
@@ -445,7 +462,8 @@ function StudentsTab(props: {
   onOpen: (code: string | null) => void
 }) {
   const { students, byStudent, rows } = props
-  const [count, setCount] = useState(10)
+  const [countText, setCountText] = useState('10') // kept as typed; clamped to 1–60 when used
+  const count = Math.max(1, Math.min(60, Math.round(Number(countText)) || 1))
   const [busy, setBusy] = useState('')
 
   function exportAttempts() {
@@ -482,13 +500,14 @@ function StudentsTab(props: {
         <div className="row wrap">
           <label className="inline">
             Add
-            <input type="number" min={1} max={60} value={count} onChange={(e) => setCount(Math.max(1, Math.min(60, Number(e.target.value) || 1)))} />
+            <input type="number" min={1} max={60} value={countText} onChange={(e) => setCountText(e.target.value)} onBlur={() => setCountText(String(count))} />
             students
           </label>
           <button
             className="big"
             onClick={async () => {
               setBusy('Adding…')
+              setCountText(String(count))
               await props.onAdd(count)
               setBusy('')
             }}

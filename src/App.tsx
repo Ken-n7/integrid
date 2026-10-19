@@ -1,6 +1,4 @@
-import { useEffect, useEffectEvent, useRef, useState, type FormEvent } from 'react'
-import { Admin } from './Admin.tsx'
-import { BattleRoom } from './Battle.tsx'
+import { lazy, Suspense, useEffect, useEffectEvent, useRef, useState, type FormEvent } from 'react'
 import { HOW_TO, PRE_ASSESSMENT } from './content.ts'
 import { Game } from './Game.tsx'
 import { bestWin, clock, coinsOf, isUnlocked, LEVELS, rankingFor, wonLevels, type Attempt, type Mode, type Rank } from './rules.ts'
@@ -15,6 +13,9 @@ import { Coins, Deco, Dialog, Icon } from './ui.tsx'
 type Screen = 'landing' | 'login' | 'howto' | 'pre' | 'modes' | 'settings' | Mode | 'ranking' | { level: string }
 type HowToFrom = 'landing' | 'login' | 'settings'
 
+const Admin = lazy(() => import('./Admin.tsx').then(({ Admin }) => ({ default: Admin })))
+const BattleRoom = lazy(() => import('./Battle.tsx').then(({ BattleRoom }) => ({ default: BattleRoom })))
+
 export default function App() {
   const [admin, setAdmin] = useState(() => location.hash === '#admin')
   useEffect(() => {
@@ -22,18 +23,22 @@ export default function App() {
     addEventListener('hashchange', onHash)
     return () => removeEventListener('hashchange', onHash)
   }, [])
-  return admin ? (
-    <Admin />
-  ) : (
-    <>
-      <Student />
-      {/* covers the game on a sideways phone (CSS decides when): the grid and bank only fit upright */}
-      <div className="upright" role="alert">
-        <Deco>📱</Deco>
-        <b>Turn your phone upright</b>
-        <span>INTEGRID plays standing up.</span>
-      </div>
-    </>
+  return (
+    <Suspense fallback={<main className="screen center" role="status">Loading…</main>}>
+      {admin ? (
+        <Admin />
+      ) : (
+        <>
+          <Student />
+          {/* covers the game on a sideways phone (CSS decides when): the grid and bank only fit upright */}
+          <div className="upright" role="alert">
+            <Deco>📱</Deco>
+            <b>Turn your phone upright</b>
+            <span>INTEGRID plays standing up.</span>
+          </div>
+        </>
+      )}
+    </Suspense>
   )
 }
 

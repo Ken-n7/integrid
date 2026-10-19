@@ -85,14 +85,15 @@ function SurveyEditor({ code, value, onSave, onClose }: { code: string; value: n
   return (
     <Dialog title={`${code}: survey (Part II)`} onClose={onClose}>
       <label>
-        Quick entry: type the 20 answers in order (1–4)
+        Quick entry: type the 20 answers in order (1–4; a 0 marks one not answered yet)
         <input
           inputMode="numeric"
           autoComplete="off"
-          value={answers.map((a) => a || '').join('')}
+          // up to the last answered item, with 0 for any gap, so each digit stays on its own item
+          value={answers.slice(0, answers.findLastIndex((a) => a > 0) + 1).join('')}
           onChange={(e) => {
             const digits = e.target.value
-              .replace(/[^1-4]/g, '')
+              .replace(/[^0-4]/g, '')
               .slice(0, SURVEY.length)
               .split('')
               .map(Number)
@@ -188,32 +189,34 @@ function Difference({ pre, post }: { pre: number[]; post: number[] }) {
         : `There is no significant difference between pretest and posttest scores (${normal ? `paired t-test, t(${t!.df}) = ${f2(t!.t)}` : `Wilcoxon signed-rank, W = ${w!.stat}`}, p ${pval(p)}).`
   return (
     <>
-      <table className="rtable">
-        <tbody>
-          <tr>
-            <th scope="row">Learners with both tests</th>
-            <td>{pre.length}</td>
-          </tr>
-          <tr>
-            <th scope="row">Mean gain (posttest − pretest)</th>
-            <td>
-              {f2(mean(gains))} points (SD {f2(sd(gains))})
-            </td>
-          </tr>
-          <tr>
-            <th scope="row">Normality of the gains (Shapiro–Wilk)</th>
-            <td>{sw ? `W = ${f2(sw.w)}, p ${pval(sw.p)}: ${normal ? 'looks normal, so the paired t-test applies' : 'not normal, so the Wilcoxon test applies'}` : '—'}</td>
-          </tr>
-          <tr className={normal ? 'pick' : undefined}>
-            <th scope="row">Paired t-test</th>
-            <td>{t ? `t(${t.df}) = ${f2(t.t)}, p ${pval(t.p)}, Cohen’s d = ${f2(t.d)}` : '—'}</td>
-          </tr>
-          <tr className={normal ? undefined : 'pick'}>
-            <th scope="row">Wilcoxon signed-rank</th>
-            <td>{w ? `W = ${w.stat}, p ${pval(w.p)} (${w.exact ? 'exact' : 'normal approximation, ties corrected'})` : '—'}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div className="table-wrap" role="region" aria-label="Pretest and posttest difference" tabIndex={0}>
+        <table className="rtable">
+          <tbody>
+            <tr>
+              <th scope="row">Learners with both tests</th>
+              <td>{pre.length}</td>
+            </tr>
+            <tr>
+              <th scope="row">Mean gain (posttest − pretest)</th>
+              <td>
+                {f2(mean(gains))} points (SD {f2(sd(gains))})
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Normality of the gains (Shapiro–Wilk)</th>
+              <td>{sw ? `W = ${f2(sw.w)}, p ${pval(sw.p)}: ${normal ? 'looks normal, so the paired t-test applies' : 'not normal, so the Wilcoxon test applies'}` : '—'}</td>
+            </tr>
+            <tr className={normal ? 'pick' : undefined}>
+              <th scope="row">Paired t-test</th>
+              <td>{t ? `t(${t.df}) = ${f2(t.t)}, p ${pval(t.p)}, Cohen’s d = ${f2(t.d)}` : '—'}</td>
+            </tr>
+            <tr className={normal ? undefined : 'pick'}>
+              <th scope="row">Wilcoxon signed-rank</th>
+              <td>{w ? `W = ${w.stat}, p ${pval(w.p)} (${w.exact ? 'exact' : 'normal approximation, ties corrected'})` : '—'}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <p className="conclusion">{conclusion}</p>
     </>
   )
@@ -226,32 +229,34 @@ function ByOperation({ pre, post }: { pre: boolean[][]; post: boolean[][] }) {
     return marks.length ? (100 * marks.filter(Boolean).length) / marks.length : NaN
   }
   return (
-    <table className="rtable">
-      <thead>
-        <tr>
-          <th>Operation</th>
-          <th>Items</th>
-          <th>Pretest correct</th>
-          <th>Posttest correct</th>
-          <th>Change</th>
-        </tr>
-      </thead>
-      <tbody>
-        {OPS.map(([op, name]) => {
-          const a = pct(pre, op)
-          const b = pct(post, op)
-          return (
-            <tr key={op}>
-              <th scope="row">{name}</th>
-              <td>{RESEARCH_TEST.filter((it) => it.op === op).length}</td>
-              <td>{Number.isFinite(a) ? `${a.toFixed(0)}%` : '—'}</td>
-              <td>{Number.isFinite(b) ? `${b.toFixed(0)}%` : '—'}</td>
-              <td>{Number.isFinite(a) && Number.isFinite(b) ? `${b - a >= 0 ? '+' : '−'}${Math.abs(b - a).toFixed(0)} points` : '—'}</td>
-            </tr>
-          )
-        })}
-      </tbody>
-    </table>
+    <div className="table-wrap" role="region" aria-label="Results by operation" tabIndex={0}>
+      <table className="rtable">
+        <thead>
+          <tr>
+            <th>Operation</th>
+            <th>Items</th>
+            <th>Pretest correct</th>
+            <th>Posttest correct</th>
+            <th>Change</th>
+          </tr>
+        </thead>
+        <tbody>
+          {OPS.map(([op, name]) => {
+            const a = pct(pre, op)
+            const b = pct(post, op)
+            return (
+              <tr key={op}>
+                <th scope="row">{name}</th>
+                <td>{RESEARCH_TEST.filter((it) => it.op === op).length}</td>
+                <td>{Number.isFinite(a) ? `${a.toFixed(0)}%` : '—'}</td>
+                <td>{Number.isFinite(b) ? `${b.toFixed(0)}%` : '—'}</td>
+                <td>{Number.isFinite(a) && Number.isFinite(b) ? `${b - a >= 0 ? '+' : '−'}${Math.abs(b - a).toFixed(0)} points` : '—'}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
@@ -260,36 +265,38 @@ function Experience({ surveys }: { surveys: number[][] }) {
   const cols = (from: number, to: number) => surveys.flatMap((s) => s.slice(from, to))
   return (
     <>
-      <table className="rtable">
-        <thead>
-          <tr>
-            <th>Dimension</th>
-            <th>Mean</th>
-            <th>SD</th>
-            <th>Interpretation</th>
-          </tr>
-        </thead>
-        <tbody>
-          {RESEARCH_SURVEY.map((d, di) => {
-            // a learner's dimension score is the mean of its five items
-            const scores = surveys.map((s) => mean(s.slice(di * 5, di * 5 + 5)))
-            return (
-              <tr key={d.dim}>
-                <th scope="row">{d.dim}</th>
-                <td>{f2(mean(scores))}</td>
-                <td>{scores.length > 1 ? f2(sd(scores)) : '—'}</td>
-                <td>{likert(mean(scores))}</td>
-              </tr>
-            )
-          })}
-          <tr className="total">
-            <th scope="row">Overall</th>
-            <td>{f2(mean(cols(0, 20)))}</td>
-            <td>{surveys.length > 1 ? f2(sd(surveys.map((s) => mean(s)))) : '—'}</td>
-            <td>{likert(mean(cols(0, 20)))}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div className="table-wrap" role="region" aria-label="Survey by dimension" tabIndex={0}>
+        <table className="rtable">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Mean</th>
+              <th>SD</th>
+              <th>Interpretation</th>
+            </tr>
+          </thead>
+          <tbody>
+            {RESEARCH_SURVEY.map((d, di) => {
+              // a learner's dimension score is the mean of its five items
+              const scores = surveys.map((s) => mean(s.slice(di * 5, di * 5 + 5)))
+              return (
+                <tr key={d.dim}>
+                  <th scope="row">{d.dim}</th>
+                  <td>{f2(mean(scores))}</td>
+                  <td>{scores.length > 1 ? f2(sd(scores)) : '—'}</td>
+                  <td>{likert(mean(scores))}</td>
+                </tr>
+              )
+            })}
+            <tr className="total">
+              <th scope="row">Overall</th>
+              <td>{f2(mean(cols(0, 20)))}</td>
+              <td>{surveys.length > 1 ? f2(sd(surveys.map((s) => mean(s)))) : '—'}</td>
+              <td>{likert(mean(cols(0, 20)))}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <details>
         <summary>Each statement</summary>
         <div className="table-wrap" role="region" aria-label="Each statement" tabIndex={0}>
@@ -347,32 +354,34 @@ function Instrument({ pre, post, surveys }: { pre: boolean[][]; post: boolean[][
           <p>
             Reliability (KR-20): <b>{kr20 === null ? '—' : `${f2(kr20)} · ${alphaLabel(kr20)}`}</b>
           </p>
-          <table className="rtable">
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Difficulty</th>
-                <th>Discrimination</th>
-                <th>Suggested</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((it, i) => (
-                <tr key={i}>
-                  <th scope="row">
-                    {i + 1}. {RESEARCH_TEST[i].q}
-                  </th>
-                  <td>
-                    {f2(it.difficulty)} · {difficultyLabel(it.difficulty)}
-                  </td>
-                  <td>
-                    {f2(it.discrimination)} · {discriminationLabel(it.discrimination)}
-                  </td>
-                  <td>{itemAction(it.difficulty, it.discrimination)}</td>
+          <div className="table-wrap" role="region" aria-label="Item analysis" tabIndex={0}>
+            <table className="rtable">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Difficulty</th>
+                  <th>Discrimination</th>
+                  <th>Suggested</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {items.map((it, i) => (
+                  <tr key={i}>
+                    <th scope="row">
+                      {i + 1}. {RESEARCH_TEST[i].q}
+                    </th>
+                    <td>
+                      {f2(it.difficulty)} · {difficultyLabel(it.difficulty)}
+                    </td>
+                    <td>
+                      {f2(it.discrimination)} · {discriminationLabel(it.discrimination)}
+                    </td>
+                    <td>{itemAction(it.difficulty, it.discrimination)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       ) : (
         <p className="note">Needs at least 2 learners’ {which === 'pre' ? 'pretests' : 'posttests'}.</p>

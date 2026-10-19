@@ -3,7 +3,7 @@
 // maker (AdminMaker.tsx), or a sample is approved or regenerated (same generator and checks as
 // `npm run generate`); either reaches every phone the next time it opens the app, and swapping one
 // that learners already played asks first.
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { blanksOf, parse } from './puzzle.ts'
 import { approvePuzzle, builtIn, isCurrent, puzzleFor } from './puzzles.ts'
 import { BATTLES, LEVELS, type Level } from './rules.ts'
@@ -15,7 +15,7 @@ type Row = { level: string; puzzle?: string | null }
 export function PuzzlePreview({ csv, answers }: { csv: string; answers: boolean }) {
   const grid = parse(csv)
   return (
-    <div className="pz" style={{ gridTemplateColumns: `repeat(${grid[0].length}, var(--pz))` }} role="img" aria-label={describe(csv)}>
+    <div className="pz" style={{ gridTemplateColumns: `repeat(${grid[0].length}, var(--pz))`, '--cols': grid[0].length } as CSSProperties} role="img" aria-label={describe(csv)}>
       {grid.flatMap((row, r) =>
         row.map((c, col) => (
           <span key={`${r},${col}`} className={!c ? 'pz-empty' : c.t === 'num' && c.hidden ? 'pz-blank' : 'pz-cell'}>
