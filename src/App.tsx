@@ -11,7 +11,7 @@ import { isCurrent, puzzleFor, refreshPuzzles } from './puzzles.ts'
 import { Coins, Deco, Dialog, Icon } from './ui.tsx'
 
 type Screen = 'landing' | 'login' | 'howto' | 'pre' | 'modes' | 'settings' | Mode | 'ranking' | { level: string }
-type HowToFrom = 'landing' | 'login' | 'settings'
+type HowToFrom = 'landing' | 'settings'
 
 const Admin = lazy(() => import('./Admin.tsx').then(({ Admin }) => ({ default: Admin })))
 const BattleRoom = lazy(() => import('./Battle.tsx').then(({ BattleRoom }) => ({ default: BattleRoom })))
@@ -136,7 +136,7 @@ function Student() {
         onBack={() => go('landing')}
         onDone={(s) => {
           setStore((st) => ({ who: s.code, saves: { ...st.saves, [s.code]: s } }))
-          howTo('login')
+          howTo('landing') // back from here goes to the start screen, not to sign in again
         }}
       />
     )
@@ -313,14 +313,22 @@ function Login({ store, onBack, onDone }: { store: Store; onBack: () => void; on
         </button>
         {!db && <p className="note">Dev mode: no server yet, any code and 4-digit PIN works.</p>}
       </form>
-      <a className="admin-link" href="#admin">
+      {/* replace, not push: a student's back gesture must never land on the admin page */}
+      <a
+        className="admin-link"
+        href="#admin"
+        onClick={(e) => {
+          e.preventDefault()
+          location.replace('#admin')
+        }}
+      >
         Admin sign in
       </a>
     </main>
   )
 }
 
-const BACK_TO: Record<HowToFrom, string> = { landing: 'Back to start', login: 'Back to sign in', settings: 'Back to settings' }
+const BACK_TO: Record<HowToFrom, string> = { landing: 'Back to start', settings: 'Back to settings' }
 
 function HowTo({ from, onBack, onNext }: { from: HowToFrom; onBack: () => void; onNext: () => void }) {
   useBack(onBack)

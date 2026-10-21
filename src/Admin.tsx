@@ -43,7 +43,13 @@ function download(name: string, rows: (string | number)[][]) {
 const Shell = ({ children }: { children: ReactNode }) => (
   <main className="admin">
     <p className="no-print">
-      <a href="#">
+      <a
+        href="#"
+        onClick={(e) => {
+          e.preventDefault()
+          location.replace('#') // like the student app's admin link: switching never piles up back steps
+        }}
+      >
         <Deco>←</Deco> Student app
       </a>
     </p>

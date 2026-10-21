@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { apply, isGroupMsg, isRoom, roundFinished, standings, sum, type Host } from '../src/battleState.ts'
 import { calc, parse, readEquation } from '../src/puzzle.ts'
-import { readStore, sync, type Save } from '../src/store.ts'
+import { merge, newSave, readStore, sync, type Save } from '../src/store.ts'
 import type { Attempt } from '../src/rules.ts'
 
 const result: Attempt = { id: 'saved', level: 'relax-1', result: 'quit', seconds: 4, wrong: 0, hints: 1, coins: -60, mistakes: [], at: '2026-10-22T00:00:00Z' }
@@ -17,6 +17,8 @@ assert.equal(restored.saves.S01.current, null)
 assert.equal(restored.saves.S02, undefined)
 const interrupted = readStore(JSON.stringify({ who: 'S01', saves: { S01: { ...save, attempts: [] } } }))
 assert.deepEqual(interrupted.saves.S01.attempts, [result]) // interrupted hints are still charged
+assert.equal(merge(newSave('S01', '1234'), [result]).preDone, true) // played on another phone: no pre-assessment again
+assert.equal(merge(newSave('S01', '1234'), []).preDone, false)
 
 assert.throws(() => parse('?9007199254740993,+,0,=,9007199254740992'), /too large/)
 assert.match(String(calc([Number.MAX_SAFE_INTEGER, 2], ['×'])), /too large/)

@@ -13,6 +13,8 @@ let armed = history.state?.integridBack === true // a reload can land on our ext
 let skip = false
 
 function sync() {
+  // A link that swaps the page's entry (the admin link) takes our entry with it: trust the real one.
+  if (!skip) armed = history.state?.integridBack === true
   if (top() && !armed) {
     history.pushState({ integridBack: true }, '')
     armed = true

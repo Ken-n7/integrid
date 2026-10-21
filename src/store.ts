@@ -68,7 +68,9 @@ export const newSave = (code: string, pin: string): Save => ({ code, pin, preDon
 export function merge(save: Save, server: Attempt[]): Save {
   const byId = new Map(save.attempts.map((a) => [a.id, a]))
   for (const a of server) byId.set(a.id, { ...a, synced: true })
-  return { ...save, attempts: [...byId.values()] }
+  // preDone only lives on the device; any played level on the server means the pre-assessment
+  // was finished (it gates Level 1), so a new phone or cleared browser doesn't ask again.
+  return { ...save, preDone: save.preDone || server.length > 0, attempts: [...byId.values()] }
 }
 
 // Sends unsent attempts; gets back the student's whole history (other devices too) and
