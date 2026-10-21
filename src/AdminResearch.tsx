@@ -13,6 +13,7 @@ export type Research = {
   survey: number[] | null
 }
 type Which = 'pre' | 'post'
+type EntryStatus = { saving: boolean; error: string }
 
 const ITEMS = RESEARCH_TEST.length
 const SURVEY = RESEARCH_SURVEY.flatMap((d) => d.items.map((text) => ({ dim: d.dim, text })))
@@ -39,24 +40,24 @@ function download(name: string, rows: (string | number)[][]) {
 
 // ---------- entry ----------
 
-function TestEditor({ code, which, value, onSave, onClose }: { code: string; which: Which; value: boolean[] | null; onSave: (v: boolean[]) => void; onClose: () => void }) {
+function TestEditor({ code, which, value, onSave, onClose, saving, error }: { code: string; which: Which; value: boolean[] | null; onSave: (v: boolean[]) => void; onClose: () => void } & EntryStatus) {
   const [marks, setMarks] = useState<boolean[]>(value ?? Array(ITEMS).fill(false))
   const s = score(marks)
   return (
     <Dialog title={`${code}: ${which === 'pre' ? 'pretest' : 'posttest'} (Part I)`} onClose={onClose}>
       <p className="muted">Tap the items the learner got right. The answer key is shown to help you check the paper.</p>
       <div className="row wrap">
-        <button className="link" onClick={() => setMarks(Array(ITEMS).fill(true))}>
+        <button className="link" onClick={() => setMarks(Array(ITEMS).fill(true))} disabled={saving}>
           All right
         </button>
-        <button className="link" onClick={() => setMarks(Array(ITEMS).fill(false))}>
+        <button className="link" onClick={() => setMarks(Array(ITEMS).fill(false))} disabled={saving}>
           All wrong
         </button>
       </div>
       <ol className="marks">
         {RESEARCH_TEST.map((it, i) => (
           <li key={i}>
-            <button className={marks[i] ? 'right' : 'wrong'} aria-pressed={marks[i]} onClick={() => setMarks(marks.map((m, j) => (j === i ? !m : m)))}>
+            <button className={marks[i] ? 'right' : 'wrong'} aria-pressed={marks[i]} disabled={saving} onClick={() => setMarks(marks.map((m, j) => (j === i ? !m : m)))}>
               <span className="n">{i + 1}.</span> {it.q} = {it.a < 0 ? `−${-it.a}` : it.a}
               <b>{marks[i] ? '✓ Right' : '✗ Wrong'}</b>
             </button>
@@ -67,19 +68,20 @@ function TestEditor({ code, which, value, onSave, onClose }: { code: string; whi
         Score: <b>{s} / 20</b> · MPS {mps(s)}% · {mastery(mps(s))}
       </p>
       <div className="row">
-        <button className="big secondary" onClick={onClose}>
+        <button className="big secondary" onClick={onClose} disabled={saving}>
           Cancel
         </button>
-        <button className="big" onClick={() => onSave(marks)}>
-          Save
+        <button className="big" onClick={() => onSave(marks)} disabled={saving}>
+          {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
+      {error && <p className="error" role="alert">{error}</p>}
     </Dialog>
   )
 }
 
 const SCALE = ['Strongly Disagree', 'Disagree', 'Agree', 'Strongly Agree']
-function SurveyEditor({ code, value, onSave, onClose }: { code: string; value: number[] | null; onSave: (v: number[]) => void; onClose: () => void }) {
+function SurveyEditor({ code, value, onSave, onClose, saving, error }: { code: string; value: number[] | null; onSave: (v: number[]) => void; onClose: () => void } & EntryStatus) {
   const [answers, setAnswers] = useState<number[]>(value ?? Array(SURVEY.length).fill(0))
   const done = answers.every((a) => a >= 1)
   return (
@@ -89,6 +91,7 @@ function SurveyEditor({ code, value, onSave, onClose }: { code: string; value: n
         <input
           inputMode="numeric"
           autoComplete="off"
+          disabled={saving}
           // up to the last answered item, with 0 for any gap, so each digit stays on its own item
           value={answers.slice(0, answers.findLastIndex((a) => a > 0) + 1).join('')}
           onChange={(e) => {
@@ -113,7 +116,7 @@ function SurveyEditor({ code, value, onSave, onClose }: { code: string; value: n
                 </p>
                 <div className="likert" role="group" aria-label={`Item ${i + 1}`}>
                   {SCALE.map((label, k) => (
-                    <button key={k} aria-pressed={answers[i] === k + 1} aria-label={`${k + 1}, ${label}`} onClick={() => setAnswers(answers.map((a, m) => (m === i ? k + 1 : a)))}>
+                    <button key={k} aria-pressed={answers[i] === k + 1} aria-label={`${k + 1}, ${label}`} disabled={saving} onClick={() => setAnswers(answers.map((a, m) => (m === i ? k + 1 : a)))}>
                       {k + 1}
                     </button>
                   ))}
@@ -127,13 +130,14 @@ function SurveyEditor({ code, value, onSave, onClose }: { code: string; value: n
         {done ? `All 20 answered · mean ${f2(mean(answers))}` : `${answers.filter(Boolean).length} of 20 answered`}
       </p>
       <div className="row">
-        <button className="big secondary" onClick={onClose}>
+        <button className="big secondary" onClick={onClose} disabled={saving}>
           Cancel
         </button>
-        <button className="big" onClick={() => onSave(answers)} disabled={!done}>
-          Save
+        <button className="big" onClick={() => onSave(answers)} disabled={!done || saving}>
+          {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
+      {error && <p className="error" role="alert">{error}</p>}
     </Dialog>
   )
 }
@@ -419,6 +423,13 @@ export function ResearchTab({
     part: Which | 'survey'
   } | null>(null)
   const [msg, setMsg] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const openEntry = (code: string, part: Which | 'survey') => {
+    setSaveError('')
+    setEdit({ code, part })
+  }
+  const closeEntry = () => { if (!saving) setEdit(null) }
   const get = (code: string): Research => data[code] ?? { pre: null, post: null, survey: null }
   const both = codes.filter((c) => get(c).pre && get(c).post)
   const preMarks = codes.flatMap((c) => (get(c).pre ? [get(c).pre!] : []))
@@ -426,12 +437,17 @@ export function ResearchTab({
   const surveys = codes.flatMap((c) => (get(c).survey ? [get(c).survey!] : []))
 
   async function save(code: string, patch: Partial<Research>) {
-    setEdit(null)
+    if (saving) return
+    setSaving(true)
+    setSaveError('')
     try {
       await onSave(code, patch)
+      setEdit(null)
       setMsg(`Saved ${code}.`)
     } catch (e) {
-      setMsg(`Couldn’t save ${code}: ${(e as Error).message}`)
+      setSaveError(`Couldn’t save ${code}: ${(e as Error).message}. Your entries are still here; try saving again.`)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -472,7 +488,7 @@ export function ResearchTab({
     return (
       <button
         className="link"
-        onClick={() => setEdit({ code, part })}
+        onClick={() => openEntry(code, part)}
         aria-label={`${code} ${part === 'pre' ? 'pretest' : 'posttest'}: ${m ? `${score(m)} of 20, edit` : 'enter'}`}
       >
         {m ? `${score(m)}/20 · ${mps(score(m))}%` : 'Enter'}
@@ -518,7 +534,7 @@ export function ResearchTab({
                     <td>{cell(c, 'post')}</td>
                     <td>{r.pre && r.post ? `${score(r.post) - score(r.pre) >= 0 ? '+' : '−'}${Math.abs(score(r.post) - score(r.pre))}` : '—'}</td>
                     <td>
-                      <button className="link" onClick={() => setEdit({ code: c, part: 'survey' })} aria-label={`${c} survey: ${r.survey ? 'entered, edit' : 'enter'}`}>
+                      <button className="link" onClick={() => openEntry(c, 'survey')} aria-label={`${c} survey: ${r.survey ? 'entered, edit' : 'enter'}`}>
                         {r.survey ? `✓ mean ${f2(mean(r.survey))}` : 'Enter'}
                       </button>
                     </td>
@@ -563,9 +579,9 @@ export function ResearchTab({
       </section>
 
       {edit && edit.part !== 'survey' && (
-        <TestEditor code={edit.code} which={edit.part} value={get(edit.code)[edit.part]} onClose={() => setEdit(null)} onSave={(v) => save(edit.code, { [edit.part]: v })} />
+        <TestEditor code={edit.code} which={edit.part} value={get(edit.code)[edit.part]} onClose={closeEntry} onSave={(v) => save(edit.code, { [edit.part]: v })} saving={saving} error={saveError} />
       )}
-      {edit?.part === 'survey' && <SurveyEditor code={edit.code} value={get(edit.code).survey} onClose={() => setEdit(null)} onSave={(v) => save(edit.code, { survey: v })} />}
+      {edit?.part === 'survey' && <SurveyEditor code={edit.code} value={get(edit.code).survey} onClose={closeEntry} onSave={(v) => save(edit.code, { survey: v })} saving={saving} error={saveError} />}
     </>
   )
 }

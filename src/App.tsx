@@ -47,6 +47,7 @@ function Student() {
   const [screen, setScreen] = useState<Screen>('landing')
   const [ranking, setRanking] = useState<Rank[] | null>(null) // null = not fetched yet (offline)
   const [howtoFrom, setHowtoFrom] = useState<HowToFrom>('landing') // How to Play's back goes there
+  const [playingPuzzle, setPlayingPuzzle] = useState<ReturnType<typeof puzzleFor>>(null)
   const [, setPuzzles] = useState(0) // bumped when the researchers' approved puzzles arrive
   const latest = useRef(store)
   const busy = useRef(false)
@@ -117,6 +118,12 @@ function Student() {
   }, [screen])
 
   const go = setScreen
+  const play = (id: string) => {
+    const puzzle = puzzleFor(id)
+    if (!puzzle) return
+    setPlayingPuzzle(puzzle) // an approval arriving online must not replace a run already in progress
+    go({ level: id })
+  }
   const howTo = (from: HowToFrom) => {
     setHowtoFrom(from)
     go('howto')
@@ -172,7 +179,7 @@ function Student() {
       />
     )
   if (screen === 'relax' || screen === 'expert')
-    return <Levels mode={screen} attempts={save.attempts} won={won} coins={coins} onPlay={(id) => go({ level: id })} onBack={() => go('modes')} onRanking={() => go('ranking')} />
+    return <Levels mode={screen} attempts={save.attempts} won={won} coins={coins} onPlay={play} onBack={() => go('modes')} onRanking={() => go('ranking')} />
   if (screen === 'battle')
     return (
       <BattleRoom
@@ -186,7 +193,7 @@ function Student() {
   if (screen === 'ranking') return <Ranking rows={ranking} attempts={save.attempts} code={save.code} onRefresh={syncNow} onBack={() => go('expert')} />
 
   const level = LEVELS.find((l) => l.id === screen.level)!
-  const puzzle = puzzleFor(level.id)!
+  const puzzle = playingPuzzle ?? puzzleFor(level.id)!
   const next = LEVELS[LEVELS.indexOf(level) + 1]
   return (
     <Game
@@ -196,12 +203,12 @@ function Student() {
       sample={puzzle.sample}
       coins={coins}
       rankOf={(seconds, wrong) =>
-        ranking ? rankingFor(ranking.filter((r) => isCurrent(r.level, r.puzzle)), level.id, { level: level.id, code: save.code, seconds, wrong }).findIndex((r) => r.code === save.code) + 1 : null
+        ranking && isCurrent(level.id, puzzle.version) ? rankingFor(ranking.filter((r) => isCurrent(r.level, r.puzzle)), level.id, { level: level.id, code: save.code, seconds, wrong }).findIndex((r) => r.code === save.code) + 1 : null
       }
       onProgress={(a) => update((s) => ({ ...s, current: a }))}
       onFinish={(a) => update((s) => ({ ...s, current: null, attempts: [...s.attempts, a] }))}
       onExit={() => go(level.mode)}
-      onNext={next && puzzleFor(next.id) ? () => go({ level: next.id }) : null}
+      onNext={next && puzzleFor(next.id) ? () => play(next.id) : null}
     />
   )
 }

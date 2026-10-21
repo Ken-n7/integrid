@@ -37,7 +37,9 @@ function readCell(raw: string, p: Pos): Cell {
   if (Object.hasOwn(OPS, sym)) return { t: 'op', op: OPS[sym] }
   const m = /^(\?)?\(?([-+]?\d+)\)?$/.exec(s)
   if (!m) throw new Error(`${where(p)}: can't read "${raw.trim()}"`)
-  return { t: 'num', v: Number(m[2]) || 0, hidden: !!m[1] }
+  const v = Number(m[2]) || 0
+  if (!Number.isSafeInteger(v)) throw new Error(`${where(p)}: number is too large to calculate exactly`)
+  return { t: 'num', v, hidden: !!m[1] }
 }
 
 // Every row/column run of 2+ filled squares is one equation, or a chain of them (below).
@@ -99,6 +101,7 @@ function value(s: Side, val: Lookup): number | undefined | string {
 
 // MDAS: × and ÷ first, then + and −, left to right. A string means the math breaks.
 export function calc(nums: number[], ops: Op[]): number | string {
+  if (!nums.every(Number.isSafeInteger)) return 'number is too large to calculate exactly'
   const terms = [nums[0]]
   const signs: Op[] = []
   for (const [i, op] of ops.entries()) {
@@ -111,9 +114,16 @@ export function calc(nums: number[], ops: Op[]): number | string {
     const a = terms.pop()!
     if (op === '÷' && n === 0) return 'divides by 0'
     if (op === '÷' && a % n !== 0) return `${fmt(a)} ÷ ${fmt(n)} is not a whole number`
-    terms.push((op === '×' ? a * n : a / n) || 0)
+    const product = (op === '×' ? a * n : a / n) || 0
+    if (!Number.isSafeInteger(product)) return 'answer is too large to calculate exactly'
+    terms.push(product)
   }
-  return terms.reduce((sum, t, i) => (i === 0 ? t : signs[i - 1] === '+' ? sum + t : sum - t), 0)
+  let result = terms[0]
+  for (let i = 1; i < terms.length; i++) {
+    result = signs[i - 1] === '+' ? result + terms[i] : result - terms[i]
+    if (!Number.isSafeInteger(result)) return 'answer is too large to calculate exactly'
+  }
+  return result
 }
 
 // One typed equation like "-12 + (-7) = -19" (the researchers' lists, the puzzle maker). Without

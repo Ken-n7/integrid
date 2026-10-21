@@ -2,6 +2,8 @@
 // on the admin page (saved in the database, cached on each phone for offline play), else the
 // generated sample (relax-1.sample.csv).
 import { db } from './store.ts'
+import { parse, validate } from './puzzle.ts'
+import { BATTLES, LEVELS } from './rules.ts'
 
 const files = import.meta.glob('../puzzles/*.csv', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
 type Approved = { csv: string; version: string; at: string }
@@ -9,7 +11,7 @@ const CACHE = 'integrid:puzzles'
 
 let approved: Record<string, Approved> = {}
 try {
-  approved = JSON.parse(localStorage.getItem(CACHE) || '{}')
+  approved = readApprovals(JSON.parse(localStorage.getItem(CACHE) || '{}'))
 } catch {
   // blocked storage: the built-in files still work
 }
@@ -27,6 +29,24 @@ export function versionOf(csv: string) {
   let h = 0x811c9dc5
   for (const ch of csv.trim()) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0
   return h.toString(16).padStart(8, '0')
+}
+
+// Cached and downloaded approvals must pass the same checks as files shipped with the game.
+function readApprovals(value: unknown): Record<string, Approved> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  const out: Record<string, Approved> = {}
+  for (const [id, entry] of Object.entries(value)) {
+    const level = [...LEVELS, ...BATTLES].find((l) => l.id === id)
+    if (!level || !entry || typeof entry !== 'object') continue
+    const { csv, version, at } = entry as Partial<Approved>
+    if (typeof csv !== 'string' || csv.length > 4000 || version !== versionOf(csv) || typeof at !== 'string' || !Number.isFinite(Date.parse(at))) continue
+    try {
+      if (!validate(parse(csv), level).length) out[id] = { csv, version, at }
+    } catch {
+      // A damaged approval falls back to the built-in puzzle.
+    }
+  }
+  return out
 }
 
 export function builtIn(id: string) {
@@ -52,7 +72,7 @@ export async function refreshPuzzles() {
   if (!db) return false
   const { data, error } = await db.from('puzzles').select('level, csv, version, approved_at')
   if (error || !data) return false
-  approved = Object.fromEntries(data.map((p) => [p.level, { csv: p.csv, version: p.version, at: p.approved_at }]))
+  approved = readApprovals(Object.fromEntries(data.map((p) => [p.level, { csv: p.csv, version: p.version, at: p.approved_at }])))
   keep()
   return true
 }

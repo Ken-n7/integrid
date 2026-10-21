@@ -108,7 +108,7 @@ export function Admin() {
     void db.auth.getSession().then(({ data }) => {
       setSession(data.session)
       setReady(true)
-    })
+    }).catch(() => setReady(true))
     const { data } = db.auth.onAuthStateChange((_event, s) => setSession(s))
     return () => data.subscription.unsubscribe()
   }, [])
@@ -126,9 +126,14 @@ function SignIn() {
     e.preventDefault()
     setBusy(true)
     setMsg('')
-    const { error } = await db!.auth.signInWithPassword({ email, password })
-    setBusy(false)
-    if (error) setMsg(error.message === 'Invalid login credentials' ? 'Wrong email or password.' : `Couldn’t sign in: ${error.message}`)
+    try {
+      const { error } = await db!.auth.signInWithPassword({ email, password })
+      if (error) setMsg(error.message === 'Invalid login credentials' ? 'Wrong email or password.' : `Couldn’t sign in: ${error.message}`)
+    } catch {
+      setMsg('Couldn’t connect. Check your internet and try again.')
+    } finally {
+      setBusy(false)
+    }
   }
   return (
     <Shell>
@@ -233,7 +238,7 @@ function Dashboard({ email, demo = false }: { email: string; demo?: boolean }) {
       setStudents(data.students)
       setRows(data.rows)
       setStatus('')
-    })
+    }).catch(() => setStatus('Couldn’t load the dashboard. Check your internet and press Refresh.'))
   }
   const load = useEffectEvent(() => void reload())
   useEffect(() => {
@@ -247,9 +252,13 @@ function Dashboard({ email, demo = false }: { email: string; demo?: boolean }) {
       pin: String(r % 10000).padStart(4, '0'),
     }))
     if (demo) return setStudents([...students, ...fresh])
-    const { error } = await db!.from('students').insert(fresh)
-    if (error) return setStatus(error.message)
-    await reload()
+    try {
+      const { error } = await db!.from('students').insert(fresh)
+      if (error) return setStatus(error.message)
+      await reload()
+    } catch {
+      setStatus('Couldn’t add students. Check your internet and try again.')
+    }
   }
 
   async function saveResearch(code: string, patch: Partial<Research>) {
@@ -258,7 +267,7 @@ function Dashboard({ email, demo = false }: { email: string; demo?: boolean }) {
       const { error } = await db!.from('research').upsert({ student: code, ...next, updated_at: new Date().toISOString() })
       if (error) throw new Error(/research/.test(error.message) ? NEEDS_UPDATE : error.message)
     }
-    setResearch({ ...research, [code]: next })
+    setResearch((cur) => ({ ...cur, [code]: next }))
   }
 
   if (notAdmin)
@@ -505,11 +514,11 @@ function StudentsTab(props: {
           </label>
           <button
             className="big"
+            disabled={!!busy}
             onClick={async () => {
               setBusy('Adding…')
               setCountText(String(count))
-              await props.onAdd(count)
-              setBusy('')
+              try { await props.onAdd(count) } finally { setBusy('') }
             }}
           >
             Add
@@ -519,10 +528,10 @@ function StudentsTab(props: {
           </button>
           <button
             className="big secondary"
+            disabled={!!busy}
             onClick={async () => {
               setBusy('Loading…')
-              await props.onReload()
-              setBusy('')
+              try { await props.onReload() } finally { setBusy('') }
             }}
           >
             <Deco>↻</Deco> Refresh

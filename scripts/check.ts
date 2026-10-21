@@ -1,6 +1,7 @@
 // Checks every puzzle in puzzles/ and the game rules. Runs before every build.
 //   npm run check
 import assert from 'node:assert/strict'
+import './check-flows.ts'
 import { readdirSync, readFileSync } from 'node:fs'
 import { bankOf, countSolutions, equations, parse, validate } from '../src/puzzle.ts'
 import { ALL_OPS, LEVELS, rankingFor, reward } from '../src/rules.ts'

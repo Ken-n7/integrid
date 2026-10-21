@@ -45,6 +45,10 @@ function makeAnother(id: string) {
       resolve(e.data)
       w.terminate()
     }
+    w.onerror = () => {
+      resolve(null)
+      w.terminate()
+    }
     w.postMessage({ id, seed: crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000 })
   })
 }
@@ -63,10 +67,15 @@ function LevelCard({ level, rows, answers, onChange, onEdit }: { level: Level; r
   async function generate() {
     setBusy(true)
     setMsg('')
-    const p = await makeAnother(level.id)
-    setBusy(false)
-    if (p) setNext(p.csv)
-    else setMsg('No puzzle passed the checks this time. Try again.')
+    try {
+      const p = await makeAnother(level.id)
+      if (p) setNext(p.csv)
+      else setMsg('No puzzle passed the checks this time. Try again.')
+    } catch {
+      setMsg('Couldn’t start the puzzle maker. Reload the page and try again.')
+    } finally {
+      setBusy(false)
+    }
   }
   async function save(csv: string) {
     setConfirm(null)

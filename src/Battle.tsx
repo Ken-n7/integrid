@@ -7,23 +7,20 @@
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useBack } from './back.ts'
+import { apply, countWrong, isGroupMsg, isRoom, roundFinished, standings, sum, type Bar, type GroupMsg, type Host, type Room } from './battleState.ts'
 import { Game, type BattleLink } from './Game.tsx'
-import { blanksOf, parse } from './puzzle.ts'
+import { blanksOf, key, parse } from './puzzle.ts'
 import { puzzleFor } from './puzzles.ts'
 import { BATTLES, clock, HEARTS, type Attempt } from './rules.ts'
 import { db, uuid } from './store.ts'
 import { Deco, Icon } from './ui.tsx'
 
-type Bar = { cells: string[]; wrong: number; done: number | null } // done = seconds when the grid was full
-type Room = { puzzle: string; csv: string; seconds: number; state: 'lobby' | 'live' | 'done'; startedAt: number | null; sentAt: number; members: string[][]; bars: Bar[] }
-type GroupMsg = { t: 'join'; code: string } | { t: 'leave'; code: string } | { t: 'cell'; k: string; hint: boolean } | { t: 'wrong'; code: string; wrong: number }
-
 function channel<M>(name: string, onMsg: (m: M) => void, onReady: () => void = () => {}) {
   if (!db) {
     const bc = new BroadcastChannel(name)
     bc.onmessage = (e) => onMsg(e.data as M)
-    setTimeout(onReady)
-    return { send: (m: M) => bc.postMessage(m), close: () => bc.close() }
+    const ready = setTimeout(onReady)
+    return { send: (m: M) => bc.postMessage(m), close: () => { clearTimeout(ready); bc.close() } }
   }
   // supabase-js hands back a channel that is still closing when the name matches (React's dev mode
   // opens every screen twice; a student can re-pick the same group): let any old copy go first.
@@ -47,19 +44,6 @@ function channel<M>(name: string, onMsg: (m: M) => void, onReady: () => void = (
 }
 
 const totalOf = (csv: string) => blanksOf(parse(csv)).length
-const sum = (w: Record<string, number>) => Object.values(w).reduce((a, b) => a + b, 0)
-// A member's running count of wrong answers: keep the highest, so a repeated message counts once.
-const countWrong = (w: Record<string, number>, code: string, n: number) => ({ ...w, [code]: Math.max(w[code] ?? 0, n) })
-
-// Finished groups first (by time), then most boxes solved, then fewest wrong answers (§10).
-// A group no one joined comes last: with 0 wrong answers it would otherwise beat a group playing.
-const standings = (bars: Bar[], members: string[][]) => {
-  const empty = (g: number) => !members[g]?.length && !bars[g].cells.length && !bars[g].wrong
-  return bars
-    .map((b, g) => ({ ...b, g }))
-    .sort((a, b) => +empty(a.g) - +empty(b.g) || (a.done ?? Infinity) - (b.done ?? Infinity) || b.cells.length - a.cells.length || a.wrong - b.wrong)
-}
-
 // The live ranking: one card per group, leader first. `top` keeps the grid screen short in a big
 // class (8 groups of 5): the leaders plus your own group. `names`: the teacher's page lists members.
 function Bars({ bars, total, mine, members, names = false, top = Infinity }: { bars: Bar[]; total: number; mine?: number; members: string[][]; names?: boolean; top?: number }) {
@@ -99,6 +83,7 @@ function Bars({ bars, total, mine, members, names = false, top = Infinity }: { b
 type Props = { code: string; coins: number; onExit: () => void; onProgress: (a: Attempt) => void; onFinish: (a: Attempt) => void }
 
 export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props) {
+  const [runId] = useState(uuid) // rejoining starts a new wrong-answer count, without restoring group hearts
   const [typed, setTyped] = useState('')
   const [msg, setMsg] = useState('')
   const [room, setRoom] = useState<string | null>(null)
@@ -115,6 +100,7 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
     groupNow.current = group
   })
   const inGame = inBattle && !!snap && group !== null
+  const csv = snap?.csv
 
   // The teacher's page repeats the room every few seconds, so 8 s of silence means a wrong code.
   // Its clock is the one that counts: startedAt is moved onto this phone's clock.
@@ -122,6 +108,7 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
     if (!room) return
     let heard = false
     const ch = channel<Room>(`ig-${room}`, (r) => {
+      if (!isRoom(r)) return
       heard = true
       setSnap({ ...r, startedAt: r.startedAt && r.startedAt + (Date.now() - r.sentAt) })
       if (r.state === 'live' && groupNow.current !== null) setInBattle(true)
@@ -138,12 +125,14 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
   }, [room])
 
   useEffect(() => {
-    if (!room || group === null) return
+    if (!room || group === null || !csv) return
+    const boxes = new Set(blanksOf(parse(csv)).map(key))
     const ch = channel<GroupMsg>(
       `ig-${room}-${group}`,
       (m) => {
-        if (m.t === 'cell') setShared((s) => (m.k in s ? s : { ...s, [m.k]: m.hint }))
-        if (m.t === 'wrong') setWrongs((w) => countWrong(w, m.code, m.wrong))
+        if (!isGroupMsg(m)) return
+        if (m.t === 'cell' && boxes.has(m.k)) setShared((s) => (m.k in s ? s : { ...s, [m.k]: m.hint }))
+        if (m.t === 'wrong') setWrongs((w) => countWrong(w, m.code, m.wrong, m.run))
       },
       () => ch.send({ t: 'join', code }),
     )
@@ -154,7 +143,7 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
       send.current = () => {}
       setWrongs({})
     }
-  }, [room, group, code])
+  }, [room, group, code, csv])
 
   // Not on the teacher's list yet (a lost message, or the teacher's page reloaded): say hello again.
   const listed = !snap || group === null || snap.state === 'done' || snap.members[group]?.includes(code)
@@ -218,8 +207,8 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
         send.current({ t: 'cell', k, hint })
       },
       onWrong: (wrong) => {
-        setWrongs((w) => countWrong(w, code, wrong))
-        send.current({ t: 'wrong', code, wrong })
+        setWrongs((w) => countWrong(w, code, wrong, runId))
+        send.current({ t: 'wrong', code, wrong, run: runId })
       },
     }
     return (
@@ -329,23 +318,8 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
 
 // ---------- teacher (admin page) ----------
 
-type Host = Omit<Room, 'bars' | 'sentAt'> & { room: string; total: number; cells: string[][]; wrongs: Record<string, number>[]; done: (number | null)[] }
-
 const barsOf = (h: Host): Bar[] => h.cells.map((cells, g) => ({ cells, wrong: sum(h.wrongs[g]), done: h.done[g] }))
 const roomOf = (h: Host): Room => ({ puzzle: h.puzzle, csv: h.csv, seconds: h.seconds, state: h.state, startedAt: h.startedAt, sentAt: Date.now(), members: h.members, bars: barsOf(h) })
-
-function apply(h: Host, g: number, m: GroupMsg): Host {
-  if (m.t === 'join' || m.t === 'leave') {
-    const members = h.members.map((list) => list.filter((c) => c !== m.code)) // one group per student
-    if (m.t === 'join') members[g] = [...members[g], m.code].sort()
-    return { ...h, members }
-  }
-  if (m.t === 'wrong') return { ...h, wrongs: h.wrongs.map((w, i) => (i === g ? countWrong(w, m.code, m.wrong) : w)) }
-  if (h.state !== 'live' || h.cells[g].includes(m.k) || sum(h.wrongs[g]) >= HEARTS) return h // out of hearts: no more boxes
-  const cells = h.cells.map((c, i) => (i === g ? [...c, m.k] : c))
-  const done = h.done.map((d, i) => (i === g && d === null && cells[g].length >= h.total ? Math.floor((Date.now() - h.startedAt!) / 1000) : d))
-  return { ...h, cells, done }
-}
 
 // A number box's text as a whole number in [lo, hi] (empty or junk: the default).
 const clampOf = (text: string, lo: number, hi: number, fallback: number) => Math.max(lo, Math.min(hi, Math.round(Number(text)) || fallback))
@@ -378,7 +352,7 @@ export function BattleHost() {
       setNow(Date.now())
       const cur = latest.current
       if (!cur) return
-      if (cur.state === 'live' && (Date.now() - cur.startedAt! >= cur.seconds * 1000 || cur.done.every((d, g) => d !== null || sum(cur.wrongs[g]) >= HEARTS))) {
+      if (roundFinished(cur)) {
         setH({ ...cur, state: 'done' }) // time's up, or every group finished or ran out of hearts
         return
       }

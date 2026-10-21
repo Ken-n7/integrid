@@ -398,7 +398,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
 
       {/* the puzzle box: fills the space between the header and the tray, and the grid scales to fit it */}
       <div className="board-wrap">
-        <div ref={board} className={`board${clear ? ` clear-${clear}` : ''}`}>
+        <div ref={board} className={`board${clear ? ` clear-${clear}` : ''}`} role="group" aria-label="Puzzle grid" tabIndex={0}>
           {INFO && (
             <button
               className={`info${wiggle ? ' wiggle' : ''}`}

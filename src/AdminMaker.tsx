@@ -133,10 +133,14 @@ export function PuzzleMaker({ rows, level }: { rows: Row[]; level?: string }) {
     change(next)
   }
   function undo() {
+    setDraft(null)
+    setSquareError('')
     setH((x) => (x.past.length ? { past: x.past.slice(0, -1), grid: x.past[x.past.length - 1], future: [x.grid, ...x.future] } : x))
     setDirty(true)
   }
   function redo() {
+    setDraft(null)
+    setSquareError('')
     setH((x) => (x.future.length ? { past: [...x.past, x.grid], grid: x.future[0], future: x.future.slice(1) } : x))
     setDirty(true)
   }
@@ -190,6 +194,7 @@ export function PuzzleMaker({ rows, level }: { rows: Row[]; level?: string }) {
     setSel(p)
   }
   function focusSquare(p: Pos) {
+    if (!commit()) return
     setSel(p)
     requestAnimationFrame(() => gridRef.current?.querySelector<HTMLElement>(`[data-pos="${key(p)}"]`)?.focus())
   }
@@ -266,11 +271,13 @@ export function PuzzleMaker({ rows, level }: { rows: Row[]; level?: string }) {
     ]
     if (now === undefined) return unreadable()
     const step = (p: Pos, n: number): Pos => (across ? [p[0], p[1] + n] : [p[0] + n, p[1]])
-    const slot = now?.t === 'num' ? [e.nums[0], e.nums[1], e.result].indexOf(now.v) : -1
-    if (now && slot < 0)
-      return setEqError(`The square at ${where(sel)} has ${textOf(now)}, which isn’t in this equation. Select an empty square to start from, or a number the equation uses.`)
     const before = at(step(sel, -1))
     const after = at(step(sel, 1))
+    const slot = now?.t === 'num'
+      ? !before && after?.t === 'op' && now.v === e.result ? 2 : [e.nums[0], e.nums[1], e.result].indexOf(now.v)
+      : -1
+    if (now && slot < 0)
+      return setEqError(`The square at ${where(sel)} has ${textOf(now)}, which isn’t in this equation. Select an empty square to start from, or a number the equation uses.`)
     // continuing a chain (-12 + (-7) = -19 + 14 = -5): start from the answer that ends an equation,
     // or end on the number that starts one
     const chains = (slot === 0 && before?.t === 'eq' && !after) || (slot === 2 && after?.t === 'op' && !before)

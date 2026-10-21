@@ -1975,9 +1975,14 @@ html:has(.admin-tabs) {
 }
 .mk-square {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   padding-top: 4px;
   border-top: 2px solid var(--line);
+}
+.mk-square input {
+  min-width: 0;
+  width: 100%;
 }
 .mk-square label,
 .mk-eq > label:not(.check) {
@@ -2054,7 +2059,7 @@ html:has(.admin-tabs) {
   padding: 0;
   list-style: none;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
   gap: 6px;
 }
 .marks button {
