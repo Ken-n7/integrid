@@ -1,6 +1,6 @@
 // Each student's save lives on the device; Supabase gets a copy whenever there's internet.
 import { createClient } from '@supabase/supabase-js'
-import { BATTLES, LEVELS, type Attempt, type Rank } from './rules.ts'
+import { BATTLES, HEARTS, LEVELS, type Attempt, type Rank } from './rules.ts'
 
 const env = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env
 const url = env?.VITE_SUPABASE_URL
@@ -8,7 +8,10 @@ const anonKey = env?.VITE_SUPABASE_KEY
 // No keys = dev mode: any code + PIN signs in and nothing leaves the device.
 export const db = url && anonKey ? createClient(url, anonKey) : null
 
-export type Save = { code: string; pin: string; preDone: boolean; attempts: Attempt[]; current: Attempt | null }
+// A level still being played, with its boxes (cell → solved with a hint?), so closing the app
+// mid-level can be continued.
+export type Pending = Attempt & { filled: Record<string, boolean> }
+export type Save = { code: string; pin: string; preDone: boolean; attempts: Attempt[]; current: Pending | null }
 export type Store = { who: string | null; saves: Record<string, Save> }
 
 const KEY = 'integrid:v1'
@@ -25,6 +28,14 @@ const attempt = (v: unknown): v is Attempt =>
   ['win', 'lose', 'quit'].includes(v.result as string) && whole(v.seconds) && v.seconds >= 0 && whole(v.wrong) && v.wrong >= 0 &&
   whole(v.hints) && v.hints >= 0 && whole(v.coins) && typeof v.at === 'string' && Number.isFinite(Date.parse(v.at)) &&
   Array.isArray(v.mistakes) && v.mistakes.every((m) => Array.isArray(m) && m.length === 2 && m.every(whole))
+const board = (v: unknown): v is Record<string, boolean> => record(v) && Object.entries(v).every(([k, x]) => /^\d+,\d+$/.test(k) && typeof x === 'boolean')
+
+// The level left open is given up: it counts as quit, its spent hint coins included.
+export function abandon(save: Save): Save {
+  if (!save.current) return save
+  const { filled: _, ...quit } = save.current
+  return { ...save, current: null, attempts: [...save.attempts, quit] }
+}
 
 // Recover valid learners and finished attempts independently if part of the device's cache breaks.
 export function readStore(raw: string | null): Store {
@@ -35,10 +46,14 @@ export function readStore(raw: string | null): Store {
     for (const [code, s] of Object.entries(saved.saves)) {
       if (!/^[A-Z0-9-]{1,12}$/.test(code) || !record(s) || s.code !== code || typeof s.pin !== 'string' || !/^\d{4}$/.test(s.pin) || !Array.isArray(s.attempts)) continue
       const attempts = s.attempts.filter(attempt)
-      const current = s.current
-      // A level still open when the app closed counts as quit, including its spent hint coins.
-      if (attempt(current) && !attempts.some((a) => a.id === current.id)) attempts.push(current)
-      store.saves[code] = { code, pin: s.pin, preDone: s.preDone === true, attempts, current: null }
+      const c = s.current
+      const filled = record(c) ? c.filled : null
+      const open = attempt(c) && !attempts.some((a) => a.id === c.id) ? { ...c, filled: board(filled) ? filled : {} } : null
+      const save: Save = { code, pin: s.pin, preDone: s.preDone === true, attempts, current: open }
+      // A Relax or Expert level open when the app closed waits to be continued. Anything else
+      // (a battle, an older save without its boxes) counts as quit, spent hint coins included.
+      const resumable = open && board(filled) && LEVELS.some((l) => l.id === open.level) && open.wrong < HEARTS
+      store.saves[code] = resumable ? save : abandon(save)
     }
     if (typeof saved.who === 'string' && Object.hasOwn(store.saves, saved.who)) store.who = saved.who
   } catch {

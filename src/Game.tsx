@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { flushSync } from 'react-dom'
 import { useBack } from './back.ts'
 import { Celebration } from './Celebration.tsx'
 import { clue, guideFor, RELAX_WIN_MESSAGES, sayNum, sayPattern, SIGN_RULES, WIN_MESSAGES, type RuleSection, type WinMessage } from './content.ts'
@@ -6,7 +7,7 @@ import { bankOf, blanksOf, equations, key, lenOf, parse } from './puzzle.ts'
 import { versionOf } from './puzzles.ts'
 import { clock, HEARTS, MODES, reward, type Attempt, type Level, type Result } from './rules.ts'
 import { sfx } from './sound.ts'
-import { uuid } from './store.ts'
+import { uuid, type Pending } from './store.ts'
 import { Coins, Deco, Dialog, Icon, Num } from './ui.tsx'
 
 type Run = {
@@ -48,14 +49,15 @@ type Props = {
   sample: boolean
   coins: number // balance from finished attempts
   rankOf: (seconds: number, wrong: number) => number | null // null = offline
-  onProgress: (a: Attempt) => void
+  onProgress: (a: Attempt, filled: Record<string, boolean>) => void
   onFinish: (a: Attempt) => void
+  resume?: Pending | null // this level, left open when the app closed: carry on from there
   onExit: () => void
   onNext: (() => void) | null
   battle?: BattleLink
 }
 
-export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, onExit, onNext, battle }: Props) {
+export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, onExit, onNext, resume, battle }: Props) {
   const rules = MODES[level.mode]
   const { grid, eqs, blanks, bank, version } = useMemo(() => {
     const grid = parse(csv)
@@ -66,10 +68,17 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
     return (grid[r][c] as { v: number }).v
   }
 
-  const [run, setRun] = useState(() => (battle ? { ...newRun(), start: battle.startedAt, at: new Date(battle.startedAt).toISOString() } : newRun()))
+  const [run, setRun] = useState((): Run => {
+    if (battle) return { ...newRun(), start: battle.startedAt, at: new Date(battle.startedAt).toISOString() }
+    if (!resume) return newRun()
+    // Same try, same boxes, hearts and hints; the clock goes on from where it stopped.
+    const filled = Object.fromEntries(Object.entries(resume.filled).filter(([k]) => blanks.includes(k)))
+    const { id, at, wrong, hints, mistakes } = resume
+    return { id, at, start: Date.now() - resume.seconds * 1000, filled, hearts: HEARTS - wrong, wrong, hints, mistakes, status: 'play' }
+  })
   const [sel, setSel] = useState<string | null>(null)
   const [flash, setFlash] = useState<{ k: string; v: number; ok: boolean; t: number } | null>(null) // the box that just got an answer: blinks green or red
-  const [msg, setMsg] = useState<ReactNode>('')
+  const [msg, setMsg] = useState<ReactNode>(resume ? 'Welcome back! Carry on where you left off.' : '')
   const [nudge, setNudge] = useState(false)
   const [dialog, setDialog] = useState<'rules' | 'leave' | 'restart' | null>(null)
   const [celebration, setCelebration] = useState<WinMessage | null>(null)
@@ -199,6 +208,23 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
     puzzle: version,
   })
 
+  // Leaving the app (home button, closing the tab) saves the clock too, so the level continues at
+  // this time. flushSync: the page may be gone before React's next frame.
+  const saveTime = useEffectEvent(() => {
+    if (battle || !active) return
+    flushSync(() => onProgress(attemptOf(run, 'quit', 0, Math.floor((Date.now() - run.start) / 1000)), run.filled))
+  })
+  useEffect(() => {
+    const away = () => document.hidden && saveTime()
+    document.addEventListener('visibilitychange', away)
+    const gone = () => saveTime()
+    addEventListener('pagehide', gone)
+    return () => {
+      document.removeEventListener('visibilitychange', away)
+      removeEventListener('pagehide', gone)
+    }
+  }, [])
+
   function commit(next: Run) {
     const end = Date.now()
     const secs = Math.floor((end - next.start) / 1000)
@@ -207,7 +233,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
       // a battle's result is the group's: the room logs it when the round ends
       setRun(status === 'play' ? next : { ...next, status, end })
       if (status !== 'play') setSel(null)
-      onProgress(attemptOf(next, 'quit', 0, secs)) // saved as "quit" until the level ends
+      onProgress(attemptOf(next, 'quit', 0, secs), next.filled) // saved as "quit" until the level ends
       return
     }
     setRun({ ...next, status, end })

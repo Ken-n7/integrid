@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useEffectEvent, useRef, useState, type FormE
 import { HOW_TO, PRE_ASSESSMENT } from './content.ts'
 import { Game } from './Game.tsx'
 import { bestWin, clock, coinsOf, isUnlocked, LEVELS, rankingFor, wonLevels, type Attempt, type Mode, type Rank } from './rules.ts'
-import { db, load, merge, newSave, persist, sync, type Save, type Store } from './store.ts'
+import { abandon, db, load, merge, newSave, persist, sync, type Save, type Store } from './store.ts'
 import { useBack } from './back.ts'
 import { focusScreen } from './focus.ts'
 import { musicOn, setMusicOn, startMusic, stopMusic } from './music.ts'
@@ -118,9 +118,12 @@ function Student() {
   }, [screen])
 
   const go = setScreen
+  // The level left open when the app closed, if it can still be continued (same puzzle).
+  const open = save?.current && puzzleFor(save.current.level)?.version === save.current.puzzle ? save.current : null
   const play = (id: string) => {
     const puzzle = puzzleFor(id)
     if (!puzzle) return
+    if (save?.current && open?.level !== id) update(abandon) // starting something else gives up the open level
     setPlayingPuzzle(puzzle) // an approval arriving online must not replace a run already in progress
     go({ level: id })
   }
@@ -166,27 +169,31 @@ function Student() {
 
   // Dev server only: ?unlock opens every level for a look around. It adds no wins, so nothing fake syncs.
   const won = import.meta.env.DEV && new URLSearchParams(location.search).has('unlock') ? new Set(LEVELS.map((l) => l.id)) : wonLevels(save.attempts)
-  const coins = coinsOf(save.attempts)
+  const coins = coinsOf(save.attempts) // the open level's hint coins are counted in its game
+  const shown = coins + (save.current?.coins ?? 0)
   if (screen === 'modes')
     return (
       <Modes
         code={save.code}
-        coins={coins}
+        coins={shown}
         expertOpen={isUnlocked('expert-1', won)}
         battleOpen={won.has('expert-5')}
-        onPick={go}
+        onPick={(m) => {
+          if (m === 'battle') update(abandon)
+          go(m)
+        }}
         onSettings={() => go('settings')}
       />
     )
   if (screen === 'relax' || screen === 'expert')
-    return <Levels mode={screen} attempts={save.attempts} won={won} coins={coins} onPlay={play} onBack={() => go('modes')} onRanking={() => go('ranking')} />
+    return <Levels mode={screen} attempts={save.attempts} won={won} coins={shown} open={open?.level} onPlay={play} onBack={() => go('modes')} onRanking={() => go('ranking')} />
   if (screen === 'battle')
     return (
       <BattleRoom
         code={save.code}
         coins={coins}
         onExit={() => go('modes')}
-        onProgress={(a) => update((s) => ({ ...s, current: a }))}
+        onProgress={(a) => update((s) => ({ ...s, current: { ...a, filled: {} } }))}
         onFinish={(a) => update((s) => ({ ...s, current: null, attempts: [...s.attempts, a] }))}
       />
     )
@@ -205,9 +212,13 @@ function Student() {
       rankOf={(seconds, wrong) =>
         ranking && isCurrent(level.id, puzzle.version) ? rankingFor(ranking.filter((r) => isCurrent(r.level, r.puzzle)), level.id, { level: level.id, code: save.code, seconds, wrong }).findIndex((r) => r.code === save.code) + 1 : null
       }
-      onProgress={(a) => update((s) => ({ ...s, current: a }))}
+      resume={open?.level === level.id && open.puzzle === puzzle.version ? open : null}
+      onProgress={(a, filled) => update((s) => ({ ...s, current: { ...a, filled } }))}
       onFinish={(a) => update((s) => ({ ...s, current: null, attempts: [...s.attempts, a] }))}
-      onExit={() => go(level.mode)}
+      onExit={() => {
+        update((s) => ({ ...s, current: null })) // left with nothing to keep (a try with moves ends through onFinish)
+        go(level.mode)
+      }}
       onNext={next && puzzleFor(next.id) ? () => play(next.id) : null}
     />
   )
@@ -594,7 +605,7 @@ function Settings({ code, onBack, onHowTo, onSignOut }: { code: string; onBack: 
   )
 }
 
-function Levels(props: { mode: Mode; attempts: Attempt[]; won: Set<string>; coins: number; onPlay: (id: string) => void; onBack: () => void; onRanking: () => void }) {
+function Levels(props: { mode: Mode; attempts: Attempt[]; won: Set<string>; coins: number; open?: string; onPlay: (id: string) => void; onBack: () => void; onRanking: () => void }) {
   useBack(props.onBack)
   return (
     <main className="screen" tabIndex={-1}>
@@ -616,7 +627,7 @@ function Levels(props: { mode: Mode; attempts: Attempt[]; won: Set<string>; coin
         {LEVELS.filter((l) => l.mode === props.mode).map((l) => {
           const puzzle = puzzleFor(l.id)
           const best = bestWin(props.attempts, l.id)
-          const state = !puzzle ? 'soon' : !isUnlocked(l.id, props.won) ? 'locked' : best ? 'done' : 'play'
+          const state = !puzzle ? 'soon' : !isUnlocked(l.id, props.won) ? 'locked' : l.id === props.open ? 'resume' : best ? 'done' : 'play'
           return (
             <li key={l.id}>
               <button className={`level ${state}`} disabled={state === 'soon' || state === 'locked'} onClick={() => props.onPlay(l.id)}>
@@ -640,6 +651,7 @@ function Levels(props: { mode: Mode; attempts: Attempt[]; won: Set<string>; coin
                     </>
                   )}
                   {state === 'soon' && 'Soon'}
+                  {state === 'resume' && 'Continue'}
                   {state === 'play' && <Icon name="next" />}
                 </span>
               </button>

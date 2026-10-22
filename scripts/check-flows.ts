@@ -2,11 +2,11 @@
 import assert from 'node:assert/strict'
 import { apply, isGroupMsg, isRoom, roundFinished, standings, sum, type Host } from '../src/battleState.ts'
 import { calc, parse, readEquation } from '../src/puzzle.ts'
-import { merge, newSave, readStore, sync, type Save } from '../src/store.ts'
+import { abandon, merge, newSave, readStore, sync, type Save } from '../src/store.ts'
 import type { Attempt } from '../src/rules.ts'
 
 const result: Attempt = { id: 'saved', level: 'relax-1', result: 'quit', seconds: 4, wrong: 0, hints: 1, coins: -60, mistakes: [], at: '2026-10-22T00:00:00Z' }
-const save: Save = { code: 'S01', pin: '1234', preDone: true, attempts: [result], current: result }
+const save: Save = { code: 'S01', pin: '1234', preDone: true, attempts: [result], current: { ...result, filled: { '0,2': false, '4,1': true } } }
 for (const raw of ['null', '[]', '{}', '{broken', '{"saves":null}', '{"saves":[],"who":"S01"}']) {
   assert.deepEqual(readStore(raw), { who: null, saves: {} })
 }
@@ -16,7 +16,14 @@ assert.deepEqual(restored.saves.S01.attempts, [result]) // current isn't charged
 assert.equal(restored.saves.S01.current, null)
 assert.equal(restored.saves.S02, undefined)
 const interrupted = readStore(JSON.stringify({ who: 'S01', saves: { S01: { ...save, attempts: [] } } }))
-assert.deepEqual(interrupted.saves.S01.attempts, [result]) // interrupted hints are still charged
+assert.deepEqual(interrupted.saves.S01.current, save.current) // a closed level waits to be continued…
+assert.deepEqual(interrupted.saves.S01.attempts, [])
+assert.deepEqual(abandon(interrupted.saves.S01).attempts, [result]) // …or counts as quit, hints still charged
+assert.equal(abandon(interrupted.saves.S01).current, null)
+const older = readStore(JSON.stringify({ who: 'S01', saves: { S01: { ...save, attempts: [], current: result } } }))
+assert.deepEqual(older.saves.S01.attempts, [result]) // no boxes saved: quit, as before
+const battle = readStore(JSON.stringify({ who: 'S01', saves: { S01: { ...save, attempts: [], current: { ...save.current, level: 'battle-1' } } } }))
+assert.deepEqual(battle.saves.S01.attempts, [{ ...result, level: 'battle-1' }]) // a battle can't be continued
 assert.equal(merge(newSave('S01', '1234'), [result]).preDone, true) // played on another phone: no pre-assessment again
 assert.equal(merge(newSave('S01', '1234'), []).preDone, false)
 

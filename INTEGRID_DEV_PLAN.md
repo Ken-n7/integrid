@@ -221,7 +221,7 @@ Then a **CONTINUE** button. It goes to the pre-assessment if not done yet, other
 - **Result:**
   - **Win:** time, wrong answers, hints, coins earned; in Expert also "Rank #N". Then Next level / Levels.
   - **0 hearts:** "Game Over", then **Try again** (unlimited) / Levels.
-- **Closing the app mid-level:** the attempt is saved as `quit` the next time the app opens, so hint coins are not refunded and no data is lost.
+- **Closing the app mid-level:** the level waits on the phone. Its row says **Continue**, and opening it brings back the same boxes, hearts, hints and clock (stopped while the app was closed). Starting a different level (or Battle) instead logs the open one as `quit`, so hint coins are never refunded. A battle can't be continued: it's logged as `quit` on the next open. (Oct 22, Ken)
 
 ### 5.8 Number bank
 **Correct answers only** (client), sorted from smallest to largest like the sketch. Each tile is used once, and duplicates appear as separate tiles.
@@ -546,7 +546,7 @@ Day 1 = Thu Oct 15. Delivery Thu Oct 29.
   - Each Relax level: win, lose all hearts, retry, clue, hint with and without coins.
   - Expert: hint limit 2; ranking updates when online.
   - Unlocks in order; back/restart confirm.
-  - Close mid-level → reopen → attempt logged as quit.
+  - Close mid-level → reopen → Continue brings the level back; starting another level logs it as quit.
   - Offline play → online → admin page shows the data; CSVs open in Excel.
   - Layout at 360×640 and on a PC.
 - **Devices:** one low-end Android (2 GB RAM, Chrome), one school PC, one iPhone (smoke test).
