@@ -24,7 +24,7 @@ export default defineConfig({
         ],
       },
       // the music too, so it plays offline. Only the Latin font file: the other scripts' fonts are never shown, so don't download them for offline
-      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,ogg}', '**/nunito-latin-wght-*.woff2'] },
+      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,ogg,mp3}', '**/nunito-latin-wght-*.woff2'] },
     }),
   ],
 })

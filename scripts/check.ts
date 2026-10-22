@@ -7,6 +7,8 @@ import { bankOf, countSolutions, equations, parse, validate } from '../src/puzzl
 import { ALL_OPS, LEVELS, rankingFor, reward } from '../src/rules.ts'
 import { cronbach, likert, mastery, pairedT, shapiroWilk, wilcoxon } from '../src/stats.ts'
 
+await import('./check-audio.ts')
+
 // The checker itself: a wrong equation, a multi-step one, inexact division and a two-answer puzzle must all be caught.
 const errs = (csv: string) => validate(parse(csv), { ops: ALL_OPS })
 assert.deepEqual(errs('?2,x,4,=,8'), [])

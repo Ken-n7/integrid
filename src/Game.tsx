@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useBack } from './back.ts'
 import { Celebration } from './Celebration.tsx'
-import { clue, guideFor, sayNum, sayPattern, SIGN_RULES, WIN_MESSAGES, type RuleSection } from './content.ts'
+import { clue, guideFor, RELAX_WIN_MESSAGES, sayNum, sayPattern, SIGN_RULES, WIN_MESSAGES, type RuleSection, type WinMessage } from './content.ts'
 import { bankOf, blanksOf, equations, key, lenOf, parse } from './puzzle.ts'
 import { versionOf } from './puzzles.ts'
 import { clock, HEARTS, MODES, reward, type Attempt, type Level, type Result } from './rules.ts'
@@ -72,7 +72,9 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
   const [msg, setMsg] = useState<ReactNode>('')
   const [nudge, setNudge] = useState(false)
   const [dialog, setDialog] = useState<'rules' | 'leave' | 'restart' | null>(null)
-  const [celebration, setCelebration] = useState<string | null>(null)
+  const [celebration, setCelebration] = useState<WinMessage | null>(null)
+  const stopResultSound = useRef<() => void>(() => {})
+  useEffect(() => () => stopResultSound.current(), [])
   const [info, setInfo] = useState(INFO && !battle) // the (!) popup opens when the level starts…
   const [started, setStarted] = useState(!!battle || !INFO) // …and the clock starts when it closes, so reading costs no coins
   const [wiggle, setWiggle] = useState(false)
@@ -211,8 +213,13 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
     setRun({ ...next, status, end })
     setSel(null)
     if (status === 'win') {
-      setCelebration(WIN_MESSAGES[Math.floor(Math.random() * WIN_MESSAGES.length)])
-      sfx.win()
+      setCelebration(RELAX_WIN_MESSAGES[level.id] ?? {
+        title: WIN_MESSAGES[Math.floor(Math.random() * WIN_MESSAGES.length)],
+        text: 'You completed this level.',
+      })
+      stopResultSound.current = sfx.win()
+    } else {
+      stopResultSound.current = sfx.lose()
     }
     onFinish(attemptOf(next, status, status === 'win' ? reward(level.mode, secs) : 0, secs))
   }
@@ -294,6 +301,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
     if (active) onFinish(attemptOf(run, 'quit', 0, seconds))
   }
   function restart() {
+    stopResultSound.current()
     quitRun()
     setRun(newRun())
     setNow(Date.now())

@@ -1,7 +1,37 @@
 // Words the researchers own. Edit the text here; no other file needs to change.
 import type { Eq, Grid, Op, Pos } from './puzzle.ts'
 
-// Temporary celebration messages; replace these once the researchers approve their wording.
+export type WinMessage = { title: string; text: string; level?: string; detail?: string }
+
+// Researchers' approved wording for Relax's four operations (Ken, Oct 22).
+export const RELAX_WIN_MESSAGES: Partial<Record<string, WinMessage>> = {
+  'relax-1': {
+    level: 'Level 1',
+    title: 'Addition Master',
+    text: 'Congratulations! You are now a certified Addition Master!',
+    detail: "You've added another victory to your journey!",
+  },
+  'relax-2': {
+    level: 'Level 2',
+    title: 'Subtraction Specialist',
+    text: 'Amazing work! You are now a certified Subtraction Specialist!',
+    detail: 'You subtracted the doubts and added confidence!',
+  },
+  'relax-3': {
+    level: 'Level 3',
+    title: 'Multiplication Pro',
+    text: 'Fantastic! You are now a certified Multiplication Pro!',
+    detail: 'Your skills are multiplying with every challenge!',
+  },
+  'relax-4': {
+    level: 'Level 4',
+    title: 'Division Expert',
+    text: 'Outstanding! You are now a certified Division Expert!',
+    detail: 'You broke down every challenge like a pro!',
+  },
+}
+
+// Temporary Expert messages until the researchers supply wording for those levels.
 export const WIN_MESSAGES = [
   'Job well done!',
   'You did it!',

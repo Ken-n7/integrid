@@ -6,7 +6,7 @@ import { db, load, merge, newSave, persist, sync, type Save, type Store } from '
 import { useBack } from './back.ts'
 import { focusScreen } from './focus.ts'
 import { musicOn, setMusicOn, startMusic, stopMusic } from './music.ts'
-import { pauseAudio, setSoundOn, sfx, soundOn } from './sound.ts'
+import { pauseAudio, setSoundOn, sfx, soundOn, warmSoundEffects } from './sound.ts'
 import { isCurrent, puzzleFor, refreshPuzzles } from './puzzles.ts'
 import { Coins, Deco, Dialog, Icon } from './ui.tsx'
 
@@ -60,7 +60,7 @@ function Student() {
   // Music starts on the first tap (browsers allow sound only after one), pauses while the app is in
   // the background, and stops on the admin page.
   useEffect(() => {
-    const tap = () => void startMusic()
+    const tap = () => { void startMusic(); warmSoundEffects() }
     const away = () => pauseAudio(document.hidden)
     addEventListener('pointerup', tap)
     addEventListener('keydown', tap)

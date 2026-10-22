@@ -1269,6 +1269,27 @@ label.inline input {
 .celebration .panel {
   border: 3px solid var(--yellow-dark);
 }
+.celebration .panel > h2 {
+  padding: 0 28px;
+}
+.celebration-level {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.celebration-title {
+  display: block;
+  font-size: clamp(1.25rem, 5.4vw, 1.65rem);
+  line-height: 1.2;
+}
+.celebration-message {
+  font-weight: 800;
+}
+.celebration-detail {
+  font-size: 0.95rem;
+}
 .celebration-badge {
   font-size: 4rem;
   line-height: 1.2;
