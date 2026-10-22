@@ -572,6 +572,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
 
       {!battle && !playing && (
         <Dialog title={<>{run.status === 'win' ? <><Deco>🎉</Deco> Level complete!</> : <><Deco>💔</Deco> Game over</>}</>}>
+          {run.status === 'win' && <p>Job well done!</p>}
           {run.status === 'win' ? (
             <Summary>
               <dt>
