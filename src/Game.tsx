@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useBack } from './back.ts'
-import { clue, guideFor, sayNum, sayPattern, SIGN_RULES, type RuleSection } from './content.ts'
+import { Celebration } from './Celebration.tsx'
+import { clue, guideFor, sayNum, sayPattern, SIGN_RULES, WIN_MESSAGES, type RuleSection } from './content.ts'
 import { bankOf, blanksOf, equations, key, lenOf, parse } from './puzzle.ts'
 import { versionOf } from './puzzles.ts'
 import { clock, HEARTS, MODES, reward, type Attempt, type Level, type Result } from './rules.ts'
@@ -71,6 +72,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
   const [msg, setMsg] = useState<ReactNode>('')
   const [nudge, setNudge] = useState(false)
   const [dialog, setDialog] = useState<'rules' | 'leave' | 'restart' | null>(null)
+  const [celebration, setCelebration] = useState<string | null>(null)
   const [info, setInfo] = useState(INFO && !battle) // the (!) popup opens when the level starts…
   const [started, setStarted] = useState(!!battle || !INFO) // …and the clock starts when it closes, so reading costs no coins
   const [wiggle, setWiggle] = useState(false)
@@ -208,6 +210,10 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
     }
     setRun({ ...next, status, end })
     setSel(null)
+    if (status === 'win') {
+      setCelebration(WIN_MESSAGES[Math.floor(Math.random() * WIN_MESSAGES.length)])
+      sfx.win()
+    }
     onFinish(attemptOf(next, status, status === 'win' ? reward(level.mode, secs) : 0, secs))
   }
 
@@ -236,8 +242,8 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
       setSel(null)
       setMsg('') // the green blink says it; a screen reader hears "Correct!" below
       setFlash({ k: sel, v, ok: true, t: (flash?.t ?? 0) + 1 })
-      sfx.right()
       const mine = { ...run.filled, [sel]: false }
+      if (battle || blanks.some((k) => !(k in mine))) sfx.right()
       commit({ ...run, filled: mine })
       battle?.onSolve(sel, false)
       const next = blanks.find((k) => !(k in mine) && !(k in filled))
@@ -294,6 +300,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
     setSel(null)
     setFlash(null)
     setDialog(null)
+    setCelebration(null)
   }
 
   // Relax's free clue for the selected box (the client's "guided practice"), shown in the (!) popup or 📖 Rules
@@ -570,9 +577,10 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
         </Dialog>
       )}
 
-      {!battle && !playing && (
+      {celebration && <Celebration message={celebration} onDone={() => setCelebration(null)} />}
+
+      {!battle && !playing && !celebration && (
         <Dialog title={<>{run.status === 'win' ? <><Deco>🎉</Deco> Level complete!</> : <><Deco>💔</Deco> Game over</>}</>}>
-          {run.status === 'win' && <p>Job well done!</p>}
           {run.status === 'win' ? (
             <Summary>
               <dt>
@@ -692,7 +700,7 @@ function Bank({ tiles, disabled, onPick }: { tiles: { v: number; used: boolean }
           <Icon name="back" />
         </button>
       )}
-      <div ref={row} className="bank" role="group" aria-label="Number bank" style={{ '--bank-cols': Math.ceil(tiles.length / 2) } as CSSProperties}>
+      <div ref={row} className="bank" role="group" aria-label="Number bank" tabIndex={0} style={{ '--bank-cols': Math.ceil(tiles.length / 2) } as CSSProperties}>
         {tiles.map((t, i) => (
           <button key={i} className="tile" disabled={t.used || disabled} onClick={() => onPick(i)} aria-label={`Place ${sayNum(t.v)}`}>
             {t.v < 0 ? `−${-t.v}` : t.v}

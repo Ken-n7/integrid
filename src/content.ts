@@ -1,6 +1,16 @@
 // Words the researchers own. Edit the text here; no other file needs to change.
 import type { Eq, Grid, Op, Pos } from './puzzle.ts'
 
+// Temporary celebration messages; replace these once the researchers approve their wording.
+export const WIN_MESSAGES = [
+  'Job well done!',
+  'You did it!',
+  'Great work!',
+  'You solved the puzzle!',
+  'Your effort paid off!',
+  'Another level completed!',
+]
+
 export const HOW_TO = [
   { icon: '🧩', title: 'Fill the Grid!', text: 'Look at the crossword grid — some numbers are missing! Your job is to figure out which numbers go where by solving the integer operations.' },
   { icon: '➗', title: 'Integer Rules', text: 'Apply the rules of addition, subtraction, multiplication, and division of integers, including sign rules.' },

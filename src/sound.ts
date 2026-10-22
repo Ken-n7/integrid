@@ -53,6 +53,11 @@ function play(notes: () => void) {
 }
 
 export const sfx = {
+  win: () => play(() => {
+    // A short rising fanfare, followed by a warm chord. Uses the same sound toggle as other effects.
+    ;[523.25, 659.25, 783.99, 1046.5].forEach((note, i) => tone(note, i * 0.12, 0.22, 'triangle', 0.13))
+    ;[523.25, 659.25, 783.99, 1046.5].forEach((note) => tone(note, 0.5, 0.6, 'sine', 0.08))
+  }),
   right: () => play(() => (tone(660, 0, 0.12, 'sine', 0.25), tone(990, 0.08, 0.2, 'sine', 0.25))), // rising "ding-ding"
   wrong: () => play(() => tone(220, 0, 0.28, 'triangle', 0.3, 140)), // short low "bwomp"
 }
