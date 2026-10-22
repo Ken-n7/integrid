@@ -38,10 +38,10 @@ export const Icon = ({ name }: { name: keyof typeof ICONS }) => (
 // Decoration a screen reader should skip ("→" is read as "right arrow", 🎮 as "video game").
 export const Deco = ({ children }: { children: ReactNode }) => <span aria-hidden="true">{children}</span>
 
-// A drawn coin instead of 🪙, which older Android phones show as a blank box.
+// The shared coin asset keeps the same appearance on every phone.
 export const Coins = ({ n }: { n: number }) => (
   <span className="coins">
-    <i className="coin" aria-hidden="true" />
+    <img className="coin" src="/coin.svg" width="20" height="20" alt="" aria-hidden="true" />
     {n}
     <span className="sr">&nbsp;coins</span>
   </span>

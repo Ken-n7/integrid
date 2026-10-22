@@ -282,11 +282,10 @@ a {
   white-space: nowrap;
 }
 .coin {
+  display: block;
+  flex-shrink: 0;
   width: 20px;
   height: 20px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #fff3b0, var(--yellow) 45%, var(--yellow-dark));
-  box-shadow: inset 0 0 0 2px #d18b10;
 }
 
 /* ---------- landing ---------- */
