@@ -293,7 +293,7 @@ function Login({ store, onBack, onDone }: { store: Store; onBack: () => void; on
             autoCapitalize="characters"
             autoCorrect="off"
             spellCheck={false}
-            autoComplete="username"
+            autoComplete="off"
             placeholder="e.g. S01"
             required
             aria-invalid={!!msg}
@@ -306,8 +306,10 @@ function Login({ store, onBack, onDone }: { store: Store; onBack: () => void; on
             value={pin}
             onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
             inputMode="numeric"
-            autoComplete="current-password"
-            type="password"
+            // Masked by CSS, not type="password": Chrome checks passwords against breach lists, and
+            // every 4-digit PIN is on them, so each sign-in popped up "Change your password".
+            className="pin"
+            autoComplete="off"
             placeholder="••••"
             required
             aria-invalid={!!msg}

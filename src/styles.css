@@ -427,6 +427,9 @@ select {
 label.inline input {
   width: 5rem;
 }
+input.pin {
+  -webkit-text-security: disc;
+}
 .error {
   color: var(--red-ink);
   font-weight: 800;
