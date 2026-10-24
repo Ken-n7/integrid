@@ -17,7 +17,7 @@ export function HowTo({ step, onStep, replay, preDone, onBack, onDone }: {
   return (
     <Guide
       label="How to Play" steps={HOW_TO} step={step} onStep={onStep} onBack={onBack}
-      backLabel={replay ? 'Back to settings' : 'Back to intro'}
+      backLabel={replay ? 'Back to settings' : 'Back to start'}
       className={`tutorial tutorial-${step}`} title={card.title}
       onNext={() => last ? onDone() : onStep(step + 1)}
       nextLabel={last && replay ? 'Back to settings' : card.action}

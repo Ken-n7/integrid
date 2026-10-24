@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useEffectEvent, useRef, useState, type FormE
 import { PRE_ASSESSMENT } from './content.ts'
 import { Game } from './Game.tsx'
 import { bestWin, clock, coinsOf, isUnlocked, LEVELS, rankingFor, wonLevels, type Attempt, type Mode, type Rank } from './rules.ts'
-import { abandon, db, load, merge, newSave, persist, sync, type Save, type Store } from './store.ts'
+import { abandon, db, load, merge, newSave, persist, startScreen, sync, type Save, type Store } from './store.ts'
 import { useBack } from './back.ts'
 import { focusScreen } from './focus.ts'
 import { musicOn, setMusicOn, startMusic, stopMusic } from './music.ts'
@@ -11,7 +11,7 @@ import { isCurrent, puzzleFor, refreshPuzzles } from './puzzles.ts'
 import { Coins, Deco, Dialog, Icon } from './ui.tsx'
 
 type Screen = 'landing' | 'login' | 'intro' | 'howto' | 'pre' | 'modes' | 'settings' | Mode | 'ranking' | { level: string }
-type HowToFrom = 'intro' | 'settings'
+type HowToFrom = 'landing' | 'settings'
 type IntroFrom = 'landing' | 'settings'
 
 const Admin = lazy(() => import('./Admin.tsx').then(({ Admin }) => ({ default: Admin })))
@@ -49,7 +49,7 @@ function Student() {
   const [store, setStore] = useState(load)
   const [screen, setScreen] = useState<Screen>('landing')
   const [ranking, setRanking] = useState<Rank[] | null>(null) // null = not fetched yet (offline)
-  const [howtoFrom, setHowtoFrom] = useState<HowToFrom>('intro') // How to Play's back goes there
+  const [howtoFrom, setHowtoFrom] = useState<HowToFrom>('landing')
   const [howtoStep, setHowtoStep] = useState(0)
   const [introFrom, setIntroFrom] = useState<IntroFrom>('landing')
   const [introStep, setIntroStep] = useState(0)
@@ -84,6 +84,14 @@ function Student() {
   }, [])
 
   const update = (fn: (s: Save) => Save) => setStore((st) => (st.who ? { ...st, saves: { ...st.saves, [st.who]: fn(st.saves[st.who]) } } : st))
+  const completeOnboarding = (flags: Partial<Pick<Save, 'introDone' | 'howtoDone' | 'preDone'>>) => {
+    if (!save) return
+    // Save before navigating: the next lazy screen can suspend, or the app can close
+    // before React's normal persistence effect runs. Keep the state update functional
+    // so any concurrent background sync is preserved when the next screen renders.
+    persist({ ...store, saves: { ...store.saves, [save.code]: { ...save, ...flags } } })
+    update((s) => ({ ...s, ...flags }))
+  }
 
   async function syncNow() {
     const st = latest.current
@@ -143,7 +151,13 @@ function Student() {
     setIntroStep(0)
     go('intro')
   }
-  if (screen === 'landing') return <Landing onStart={() => (save ? intro('landing') : go('login'))} />
+  const enter = (student: Save) => {
+    const next = startScreen(student)
+    if (next === 'intro') intro('landing')
+    else if (next === 'howto') howTo('landing')
+    else go(next)
+  }
+  if (screen === 'landing') return <Landing onStart={() => (save ? enter(save) : go('login'))} />
   if (screen === 'login' || !save)
     return (
       <Login
@@ -151,20 +165,28 @@ function Student() {
         onBack={() => go('landing')}
         onDone={(s) => {
           setStore((st) => ({ who: s.code, saves: { ...st.saves, [s.code]: s } }))
-          intro('landing') // back from here goes to the start screen, not to sign in again
+          enter(s)
         }}
       />
     )
-  if (screen === 'intro') return <Intro step={introStep} onStep={setIntroStep} replay={introFrom === 'settings'} onBack={() => go(introFrom)} onDone={() => introFrom === 'settings' ? go('settings') : howTo('intro')} />
-  if (screen === 'howto') return <HowTo step={howtoStep} onStep={setHowtoStep} replay={howtoFrom === 'settings'} preDone={save.preDone} onBack={() => go(howtoFrom)} onDone={() => go(howtoFrom === 'settings' ? 'settings' : save.preDone ? 'modes' : 'pre')} />
+  if (screen === 'intro') return <Intro step={introStep} onStep={setIntroStep} replay={introFrom === 'settings'} onBack={() => go(introFrom)} onDone={() => {
+    if (introFrom === 'settings') return go('settings')
+    completeOnboarding({ introDone: true })
+    howTo('landing')
+  }} />
+  if (screen === 'howto') return <HowTo step={howtoStep} onStep={setHowtoStep} replay={howtoFrom === 'settings'} preDone={save.preDone} onBack={() => go(howtoFrom)} onDone={() => {
+    if (howtoFrom === 'settings') return go('settings')
+    completeOnboarding({ introDone: true, howtoDone: true })
+    go(save.preDone ? 'modes' : 'pre')
+  }} />
   if (screen === 'pre')
     return (
       <Pre
         onDone={() => {
-          update((s) => ({ ...s, preDone: true }))
+          completeOnboarding({ introDone: true, howtoDone: true, preDone: true })
           go('modes')
         }}
-        onBack={() => go('howto')}
+        onBack={() => go('landing')}
       />
     )
   if (screen === 'settings')
@@ -383,7 +405,7 @@ function Pre({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
   return (
     <main className="screen" tabIndex={-1}>
       <header className="bar">
-        <button className="icon" onClick={() => setLeaving(true)} aria-label="Back to How to Play">
+        <button className="icon" onClick={() => setLeaving(true)} aria-label="Back to start">
           <Icon name="back" />
         </button>
         <div className="progress" aria-hidden="true">

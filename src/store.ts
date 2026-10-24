@@ -11,7 +11,7 @@ export const db = url && anonKey ? createClient(url, anonKey) : null
 // A level still being played, with its boxes (cell → solved with a hint?), so closing the app
 // mid-level can be continued.
 export type Pending = Attempt & { filled: Record<string, boolean> }
-export type Save = { code: string; pin: string; preDone: boolean; attempts: Attempt[]; current: Pending | null }
+export type Save = { code: string; pin: string; introDone: boolean; howtoDone: boolean; preDone: boolean; attempts: Attempt[]; current: Pending | null }
 export type Store = { who: string | null; saves: Record<string, Save> }
 
 const KEY = 'integrid:v1'
@@ -49,7 +49,12 @@ export function readStore(raw: string | null): Store {
       const c = s.current
       const filled = record(c) ? c.filled : null
       const open = attempt(c) && !attempts.some((a) => a.id === c.id) ? { ...c, filled: board(filled) ? filled : {} } : null
-      const save: Save = { code, pin: s.pin, preDone: s.preDone === true, attempts, current: open }
+      // Older versions showed both guides on every Start. Existing students have already
+      // been introduced; migrate them without another tour, keeping the assessment gate.
+      const legacyGuides = !('introDone' in s) && !('howtoDone' in s)
+      const familiar = legacyGuides || s.preDone === true || attempts.length > 0 || open !== null
+      const howtoDone = s.howtoDone === true || familiar
+      const save: Save = { code, pin: s.pin, introDone: s.introDone === true || howtoDone, howtoDone, preDone: s.preDone === true, attempts, current: open }
       // A Relax or Expert level open when the app closed waits to be continued. Anything else
       // (a battle, an older save without its boxes) counts as quit, spent hint coins included.
       const resumable = open && board(filled) && LEVELS.some((l) => l.id === open.level) && open.wrong < HEARTS
@@ -78,14 +83,18 @@ export function persist(store: Store) {
   }
 }
 
-export const newSave = (code: string, pin: string): Save => ({ code, pin, preDone: false, attempts: [], current: null })
+export const newSave = (code: string, pin: string): Save => ({ code, pin, introDone: false, howtoDone: false, preDone: false, attempts: [], current: null })
+
+// Resume only the unfinished introduction/assessment; completed guides live in Settings.
+export const startScreen = (save: Save) => !save.introDone ? 'intro' : !save.howtoDone ? 'howto' : !save.preDone ? 'pre' : 'modes'
 
 export function merge(save: Save, server: Attempt[]): Save {
   const byId = new Map(save.attempts.map((a) => [a.id, a]))
   for (const a of server) byId.set(a.id, { ...a, synced: true })
   // preDone only lives on the device; any played level on the server means the pre-assessment
   // was finished (it gates Level 1), so a new phone or cleared browser doesn't ask again.
-  return { ...save, preDone: save.preDone || server.length > 0, attempts: [...byId.values()] }
+  const familiar = save.preDone || save.attempts.length > 0 || save.current !== null || server.length > 0
+  return { ...save, introDone: save.introDone || save.howtoDone || familiar, howtoDone: save.howtoDone || familiar, preDone: save.preDone || server.length > 0, attempts: [...byId.values()] }
 }
 
 // Sends unsent attempts; gets back the student's whole history (other devices too) and

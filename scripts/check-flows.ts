@@ -2,11 +2,11 @@
 import assert from 'node:assert/strict'
 import { apply, isGroupMsg, isRoom, roundFinished, standings, sum, type Host } from '../src/battleState.ts'
 import { calc, parse, readEquation } from '../src/puzzle.ts'
-import { abandon, merge, newSave, readStore, sync, type Save } from '../src/store.ts'
+import { abandon, merge, newSave, readStore, startScreen, sync, type Save } from '../src/store.ts'
 import type { Attempt } from '../src/rules.ts'
 
 const result: Attempt = { id: 'saved', level: 'relax-1', result: 'quit', seconds: 4, wrong: 0, hints: 1, coins: -60, mistakes: [], at: '2026-10-22T00:00:00Z' }
-const save: Save = { code: 'S01', pin: '1234', preDone: true, attempts: [result], current: { ...result, filled: { '0,2': false, '4,1': true } } }
+const save: Save = { code: 'S01', pin: '1234', introDone: true, howtoDone: true, preDone: true, attempts: [result], current: { ...result, filled: { '0,2': false, '4,1': true } } }
 for (const raw of ['null', '[]', '{}', '{broken', '{"saves":null}', '{"saves":[],"who":"S01"}']) {
   assert.deepEqual(readStore(raw), { who: null, saves: {} })
 }
@@ -26,6 +26,24 @@ const battle = readStore(JSON.stringify({ who: 'S01', saves: { S01: { ...save, a
 assert.deepEqual(battle.saves.S01.attempts, [{ ...result, level: 'battle-1' }]) // a battle can't be continued
 assert.equal(merge(newSave('S01', '1234'), [result]).preDone, true) // played on another phone: no pre-assessment again
 assert.equal(merge(newSave('S01', '1234'), []).preDone, false)
+
+const fresh = newSave('NEW', '1234')
+const afterIntro = { ...fresh, introDone: true }
+const afterHowto = { ...afterIntro, howtoDone: true }
+const afterPre = { ...afterHowto, preDone: true }
+for (const [student, next] of [[fresh, 'intro'], [afterIntro, 'howto'], [afterHowto, 'pre'], [afterPre, 'modes']] as const) {
+  assert.equal(startScreen(student), next)
+  const reloaded = readStore(JSON.stringify({ who: student.code, saves: { [student.code]: student } })).saves[student.code]
+  assert.equal(startScreen(reloaded), next) // each completion survives closing/reopening
+  assert.equal(startScreen(merge(reloaded, [])), next) // an empty sync cannot reset it
+}
+const legacyStudent = { code: 'OLD', pin: '1234', preDone: false, attempts: [], current: null }
+const legacyMigrated = readStore(JSON.stringify({ who: 'OLD', saves: { OLD: legacyStudent } })).saves.OLD
+assert.equal(startScreen(legacyMigrated), 'pre') // no repeat guides; assessment still mandatory
+assert.equal(startScreen(merge(fresh, [result])), 'modes') // history from another device skips the tour
+const shared = readStore(JSON.stringify({ who: fresh.code, saves: { [fresh.code]: fresh, [afterPre.code + '2']: { ...afterPre, code: afterPre.code + '2' } } }))
+assert.equal(startScreen(shared.saves.NEW), 'intro')
+assert.equal(startScreen(shared.saves.NEW2), 'modes') // completion belongs to the student
 
 assert.throws(() => parse('?9007199254740993,+,0,=,9007199254740992'), /too large/)
 assert.match(String(calc([Number.MAX_SAFE_INTEGER, 2], ['×'])), /too large/)
