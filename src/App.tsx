@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useEffectEvent, useRef, useState, type FormEvent } from 'react'
-import { HOW_TO, PRE_ASSESSMENT } from './content.ts'
+import { PRE_ASSESSMENT } from './content.ts'
 import { Game } from './Game.tsx'
 import { bestWin, clock, coinsOf, isUnlocked, LEVELS, rankingFor, wonLevels, type Attempt, type Mode, type Rank } from './rules.ts'
 import { abandon, db, load, merge, newSave, persist, sync, type Save, type Store } from './store.ts'
@@ -10,11 +10,14 @@ import { pauseAudio, setSoundOn, sfx, soundOn, warmSoundEffects } from './sound.
 import { isCurrent, puzzleFor, refreshPuzzles } from './puzzles.ts'
 import { Coins, Deco, Dialog, Icon } from './ui.tsx'
 
-type Screen = 'landing' | 'login' | 'howto' | 'pre' | 'modes' | 'settings' | Mode | 'ranking' | { level: string }
-type HowToFrom = 'landing' | 'settings'
+type Screen = 'landing' | 'login' | 'intro' | 'howto' | 'pre' | 'modes' | 'settings' | Mode | 'ranking' | { level: string }
+type HowToFrom = 'intro' | 'settings'
+type IntroFrom = 'landing' | 'settings'
 
 const Admin = lazy(() => import('./Admin.tsx').then(({ Admin }) => ({ default: Admin })))
 const BattleRoom = lazy(() => import('./Battle.tsx').then(({ BattleRoom }) => ({ default: BattleRoom })))
+const Intro = lazy(() => import('./Intro.tsx').then(({ Intro }) => ({ default: Intro })))
+const HowTo = lazy(() => import('./HowTo.tsx').then(({ HowTo }) => ({ default: HowTo })))
 
 export default function App() {
   const [admin, setAdmin] = useState(() => location.hash === '#admin')
@@ -46,7 +49,10 @@ function Student() {
   const [store, setStore] = useState(load)
   const [screen, setScreen] = useState<Screen>('landing')
   const [ranking, setRanking] = useState<Rank[] | null>(null) // null = not fetched yet (offline)
-  const [howtoFrom, setHowtoFrom] = useState<HowToFrom>('landing') // How to Play's back goes there
+  const [howtoFrom, setHowtoFrom] = useState<HowToFrom>('intro') // How to Play's back goes there
+  const [howtoStep, setHowtoStep] = useState(0)
+  const [introFrom, setIntroFrom] = useState<IntroFrom>('landing')
+  const [introStep, setIntroStep] = useState(0)
   const [playingPuzzle, setPlayingPuzzle] = useState<ReturnType<typeof puzzleFor>>(null)
   const [, setPuzzles] = useState(0) // bumped when the researchers' approved puzzles arrive
   const latest = useRef(store)
@@ -129,9 +135,15 @@ function Student() {
   }
   const howTo = (from: HowToFrom) => {
     setHowtoFrom(from)
+    setHowtoStep(0)
     go('howto')
   }
-  if (screen === 'landing') return <Landing onStart={() => (save ? howTo('landing') : go('login'))} />
+  const intro = (from: IntroFrom) => {
+    setIntroFrom(from)
+    setIntroStep(0)
+    go('intro')
+  }
+  if (screen === 'landing') return <Landing onStart={() => (save ? intro('landing') : go('login'))} />
   if (screen === 'login' || !save)
     return (
       <Login
@@ -139,11 +151,12 @@ function Student() {
         onBack={() => go('landing')}
         onDone={(s) => {
           setStore((st) => ({ who: s.code, saves: { ...st.saves, [s.code]: s } }))
-          howTo('landing') // back from here goes to the start screen, not to sign in again
+          intro('landing') // back from here goes to the start screen, not to sign in again
         }}
       />
     )
-  if (screen === 'howto') return <HowTo from={howtoFrom} onBack={() => go(howtoFrom)} onNext={() => go(save.preDone ? 'modes' : 'pre')} />
+  if (screen === 'intro') return <Intro step={introStep} onStep={setIntroStep} replay={introFrom === 'settings'} onBack={() => go(introFrom)} onDone={() => introFrom === 'settings' ? go('settings') : howTo('intro')} />
+  if (screen === 'howto') return <HowTo step={howtoStep} onStep={setHowtoStep} replay={howtoFrom === 'settings'} preDone={save.preDone} onBack={() => go(howtoFrom)} onDone={() => go(howtoFrom === 'settings' ? 'settings' : save.preDone ? 'modes' : 'pre')} />
   if (screen === 'pre')
     return (
       <Pre
@@ -159,6 +172,7 @@ function Student() {
       <Settings
         code={save.code}
         onBack={() => go('modes')}
+        onIntro={() => intro('settings')}
         onHowTo={() => howTo('settings')}
         onSignOut={() => {
           setStore((st) => ({ ...st, who: null }))
@@ -341,40 +355,6 @@ function Login({ store, onBack, onDone }: { store: Store; onBack: () => void; on
   )
 }
 
-const BACK_TO: Record<HowToFrom, string> = { landing: 'Back to start', settings: 'Back to settings' }
-
-function HowTo({ from, onBack, onNext }: { from: HowToFrom; onBack: () => void; onNext: () => void }) {
-  useBack(onBack)
-  return (
-    <main className="screen" tabIndex={-1}>
-      <header className="bar">
-        <button className="icon" onClick={onBack} aria-label={BACK_TO[from]}>
-          <Icon name="back" />
-        </button>
-        <h1>
-          Let’s learn how to play! <Deco>🎓</Deco>
-        </h1>
-      </header>
-      {HOW_TO.map((c) => (
-        <section key={c.title} className="howto">
-          <span className="howto-icon" aria-hidden="true">
-            {c.icon}
-          </span>
-          <div>
-            <h2>{c.title}</h2>
-            <p>{c.text}</p>
-          </div>
-        </section>
-      ))}
-      <div className="sticky-cta">
-        <button className="big" onClick={onNext}>
-          CONTINUE <Deco>→</Deco>
-        </button>
-      </div>
-    </main>
-  )
-}
-
 function Pre({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
   const [i, setI] = useState(0)
   const [picked, setPicked] = useState<number | null>(null)
@@ -514,8 +494,8 @@ function Modes(props: { code: string; coins: number; expertOpen: boolean; battle
   )
 }
 
-// Settings: How to Play again, and signing out (asks first: the student needs the slip to come back).
-function Settings({ code, onBack, onHowTo, onSignOut }: { code: string; onBack: () => void; onHowTo: () => void; onSignOut: () => void }) {
+// Settings: replay the intro or How to Play, sound/music, and signing out.
+function Settings({ code, onBack, onIntro, onHowTo, onSignOut }: { code: string; onBack: () => void; onIntro: () => void; onHowTo: () => void; onSignOut: () => void }) {
   const [confirm, setConfirm] = useState(false)
   const [sound, setSound] = useState(soundOn)
   const [music, setMusic] = useState(musicOn)
@@ -528,6 +508,14 @@ function Settings({ code, onBack, onHowTo, onSignOut }: { code: string; onBack: 
         </button>
         <h1>Settings</h1>
       </header>
+      <button className="level" onClick={onIntro}>
+        <span className="level-n"><Deco>🗺️</Deco></span>
+        <span className="level-text">
+          <b>Adventure Intro</b>
+          <small>Your mission and the journey to INTEGRID Legend</small>
+        </span>
+        <span className="level-state"><Icon name="next" /></span>
+      </button>
       <button className="level" onClick={onHowTo}>
         <span className="level-n">
           <Icon name="info" />

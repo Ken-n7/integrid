@@ -1,6 +1,30 @@
 // Words the researchers own. Edit the text here; no other file needs to change.
 import type { Eq, Grid, Op, Pos } from './puzzle.ts'
 
+// Researchers' introduction, kept in full and split into student-paced cards.
+export const INTRO = [
+  {
+    label: 'Welcome',
+    title: 'Your Integer Adventure Begins Here!',
+    lead: 'Hello, Math Adventurer! Are you ready to embark on an exciting journey into the world of integers?',
+    text: 'Get ready to solve puzzles, conquer challenges, unlock new levels, and earn awesome titles as you master the four fundamental operations on integers: addition, subtraction, multiplication, and division.',
+    action: 'Discover your mission',
+  },
+  {
+    label: 'Your mission',
+    title: 'YOUR MISSION:',
+    lead: "Every level brings a new challenge, every correct answer brings you closer to mastery, and every achievement proves how far you've come!",
+    text: 'Conquer every level, sharpen your math skills, and prove that you have what it takes to become an INTEGRID Legend!',
+    action: 'I’m ready!',
+  },
+  {
+    label: 'You’ve got this',
+    title: 'Are you ready to take on the challenge?',
+    lead: 'Remember, every expert starts as a beginner. Believe in yourself, keep trying, and never give up!',
+    action: 'LET THE ADVENTURE BEGIN!',
+  },
+]
+
 export type WinMessage = { title: string; text: string; level?: string; detail?: string }
 
 // Researchers' approved wording for Relax's four operations (Ken, Oct 22).
@@ -42,11 +66,11 @@ export const WIN_MESSAGES = [
 ]
 
 export const HOW_TO = [
-  { icon: '🧩', title: 'Fill the Grid!', text: 'Look at the crossword grid — some numbers are missing! Your job is to figure out which numbers go where by solving the integer operations.' },
-  { icon: '➗', title: 'Integer Rules', text: 'Apply the rules of addition, subtraction, multiplication, and division of integers, including sign rules.' },
-  { icon: '🏦', title: 'Use the Number Bank!', text: 'Pick numbers from your bank at the bottom. Tap a yellow cell, then tap a number to place it. Easy as pie! 🥧' },
-  { icon: '💗', title: 'Lives System', text: 'You have 5 lives. Each wrong answer costs 1 life. Lose all lives and it’s game over, but you can always try again!' },
-  { icon: '💰', title: 'Coins & Hints', text: 'Finish faster to earn more coins. Stuck? Tap Rules to see the sign rules, or spend coins on a hint. In Relax Mode, Rules also gives a free clue for the box you picked!' },
+  { label: 'Grid', action: 'Next: Integer Rules', icon: '🧩', title: 'Fill the Grid!', text: 'Look at the crossword grid — some numbers are missing! Your job is to figure out which numbers go where by solving the integer operations.' },
+  { label: 'Rules', action: 'Try the number bank', icon: '➗', title: 'Integer Rules', text: 'Apply the rules of addition, subtraction, multiplication, and division of integers, including sign rules.' },
+  { label: 'Bank', action: 'Next: Lives', icon: '🏦', title: 'Use the Number Bank!', text: 'Pick numbers from your bank at the bottom. Tap a yellow cell, then tap a number to place it. Easy as pie! 🥧' },
+  { label: 'Lives', action: 'Next: Coins & Hints', icon: '💗', title: 'Lives System', text: 'You have 5 lives. Each wrong answer costs 1 life. Lose all lives and it’s game over, but you can always try again!' },
+  { label: 'Help', action: 'CONTINUE', icon: '💰', title: 'Coins & Hints', text: 'Finish faster to earn more coins. Stuck? Tap Rules to see the sign rules, or spend coins on a hint. In Relax Mode, Rules also gives a free clue for the box you picked!' },
 ]
 
 // Client's pre-assessment and answer key (integrid.docx, 3rd page). A drill: scores are not recorded.

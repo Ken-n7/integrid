@@ -87,7 +87,7 @@ integrid/
 ## 4. App flow
 
 ```
-Landing ──Start──▶ Sign in (first time only) ──▶ How to Play ──Continue──▶ Pre-assessment drill (once, mandatory)
+Landing ──Start──▶ Sign in (first time only) ──▶ Adventure Intro ──▶ How to Play ──Continue──▶ Pre-assessment drill (once, mandatory)
                      │                                                         │
                      └─ "Admin sign in" ──▶ Admin page                         ▼
                                                                          Choose Mode
@@ -110,7 +110,7 @@ The admin page also has its own address, `<site>/#admin`.
   - Big yellow **LET'S START!** button, with "Tap to begin your adventure!" under it
   - ⭐ 🎯 🏆 row
 - **Client change:** the corner stickers become math symbols **+ − × ÷**: big, colorful, gently floating, and still when the device has reduced motion turned on.
-- **Behavior:** Start goes to Sign in if no student is signed in on this device, otherwise to How to Play.
+- **Behavior:** Start goes to Sign in if no student is signed in on this device, otherwise to Adventure Intro. Successful sign-in also opens the intro.
 
 ### 5.2 Student sign in
 - **Fields:** student code (e.g. `S03`) and 4-digit PIN. Both are created by the admin and handed out on printed slips.
@@ -125,15 +125,26 @@ The admin page also has its own address, `<site>/#admin`.
 - **No real names or emails for students.** This follows the paper's "coding system", and the students are minors.
 - **Dev mode:** with no Supabase keys set, any code + 4-digit PIN is accepted, so the app can be tried before the backend exists.
 
-### 5.3 How to Play
-Shown after every Start (docx page 2). It has the client's four cards (docx wording) plus a coins card, since the paper says How to Play covers "rewarding students for their speed and accuracy":
+### 5.3 Adventure Intro and How to Play
+**Adventure Intro (Ken, Oct 24):** the researchers' full "Your Integer Adventure Begins Here!" introduction (`INTRO` in `src/content.ts`), before How to Play after Start/sign-in. Three student-paced cards: Welcome, Your mission, You've got this. Each pairs a small game-themed visual with a readable section of the original wording. Numbered buttons let students revisit any card; the back button and Android back move to the preceding card, then back to Start. The final **LET THE ADVENTURE BEGIN!** button opens How to Play; going back from there keeps the last intro card. Settings → **Adventure Intro** replays it and finishes back in Settings. No scores, rewards, reading timer, automatic page changes or new save fields. Keyboard/screen-reader focus follows the heading; reduced motion disables the short card entrance. All assets are code/CSS and available offline.
+
+Design basis: [Mayer's segmenting principle](https://www.cambridge.org/core/books/abs/multimedia-learning/segmenting-principle/37240877DDA0362355ADB39936027982) supports learner-paced chunks in multimedia instruction; [CAST's engagement guidance](https://www.cast.org/resources/tips-articles/udl-tips-designing-engaging-learning-environment/) recommends clear goals and minimizing distractions. [IES's adolescent literacy guide](https://ies.ed.gov/ncee/wwc/practiceguide/8), which includes Grade 7, supports motivation and engagement; its recommendation 4 emphasizes autonomy, meaningful learning goals, and a supportive view of mistakes. The encouragement card keeps the researchers' message about beginning, trying and persisting, with no reading score or reward gate. Applying these ideas to this motivational intro is a design choice, not evidence of a measured attention improvement for our Grade 7 learners; the researchers' pilot should check readability and interest.
+
+**How to Play (redesigned Oct 24):** follows the intro after every Start (docx page 2). Five student-paced cards use the intro's cream/pastel styling, numbered navigation, short-phone reading cue, keyboard focus and reduced-motion support (`src/Guide.tsx`). The client's instruction wording stays in full, with one topic and a visual example at a time. The client's four topics plus a coins card cover the paper's "rewarding students for their speed and accuracy":
 1. 🧩 **Fill the Grid:** some numbers are missing; figure out which go where by solving the integer operations.
 2. 📏 **Integer Rules:** apply the rules of +, −, ×, ÷ including sign rules.
 3. 🏦 **Use the Number Bank:** tap a yellow cell, then tap a number to place it. Easy as pie!
 4. 💗 **Lives System:** 5 lives per try, each wrong answer costs 1, lose all and it's game over. You can try again.
 5. 🪙 **Coins & Hints:** finish faster for more coins; spend coins on hints.
 
-Then a **CONTINUE** button. It goes to the pre-assessment if not done yet, otherwise to Choose Mode.
+- **Grid:** a small integer crossword shows yellow answer boxes and crossing equations.
+- **Rules:** a worked `(-3) + 5 = 2` example accompanies the existing addition rule for different signs.
+- **Bank:** optional two-tap practice. Select the yellow box, choose 5, see the box turn green and the bank tile become used. A bank-first tap gives guidance; Try again resets the example. Keyboard focus follows selection, placement and reset.
+- **Lives:** an optional button shows 5 → 4 hearts after one simulated mistake, and resets to 5. Unlimited retries are explained.
+- **Help:** a Relax example lets students open a free Rules/clue pop-up and try a paid hint; it fills the box purple and deducts the current Relax hint cost from demo coins. Reset restores the example. Costs come from `rules.ts`.
+- All practice is optional and stays within the tutorial: no saved attempts, heart losses, coin charges, rankings, assessment answers or unlock changes. The tutorial and examples work offline after the app is cached.
+
+The final **CONTINUE** button goes to the pre-assessment if not done yet, otherwise to Choose Mode. Returning from an unfinished assessment keeps the last tutorial card. Settings → **How to Play** starts a fresh replay and finishes back in Settings. The back button/Android back steps through the cards before returning to the intro or Settings; an open clue pop-up closes first.
 
 ### 5.4 Pre-assessment drill (mandatory, once per student)
 - **Content:** "Pre-Assessment: Integer Rules (Concepts Only)", the client's 5 questions and answer key (`content.ts`).
@@ -150,7 +161,7 @@ Then a **CONTINUE** button. It goes to the pre-assessment if not done yet, other
   - **Relax** (green): "Go at your own pace! Free clues, no pressure."
   - **Expert** (orange, 🔒 until Relax 4 is won): "Bigger grids, beat the clock, climb the ranking!"
   - **Battle** (blue, 🔒 until Expert 5 is won): "Team up with your group and race the other groups!"
-- Coin balance and student code are shown, with a gear for Settings (How to Play, Sound effects on/off, Music on/off, Sign out).
+- Coin balance and student code are shown, with a gear for Settings (Adventure Intro, How to Play, Sound effects on/off, Music on/off, Sign out).
 - **Sideways phone:** a "Turn your phone upright" screen covers the app (landscape and under 500px tall, so tablets, laptops and the admin page are never blocked). The installed app also locks to portrait (manifest). Music starts on the first tap, pauses when the app goes to the background, and stops on the admin page.
 
 ### 5.6 Level list
