@@ -288,6 +288,49 @@ a {
   height: 20px;
 }
 
+/* Selected pack artwork follows the surrounding text size; controls keep their own hit area. */
+.art-icon {
+  display: inline-block;
+  width: 1.3em;
+  height: 1.3em;
+  object-fit: contain;
+  vertical-align: -0.25em;
+  flex: none;
+  pointer-events: none;
+}
+.art-battle { position: relative; }
+.art-battle img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.art-battle img + img { transform: scaleX(-1); }
+.mode-icon .art-icon { width: 44px; height: 44px; }
+.mode-icon { position: relative; }
+.mode-art-lock {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: grid;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.mode-icon .mode-art-lock svg { width: 15px; height: 15px; }
+.mode:disabled .art-icon { filter: grayscale(0.5); opacity: 0.65; }
+.hearts .art-icon { width: 1.15em; height: 1.15em; vertical-align: -0.2em; }
+.hearts .lost, .art-lost { filter: grayscale(1); }
+.art-lost { opacity: 0.3; }
+.tutorial-hearts .art-icon { width: 1.1em; height: 1.1em; }
+.celebration-badge .art-icon { width: 88px; height: 88px; vertical-align: middle; }
+.intro-star .art-icon { width: 100%; height: 100%; vertical-align: middle; }
+.emoji-row .art-icon { width: 32px; height: 32px; margin-inline: 4px; }
+
 /* ---------- landing ---------- */
 .landing {
   position: relative;

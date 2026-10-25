@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from 'react'
 import { useBack } from './back.ts'
 import { focusScreen } from './focus.ts'
+import { Art, type ArtName } from './Art.tsx'
 
 // Negative numbers in parentheses like the paper's test items, (−7), with slim parentheses
 // so the digits stay big in small cells.
@@ -36,7 +37,16 @@ export const Icon = ({ name }: { name: keyof typeof ICONS }) => (
 )
 
 // Decoration a screen reader should skip ("→" is read as "right arrow", 🎮 as "video game").
-export const Deco = ({ children }: { children: ReactNode }) => <span aria-hidden="true">{children}</span>
+const EMOJI_ART: Record<string, ArtName> = {
+  '💗': 'heart', '💔': 'broken-heart', '📖': 'book', '🔎': 'magnifier', '⏱': 'clock',
+  '🏆': 'trophy', '🎉': 'trophy', '🌿': 'leaf', '🔥': 'flame', '⚔️': 'battle',
+  '🏅': 'medal', '⭐': 'star', '🌟': 'star', '🎯': 'target', '❌': 'error', '💰': 'coin',
+  '🔊': 'sound-on', '🔇': 'sound-off', '🎵': 'music-on',
+}
+export const Deco = ({ children }: { children: ReactNode }) => {
+  const art = typeof children === 'string' ? EMOJI_ART[children] : undefined
+  return <span aria-hidden="true">{art ? <Art name={art} /> : children}</span>
+}
 
 // The shared coin asset keeps the same appearance on every phone.
 export const Coins = ({ n }: { n: number }) => (

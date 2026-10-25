@@ -9,6 +9,7 @@ import { musicOn, setMusicOn, startMusic, stopMusic } from './music.ts'
 import { pauseAudio, setSoundOn, sfx, soundOn, warmSoundEffects } from './sound.ts'
 import { isCurrent, puzzleFor, refreshPuzzles } from './puzzles.ts'
 import { Coins, Deco, Dialog, Icon } from './ui.tsx'
+import { Art } from './Art.tsx'
 
 type Screen = 'landing' | 'login' | 'intro' | 'howto' | 'pre' | 'modes' | 'settings' | Mode | 'ranking' | { level: string }
 type HowToFrom = 'landing' | 'settings'
@@ -278,7 +279,7 @@ function Landing({ onStart }: { onStart: () => void }) {
       </button>
       <p className="sub">Tap to begin your adventure!</p>
       <p className="emoji-row" aria-hidden="true">
-        ⭐ 🎯 🏆
+        <Art name="star" /> <Art name="target" /> <Art name="trophy" />
       </p>
     </main>
   )
@@ -492,21 +493,27 @@ function Modes(props: { code: string; coins: number; expertOpen: boolean; battle
       </h1>
       <p className="sub">Pick a style that feels right for you today</p>
       <button className="mode relax" onClick={() => props.onPick('relax')}>
-        <span className="mode-icon" aria-hidden="true">🌿</span>
+        <span className="mode-icon" aria-hidden="true"><Art name="leaf" /></span>
         <span>
           <b>RELAX MODE</b>
           <small>Go at your own pace! Free clues, no pressure.</small>
         </span>
       </button>
       <button className="mode expert" disabled={!props.expertOpen} onClick={() => props.onPick('expert')}>
-        <span className="mode-icon" aria-hidden="true">{props.expertOpen ? '🔥' : <Icon name="lock" />}</span>
+        <span className="mode-icon" aria-hidden="true">
+          <Art name="flame" />
+          {!props.expertOpen && <span className="mode-art-lock"><Icon name="lock" /></span>}
+        </span>
         <span>
           <b>EXPERT MODE</b>
           <small>{props.expertOpen ? 'Bigger grids, beat the clock, climb the ranking!' : 'Finish all 4 Relax levels to unlock.'}</small>
         </span>
       </button>
       <button className="mode battle" disabled={!props.battleOpen} onClick={() => props.onPick('battle')}>
-        <span className="mode-icon" aria-hidden="true">{props.battleOpen ? '⚔️' : <Icon name="lock" />}</span>
+        <span className="mode-icon" aria-hidden="true">
+          <Art name="battle" />
+          {!props.battleOpen && <span className="mode-art-lock"><Icon name="lock" /></span>}
+        </span>
         <span>
           <b>BATTLE MODE</b>
           <small>{props.battleOpen ? 'Team up with your group and race the other groups!' : 'Finish all 5 Expert levels to unlock.'}</small>
@@ -581,7 +588,7 @@ function Settings({ code, onBack, onIntro, onHowTo, onSignOut }: { code: string;
         }}
       >
         <span className="level-n">
-          <Deco>{music ? '🎵' : '🔇'}</Deco>
+          <Art name={music ? 'music-on' : 'music-off'} />
         </span>
         <span className="level-text">
           <b>Music</b>

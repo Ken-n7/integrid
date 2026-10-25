@@ -3,6 +3,7 @@ import { HOW_TO, SIGN_RULES } from './content.ts'
 import { Guide } from './Guide.tsx'
 import { HEARTS, MODES, START_COINS } from './rules.ts'
 import { Coins, Deco, Dialog, Num } from './ui.tsx'
+import { Art } from './Art.tsx'
 
 export function HowTo({ step, onStep, replay, preDone, onBack, onDone }: {
   step: number
@@ -126,7 +127,7 @@ function LivesExample() {
   return (
     <section className="tutorial-visual tutorial-lives" aria-label="See how lives work">
       <div className="tutorial-hearts" role="img" aria-label={`${HEARTS - Number(mistake)} of ${HEARTS} lives left`}>
-        {Array.from({ length: HEARTS }, (_, i) => <span key={i} aria-hidden="true">{i === HEARTS - 1 && mistake ? '🤍' : '💗'}</span>)}
+        {Array.from({ length: HEARTS }, (_, i) => <span key={i} aria-hidden="true" className={i === HEARTS - 1 && mistake ? 'art-lost' : undefined}><Art name="heart" /></span>)}
       </div>
       <p className="tutorial-life-count" aria-hidden="true">{HEARTS - Number(mistake)} <span>lives left</span></p>
       <p className="tutorial-feedback" role="status">{mistake ? 'One wrong answer = one heart lost. Keep trying!' : 'Every new try starts with 5 hearts.'}</p>

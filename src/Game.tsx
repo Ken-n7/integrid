@@ -9,6 +9,7 @@ import { clock, HEARTS, MODES, reward, type Attempt, type Level, type Result } f
 import { sfx } from './sound.ts'
 import { uuid, type Pending } from './store.ts'
 import { Coins, Deco, Dialog, Icon, Num } from './ui.tsx'
+import { Art } from './Art.tsx'
 
 type Run = {
   id: string
@@ -406,10 +407,10 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
         <span className="hearts" role="img" aria-label={`${hearts} of ${HEARTS} ${battle ? 'group lives' : 'lives'} left`}>
           {Array.from({ length: HEARTS }, (_, i) => (
             <span key={i} className="heart">
-              {i < hearts ? '💗' : <span className="lost">🤍</span>}
+              {i < hearts ? <Art name="heart" /> : <span className="lost"><Art name="heart" /></span>}
               {drop?.i === i && (
                 <span key={drop.t} className="drop">
-                  <span className="fall">💗</span>
+                  <span className="fall"><Art name="heart" /></span>
                   <span className="minus">−1</span>
                 </span>
               )}

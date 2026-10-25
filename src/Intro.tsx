@@ -1,6 +1,7 @@
 import { INTRO } from './content.ts'
 import { Guide } from './Guide.tsx'
 import { Deco } from './ui.tsx'
+import { Art } from './Art.tsx'
 
 // No timers or reading gates: students choose when to move on or revisit a card.
 export function Intro({ step, onStep, replay, onBack, onDone }: {
@@ -50,7 +51,7 @@ function IntroArt({ step }: { step: number }) {
   )
   return (
     <div className="intro-art intro-goal">
-      <span className="intro-star" aria-hidden="true">★</span>
+      <span className="intro-star" aria-hidden="true"><Art name="star" /></span>
       <p className="eyebrow">Your goal</p>
       <p className="intro-legend">INTEGRID Legend</p>
     </div>
