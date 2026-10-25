@@ -6,9 +6,9 @@ A gamified math-crossword **web app** for Grade 7 integer operations (+, −, ×
 |---|---|
 | Client | BSEd Mathematics III research group, Visayas State University Tolosa |
 | Used at | Tolosa National High School (action research, 10 participants, later whole Grade 7 classes) |
-| Plan date | 2026-10-15 (updated the same day with the client's answers) |
+| Plan date | 2026-10-15 (latest update: 2026-10-25) |
 | Delivery | **2026-10-29** (2 weeks) |
-| Status | Client answered most questions (§13). Live on Supabase + Vercel (https://integrid-phi.vercel.app). All four Relax puzzles installed with game-only corrections (Oct 22); the researchers' shared sheet stays unchanged. Waiting on: Expert and Battle puzzles. |
+| Status | Live on Supabase + Vercel (https://integrid-phi.vercel.app). All four Relax puzzles installed with game-only corrections (Oct 22). The Oct 25 release includes all five Expert and three Battle puzzles from the corrected shared sheet, tested on the connected Realme phone, plus the compact game header and in-game settings menu. Researchers' pilot, school PC/iPhone checks and the classroom Battle test remain. |
 
 ---
 
@@ -185,9 +185,7 @@ The final **CONTINUE** button marks How to Play complete and goes to the pre-ass
 
 ### 5.7 Game screen (from the client's sketch, boxes styled like a printed math-crossword worksheet)
 ```
- ‹  ↻   Level 1
-        Addition of Integers
- 💗💗💗💗💗  ⏱ 01:32  [+40]                    🪙 60
+ 💗💗💗💗💗          ⏱ 01:32           🪙 60  ⚙
           ┌───┬───┬───┬───┬────┐
           │   │ + │   │ = │(−7)│     square boxes joined edge to edge
           └───┴───┼───┼───┴────┘     yellow = to fill, white = given,
@@ -199,8 +197,10 @@ The final **CONTINUE** button marks How to Play complete and goes to the pre-ass
  │  [ 📖 Rules ]                  [ 💡 Hint −60 ]                 │
  └────────────────────────────────────────────────────────────────┘
 ```
+- **Header borders (Ken, Oct 25):** a full-width 6px top border in the current mode's color (Relax green, Expert orange, Battle blue), and a plain 1px neutral bottom border. Controls keep the agreed left/center/right arrangement.
 - **Boxes:** square, joined edge to edge with shared dark lines, like the printed worksheets.
-- **Puzzle box:** the screen is a fixed frame (header, stats, puzzle box, tray). The puzzle box keeps its size; the grid scales to fit inside it, so a bigger puzzle just gets smaller squares (at most 44px). Nothing goes under the tray.
+- **Game header and settings (Ken, Oct 25):** one row with hearts left, timer centered, coins immediately before the settings gear on the right. A small `Mode · Level N` label sits above the timer without shifting it. Removed the forecast `+N` reward, full level title and direct back/restart buttons from the header. Settings shows the full mode/level title (group and puzzle in Battle), Return to game, Restart level and Exit to levels; Battle has Exit battle and its existing teacher-controlled restart restriction. Restart/exit with progress require confirmation, and cancel returns to settings. Closing the menu, Android/browser Back or Escape returns to the same game. The timer continues while menus are open. A Battle ending while settings is open replaces that menu with the final result in the same dialog. The level heading remains available to screen readers.
+- **Puzzle box:** the screen is a fixed frame (compact header, puzzle box, tray). The puzzle box keeps its size; the grid scales to fit inside it, so a bigger puzzle just gets smaller squares (at most 44px). Nothing goes under the tray.
   - **Tall puzzles scroll:** squares never go below 30px for height; a taller puzzle (more than about 11 rows on a small phone) scrolls up and down inside the box. A shadow with a small arrow shows on the edge that has more squares past it (phones hide the scrollbar until you scroll; it never blocks a tap). After a right answer, the next empty box scrolls into view.
   - Each square sizes its own number. Below 26px, the parentheses on negatives drop off so the digits stay readable.
   - **Comfortable sizes:** Relax 7×11 and Expert 9×11 give 30px+ squares on a 360×640 phone and 39–44px on a 390×844 phone.
@@ -286,6 +286,8 @@ Six tabs, in this order: Students (opens first), Battle, Overview, Puzzles, Puzz
 - Mixed operations follow **MDAS**: × and ÷ before + and −, then left to right.
 
 ## 7. Puzzles: generator, review, format
+
+**Expert and Battle sheet import (Oct 25):** Ken approved correcting the [researchers' shared sheet](https://docs.google.com/spreadsheets/d/1nUFCtqpNzXTGUo37oufJc1w_2NduLtJqkvkljv6tk68/edit#gid=21022). After those corrections, the live `Expert and Battle` tab was read again and imported as `expert-1.csv` through `expert-5.csv` and `battle-1.csv` through `battle-3.csv`. Source ranges, in order: Expert B13:N29, Q13:AC29, B36:N52, Q36:AC52, B59:N75; Battle Q59:AC75, B82:N98, Q82:AC98. Empty margins are cropped to 13 columns × 15 rows. Each has ten answer boxes, correct equations and exactly one solution. The normal build loads these researchers' files ahead of samples/approved replacements. Puzzle checks, TypeScript, production build and lint passed; all eight were then solved on the real phone (§Phase 6 below). Included in the Oct 25 release.
 
 **The researchers' problems, our layout** (§13, questions 6 and 9). The researchers give Ken their problems (from a standardized test); Ken lays them out as crosswords in `puzzles/<level>.csv`, problems unchanged. Those files are final: they beat any approval on the admin page and are locked there. Until they arrive, every level uses a generated sample.
 
@@ -470,13 +472,13 @@ Day 1 = Thu Oct 15. Delivery Thu Oct 29.
 - [x] Sample puzzles for Relax 1–4 and Expert 1 (placeholders, tagged SAMPLE)
 - [x] Headless run-through at 360×740 and 360×640: whole student flow, no console errors
 
-### Phase 3 — Puzzles (Oct 15–22, runs alongside)
+### Phase 3 — Puzzles (Oct 15–25, runs alongside)
 - [x] Branching puzzle generator + sign-rule filter; all 9 levels + battle-1..3 generated and passing the checker
 - [x] `PUZZLE_GUIDE.md` written
 - [ ] Send the guide to the researchers: they review/approve the generated puzzles (or edit/write their own)
-- [ ] Relax 1–4 approved, **by Oct 19**. *Relax 1 and 2 in from the researchers' sheet (Oct 19, with Ken's fixes, §7). Left: Relax 3 (not started) and Relax 4 (still being worked on).*
-- [ ] Expert 1–5 approved, **by Oct 22**
-- [ ] Battle 1–3 approved, **by Oct 22**
+- [x] Relax 1–4 installed and checked (Oct 22), with the game-only corrections documented in §7.
+- [x] Expert 1–5 imported and checked from the corrected researchers' sheet (Oct 25); included in the Oct 25 release, with researchers' pilot pending.
+- [x] Battle 1–3 imported and checked from the corrected researchers' sheet (Oct 25); included in the Oct 25 release, with researchers' pilot pending.
 - [ ] Researchers review the Clue/rule wording in `content.ts`
 
 ### Phase 4 — Backend, ranking & admin (Oct 19–22)
@@ -493,6 +495,9 @@ Day 1 = Thu Oct 15. Delivery Thu Oct 29.
 - [x] Attempt log for battles (Oct 16)
 
 ### Phase 6 — Test & polish (Oct 26–28)
+- [x] Corrected Expert 1–5 and Battle 1–3 played to completion using touch input on the connected Realme 3 Pro (Android 11, Chrome 156; Oct 25). Local production preview with Supabase disabled and a separate PHONEQA save; Relax wins were fixtures to unlock Expert. Verified all eight real puzzles replace samples, number-bank placement, loss/retry, Undo, two paid Expert hints and limit, Battle hint/shared wrong count, local Expert rankings, saved results and layouts at 423×785 CSS pixels (no clipped numbers, horizontal page overflow or board/tray overlap). Expert 4 resumed three placed answers after a target-only offline reload and was completed offline. Battle used teacher/student tabs on this phone over BroadcastChannel: room join, start, all ten answers, automatic end and winning result for each puzzle. No JavaScript errors. This does not verify cloud sync, separate phones or classroom load.
+- [x] Settings → Adventure Intro and How to Play manually opened on the same phone (Oct 25). A final reload retained all eight wins and Start went directly to modes without replaying completed guides. Test network conditions restored to online; local preview left open on the phone.
+- [x] In-game header/settings redesign checked in an isolated touch browser (Oct 25): exact timer centering and no overlapping controls at 320/360/375/423px, Return preserving progress and hint charges, live timer, browser Back/Escape and focus restoration, restart/exit cancellation and confirmation without duplicate attempts, and a teacher ending Battle while settings is open (one result dialog, focus inside it). Native Realme preview and screenshots also checked. Full build/puzzle checks and lint passed; the build retains the existing main-chunk size advisory. Local preview only.
 - [ ] Low-end Android phone (Chrome), school PC (Chrome/Edge), iPhone Safari smoke test. *Done: Realme 3 Pro (Oct 16), every level and Battle, no lag. Left: school PC, iPhone.*
 - [x] Offline test: play offline → reconnect → the server confirms the result (Oct 16, on the phone, with that tab's internet cut)
 - [ ] Battle test with 2 groups × 5 phones on one hotspot. *Done so far: a real battle on the phone over the real Realtime, with a scripted teacher and teammate (teammate's box in ~0.2 s, wrong answers counted, finished first, result saved; Oct 16). Then hosted from the real admin page (room 7330) with the phone in Group 1: Start, a wrong answer counted, finished, End now, "Your group won!", result confirmed by the server (Oct 17). Left: real phones in class.*

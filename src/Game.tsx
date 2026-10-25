@@ -80,7 +80,8 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
   const [flash, setFlash] = useState<{ k: string; v: number; ok: boolean; t: number } | null>(null) // the box that just got an answer: blinks green or red
   const [msg, setMsg] = useState<ReactNode>(resume ? 'Welcome back! Carry on where you left off.' : '')
   const [nudge, setNudge] = useState(false)
-  const [dialog, setDialog] = useState<'rules' | 'leave' | 'restart' | null>(null)
+  const [dialog, setDialog] = useState<'rules' | 'settings' | 'leave' | 'restart' | null>(null)
+  const [confirmReturn, setConfirmReturn] = useState<'settings' | null>(null)
   const [celebration, setCelebration] = useState<WinMessage | null>(null)
   const stopResultSound = useRef<() => void>(() => {})
   useEffect(() => () => stopResultSound.current(), [])
@@ -183,7 +184,11 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
   const balance = playing ? coins - run.hints * rules.hintCost : coins
   const canHint = playing && run.hints < rules.hintLimit && balance >= rules.hintCost
   const active = battle ? !battle.over : playing && (Object.keys(run.filled).length > 0 || run.wrong > 0 || run.hints > 0)
-  useBack(() => (active ? setDialog('leave') : onExit())) // same as the back button
+  useBack(() => {
+    if (!active) return onExit()
+    setConfirmReturn(null)
+    setDialog('leave')
+  })
 
   // Each correct cell uses up one bank tile with its value.
   const used = new Map<number, number>()
@@ -334,6 +339,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
     setSel(null)
     setFlash(null)
     setDialog(null)
+    setConfirmReturn(null)
     setCelebration(null)
   }
 
@@ -384,29 +390,19 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
   )
   const rank = playing || run.status === 'lose' || !rules.ranked ? undefined : rankOf(seconds, run.wrong)
   const [heading, subheading] = battle ? [level.title, battle.title] : [`Level ${level.n}`, level.title]
+  const actionTitle = battle?.over ? (
+    <><Deco>🏁</Deco> Battle over!</>
+  ) : dialog === 'settings' ? (
+    <>
+      <span className="game-menu-label">{battle ? battle.title : `${level.mode === 'expert' ? 'Expert' : 'Relax'} · Level ${level.n}`}</span>
+      {level.title}
+    </>
+  ) : dialog === 'leave' ? (battle ? 'Leave the battle?' : 'Leave this level?') : 'Start this level over?'
 
   return (
     <main className="screen game" tabIndex={-1}>
-      <header className="bar">
-        <button className="icon" onClick={() => (active ? setDialog('leave') : onExit())} aria-label={battle ? 'Leave the battle' : 'Back to levels'}>
-          <Icon name="back" />
-        </button>
-        {!battle && (
-          <button className="icon" onClick={() => (active ? setDialog('restart') : restart())} aria-label="Restart level">
-            <Icon name="restart" />
-          </button>
-        )}
-        <h1 aria-label={`${heading}, ${subheading}${sample ? ', sample puzzle' : ''}`}>
-          {heading}
-          <small>
-            {sample && <span className="tag">SAMPLE</span>}
-            <span className="clip" title={subheading}>{subheading}</span>
-          </small>
-        </h1>
-        <Coins n={balance} />
-      </header>
-
-      <div className="stats">
+      <h1 className="sr">{heading}, {subheading}{sample ? ', sample puzzle' : ''}</h1>
+      <header className="game-header" data-mode={level.mode} aria-label="Game status and settings">
         <span className="hearts" role="img" aria-label={`${hearts} of ${HEARTS} ${battle ? 'group lives' : 'lives'} left`}>
           {Array.from({ length: HEARTS }, (_, i) => (
             <span key={i} className="heart">
@@ -420,20 +416,25 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
             </span>
           ))}
         </span>
-        <span className="clock">
-          <span className="timer">
-            <Icon name="clock" />
-            <span className="sr">{battle ? 'Time left:' : 'Time:'}&nbsp;</span>
-            {clock(battle ? left : seconds)}
-          </span>
-          {playing && !battle && (
-            <span className="next" title="Finish now to earn this many coins">
-              +{reward(level.mode, seconds)}
-              <span className="sr">&nbsp;coins if you finish now</span>
-            </span>
-          )}
+        <span className="timer">
+          <span className="game-level">{level.mode === 'expert' ? 'Expert' : level.mode === 'battle' ? 'Battle' : 'Relax'} · Level {level.n}</span>
+          <Icon name="clock" />
+          <span className="sr">{battle ? 'Time left:' : 'Time:'}&nbsp;</span>
+          {clock(battle ? left : seconds)}
         </span>
-      </div>
+        <div className="game-header-actions">
+          <span className="game-header-coins" title={`${balance} coins`}><Coins n={balance} /></span>
+          <button
+            className="icon"
+            onClick={() => { setConfirmReturn(null); setDialog('settings') }}
+            aria-label="Game settings"
+            aria-haspopup="dialog"
+            aria-expanded={dialog === 'settings'}
+          >
+            <Icon name="settings" />
+          </button>
+        </div>
+      </header>
 
       {battle?.bars}
 
@@ -573,41 +574,60 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
         </Dialog>
       )}
 
-      {(dialog === 'leave' || dialog === 'restart') && (
-        <Dialog title={dialog === 'leave' ? (battle ? 'Leave the battle?' : 'Leave this level?') : 'Start this level over?'} onClose={() => setDialog(null)}>
-          <p>{battle ? 'Your group can keep playing without you.' : 'This try will end and your progress on it will be lost.'}</p>
-          <div className="row">
-            <button className="big secondary" onClick={() => setDialog(null)} autoFocus>
-              Keep playing
-            </button>
-            <button
-              className="big"
-              onClick={() => {
-                if (dialog === 'restart') return restart()
-                quitRun()
-                onExit()
-              }}
-            >
-              {dialog === 'leave' ? 'Leave' : 'Start over'}
-            </button>
-          </div>
-        </Dialog>
-      )}
-
-      {battle?.over && (
+      {(battle?.over || dialog === 'settings' || dialog === 'leave' || dialog === 'restart') && (
         <Dialog
-          title={
-            <>
-              <Deco>🏁</Deco> Battle over!
-            </>
-          }
-          onBack={onExit}
+          title={actionTitle}
+          onClose={battle?.over ? undefined : () => setDialog(dialog === 'settings' ? null : confirmReturn)}
+          onBack={battle?.over ? onExit : undefined}
         >
-          {battle.result}
-          {battle.bars}
-          <button className="big" onClick={onExit} autoFocus>
-            Back to modes
-          </button>
+          {battle?.over ? (
+            <>
+              {battle.result}
+              {battle.bars}
+              <button className="big" onClick={onExit} autoFocus>Back to modes</button>
+            </>
+          ) : dialog === 'settings' ? (
+            <div className="game-menu">
+              {sample && <span className="tag">SAMPLE</span>}
+              <p className="note">The timer keeps running.</p>
+              <button className="big" onClick={() => setDialog(null)} autoFocus>Return to game</button>
+              {!battle && (
+                <button className="big secondary game-menu-action" onClick={() => {
+                  if (!active) return restart()
+                  setConfirmReturn('settings')
+                  setDialog('restart')
+                }}>
+                  <Icon name="restart" /> Restart level
+                </button>
+              )}
+              <button className="big secondary game-menu-action" onClick={() => {
+                if (!active) return onExit()
+                setConfirmReturn('settings')
+                setDialog('leave')
+              }}>
+                <Icon name="back" /> {battle ? 'Exit battle' : 'Exit to levels'}
+              </button>
+            </div>
+          ) : (
+            <>
+              <p>{battle ? 'Your group can keep playing without you.' : 'This try will end and your progress on it will be lost.'}</p>
+              <div className="row">
+                <button className="big secondary" onClick={() => setDialog(confirmReturn)} autoFocus>
+                  {confirmReturn ? 'Back to settings' : 'Keep playing'}
+                </button>
+                <button
+                  className="big"
+                  onClick={() => {
+                    if (dialog === 'restart') return restart()
+                    quitRun()
+                    onExit()
+                  }}
+                >
+                  {dialog === 'leave' ? 'Leave' : 'Start over'}
+                </button>
+              </div>
+            </>
+          )}
         </Dialog>
       )}
 
