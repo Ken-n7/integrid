@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, type CSSProperties } from 'react'
 import type { WinMessage } from './content.ts'
-import { Deco, Dialog } from './ui.tsx'
+import { Dialog, Icon } from './ui.tsx'
+import { Art } from './Art.tsx'
 
 const PIECES = Array.from({ length: 22 }, (_, i) => ({
   '--x': `${45 + (i * 43) % 155}px`,
@@ -27,14 +28,15 @@ export function Celebration({ message, onDone }: { message: WinMessage; onDone: 
           </div>
         ))}
       </div>
-      <Dialog title={<>
+      <Dialog className="achievement-panel" title={<>
+        <span className="achievement-kicker">Achievement unlocked</span>
+        <span className="achievement-emblem" aria-hidden="true"><Art name="medal" /></span>
         {message.level && <span className="celebration-level">{message.level}<span className="sr">: </span></span>}
         <span className="celebration-title">{message.title}</span>
       </>} onClose={onDone}>
-        <div className="celebration-badge"><Deco>🏆</Deco></div>
         <p className="celebration-message">{message.text}</p>
         {message.detail && <p className="celebration-detail">{message.detail}</p>}
-        <button className="big" onClick={onDone} autoFocus>View results</button>
+        <button className="big achievement-continue" onClick={onDone} autoFocus>View results <Icon name="next" /></button>
       </Dialog>
     </div>
   )

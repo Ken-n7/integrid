@@ -7,7 +7,7 @@ import { useState, type CSSProperties } from 'react'
 import { blanksOf, parse } from './puzzle.ts'
 import { approvePuzzle, builtIn, isCurrent, puzzleFor } from './puzzles.ts'
 import { BATTLES, LEVELS, type Level } from './rules.ts'
-import { Dialog } from './ui.tsx'
+import { Deco, Dialog } from './ui.tsx'
 
 type Row = { level: string; puzzle?: string | null }
 
@@ -95,9 +95,9 @@ function LevelCard({ level, rows, answers, onChange, onEdit }: { level: Level; r
       <header className="pz-head">
         <h3 id={`pz-${level.id}`}>{title}</h3>
         {final ? (
-          <span className="badge ok">✓ Researchers’ puzzle · locked</span>
+          <span className="badge ok"><Deco>✓</Deco> Researchers’ puzzle · locked</span>
         ) : approved ? (
-          <span className="badge ok">✓ Approved {new Date(current.approvedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+          <span className="badge ok"><Deco>✓</Deco> Approved {new Date(current.approvedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
         ) : (
           <span className="badge warn">Sample</span>
         )}
@@ -180,19 +180,19 @@ export function Puzzles({ rows, onEdit }: { rows: Row[]; onEdit: (level: string)
     <>
       <section className="card">
         <h2>Puzzles</h2>
-        <p>
+        <details className="teacher-explainer"><summary>About puzzle sources and updates</summary><p>
           The study uses <b>the researchers’ own problems</b>. Build each level’s puzzle in the <b>Puzzle maker</b>; until then it has a <b>sample</b> from the generator,
           which you can approve or swap for another. Learners get a new puzzle the next time they open the app. Swapping one they already played asks first, so everyone
           solves the same problems.
-        </p>
+        </p></details>
         <p className="muted">{own === all.length ? `All ${all.length} levels have their own puzzle.` : `${own} of ${all.length} levels have their own puzzle; the rest use a sample.`}</p>
         <label className="check">
           <input type="checkbox" checked={answers} onChange={(e) => setAnswers(e.target.checked)} /> Show the answers in the yellow boxes
         </label>
       </section>
-      {all.map((l) => (
+      <div className="puzzle-library">{all.map((l) => (
         <LevelCard key={l.id} level={l} rows={rows} answers={answers} onChange={() => setTick((n) => n + 1)} onEdit={() => onEdit(l.id)} />
-      ))}
+      ))}</div>
     </>
   )
 }

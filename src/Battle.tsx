@@ -13,7 +13,8 @@ import { blanksOf, key, parse } from './puzzle.ts'
 import { puzzleFor } from './puzzles.ts'
 import { BATTLES, clock, HEARTS, type Attempt } from './rules.ts'
 import { db, uuid } from './store.ts'
-import { Deco, Icon } from './ui.tsx'
+import { Coins, Deco, Icon } from './ui.tsx'
+import { Art } from './Art.tsx'
 
 function channel<M>(name: string, onMsg: (m: M) => void, onReady: () => void = () => {}) {
   if (!db) {
@@ -46,28 +47,28 @@ function channel<M>(name: string, onMsg: (m: M) => void, onReady: () => void = (
 const totalOf = (csv: string) => blanksOf(parse(csv)).length
 // The live ranking: one card per group, leader first. `top` keeps the grid screen short in a big
 // class (8 groups of 5): the leaders plus your own group. `names`: the teacher's page lists members.
-function Bars({ bars, total, mine, members, names = false, top = Infinity }: { bars: Bar[]; total: number; mine?: number; members: string[][]; names?: boolean; top?: number }) {
+function Bars({ bars, total, mine, members, names = false, top = Infinity, compact = false, final = false }: { bars: Bar[]; total: number; mine?: number; members: string[][]; names?: boolean; top?: number; compact?: boolean; final?: boolean }) {
   const rows = standings(bars, members).map((b, i) => ({ ...b, place: i + 1 }))
   return (
-    <ol className="bars" aria-label="Live ranking">
+    <ol className={`bars${compact ? ' bars-compact' : ''}${final ? ' bars-final' : ''}`} aria-label={final ? 'Final ranking' : 'Live ranking'}>
       {rows.filter((b) => b.place <= top || b.g === mine).map((b) => (
-        <li key={b.g} className={b.g === mine ? 'mine' : undefined}>
+        <li key={b.g} className={`${b.g === mine ? 'mine ' : ''}${b.place === 1 ? 'leader' : ''}`}>
           <span className="who-row">
-            <span className="place">#{b.place}</span> <b>Group {b.g + 1}</b>
-            {b.g === mine && ' (you)'}
-            {names && <small> · {members[b.g]?.join(', ') || 'no one'}</small>}
+            <span className="place">#{b.place}</span> <b>G{compact ? <span className="sr">roup </span> : 'roup '}{b.g + 1}</b>
+            {b.g === mine && <span className="bars-you">{compact ? 'YOU' : 'Your group'}</span>}
+            {names && <small className="bars-members">{members[b.g]?.join(', ') || 'No players yet'}</small>}
           </span>
           <span className="score">
             {b.done !== null ? (
               <>
-                <Deco>✓&nbsp;</Deco>
+                <Deco>✓</Deco>{' '}
                 <span className="sr">finished in&nbsp;</span>
                 {clock(b.done)}
               </>
             ) : (
-              `${b.cells.length} of ${total}`
+              <>{b.cells.length} / {total}<span className="sr"> boxes filled</span></>
             )}
-            <span className="muted"> · {b.done === null && b.wrong >= HEARTS ? 'out of hearts' : `${b.wrong} wrong`}</span>
+            <span className="bars-mistakes">{b.done === null && b.wrong >= HEARTS ? 'Out of hearts' : `${b.wrong} wrong`}</span>
           </span>
           <span className="meter" aria-hidden="true">
             <i style={{ width: `${(100 * b.cells.length) / (total || 1)}%` }} />
@@ -193,15 +194,23 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
       // teammates' messages arrive at once; the teacher's total covers any that were missed
       hearts: Math.max(0, HEARTS - Math.max(sum(wrongs), snap.bars[group]?.wrong ?? 0)),
       over: snap.state === 'done',
-      bars: <Bars bars={snap.bars} total={totalOf(snap.csv)} mine={group} members={snap.members} top={snap.state === 'done' ? Infinity : 3} />,
-      result:
-        place === 1 ? (
-          <p className="result">
-            <Deco>🎉</Deco> Your group won!
-          </p>
-        ) : (
-          <p className="result">Your group placed #{place}. Great teamwork!</p>
-        ),
+      bars: <Bars bars={snap.bars} total={totalOf(snap.csv)} mine={group} members={snap.members} top={snap.state === 'done' ? Infinity : 3} compact={snap.state !== 'done'} final={snap.state === 'done'} />,
+      result: (
+        <>
+          <section className="battle-result" aria-label="Your group result">
+            <Art name={place === 1 ? 'trophy' : 'medal'} className="battle-result-art" />
+            <p className="eyebrow">Group {group + 1} · {level.title}</p>
+            <h3>{place === 1 ? 'Your group won!' : `Your group placed #${place}`}</h3>
+            <p className="battle-result-note">Here’s how your team finished.</p>
+            <dl className="battle-result-stats">
+              <div><dt>Place</dt><dd>#{place}</dd></div>
+              <div><dt>Boxes filled</dt><dd>{snap.bars[group]?.cells.length ?? 0}<small> / {totalOf(snap.csv)}</small></dd></div>
+              <div><dt>Wrong</dt><dd>{snap.bars[group]?.wrong ?? 0}</dd></div>
+            </dl>
+          </section>
+          <h3 className="battle-ranking-title">Final ranking</h3>
+        </>
+      ),
       onSolve: (k, hint) => {
         setShared((s) => ({ ...s, [k]: hint }))
         send.current({ t: 'cell', k, hint })
@@ -232,84 +241,79 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
   }
 
   const members = snap && group !== null ? [...new Set([...(snap.members[group] ?? []), code])].sort() : []
+  const step = !room || !snap || snap.state === 'done' ? 0 : group === null ? 1 : 2
   return (
-    <main className="screen" tabIndex={-1}>
-      <header className="bar">
+    <main className="screen battle-screen" tabIndex={-1}>
+      <header className="bar battle-screen-bar">
         <button className="icon" onClick={back} aria-label={group !== null ? 'Back to the groups' : room ? 'Leave the room' : 'Back to modes'}>
           <Icon name="back" />
         </button>
-        <h1>
-          <Deco>⚔️</Deco> Battle Mode
-        </h1>
+        <span className="eyebrow">Your adventure</span>
+        <Coins n={coins} />
       </header>
+
+      <div className="battle-heading">
+        <div><p className="eyebrow">Team up. Take on the grid.</p><h1>Battle Mode</h1><p>One puzzle. Your group. A race together.</p></div>
+        <span className="battle-heading-art" aria-hidden="true"><Art name="battle" /></span>
+      </div>
+
+      <ol className="battle-steps" aria-label="Joining steps">
+        {['Room', 'Group', 'Ready'].map((label, i) => <li key={label} className={i < step ? 'complete' : i === step ? 'current' : ''} aria-current={i === step ? 'step' : undefined}><span aria-hidden="true">{i < step ? <Art name="check" /> : i + 1}</span>{label}</li>)}
+      </ol>
+
+      {room && snap && snap.state !== 'done' && (
+        <section className="battle-room-summary" aria-label="Battle room details">
+          <span className="battle-room-number"><small>ROOM CODE</small><b>{room}</b></span>
+          <span className="battle-room-details"><b>{BATTLES.find((b) => b.id === snap.puzzle)?.title}</b><span><Icon name="clock" /> {Math.round(snap.seconds / 60)} min <span className={`battle-state ${snap.state === 'live' ? 'live' : ''}`}>{snap.state === 'live' ? 'Live now' : 'Joining'}</span></span></span>
+        </section>
+      )}
+
       {!room ? (
         <>
-          <form className="card form" onSubmit={join} noValidate>
+          <form className="battle-join form" onSubmit={join} noValidate>
+            <h2>Join your class</h2>
             <label>
               Room code
-              <input
-                value={typed}
-                onChange={(e) => setTyped(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                inputMode="numeric"
-                autoComplete="off"
-                aria-invalid={!!msg}
-                aria-describedby={msg ? 'room-error' : undefined}
-              />
+              <input value={typed} onChange={(e) => setTyped(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" autoComplete="off" spellCheck={false} maxLength={4} placeholder="0000" aria-invalid={!!msg} aria-describedby={`room-code-help${msg ? ' room-error' : ''}`} />
             </label>
-            {msg && (
-              <p id="room-error" className="error" role="alert">
-                {msg}
-              </p>
-            )}
-            <button className="big">Join</button>
+            <p id="room-code-help" className="battle-help">Enter the 4-digit code your teacher shows on the board.</p>
+            {msg && <p id="room-error" className="error" role="alert">{msg}</p>}
+            <button className="big">Join <Icon name="next" /></button>
           </form>
-          <p className="sub">Your teacher shows the 4-digit room code on the board.</p>
+          <p className="battle-tip"><Art name="info" /><span>Your group shares one puzzle and {HEARTS} lives. Every player can help.</span></p>
         </>
       ) : !snap ? (
-        <p className="sub" role="status">
-          Looking for room {room}…
-        </p>
+        <section className="battle-status-card"><Art name="magnifier" /><h2>Finding your battle</h2><p role="status">Looking for room {room}…</p><p className="battle-help">Keep this screen open while we connect.</p></section>
       ) : snap.state === 'done' ? (
-        <p className="sub" role="status">
-          This battle has ended. Ask your teacher for the next room code.
-        </p>
+        <section className="battle-status-card">
+          <Art name="flag" /><h2>This battle has ended</h2><p role="status">Ask your teacher for the next room code.</p>
+          <button className="big" onClick={() => { setGroup(null); setRoom(null); setSnap(null); setTyped(''); setMsg('') }}>Enter a new code</button>
+        </section>
       ) : group === null ? (
-        <>
-          <p className="sub">
-            Room {room} · {Math.round(snap.seconds / 60)} minutes. Pick your group:
-          </p>
-          {snap.members.map((m, g) => (
-            <button
-              key={g}
-              className="level"
-              onClick={() => {
-                setGroup(g)
-                if (snap.state === 'live') setInBattle(true) // joining a round that already started
-              }}
-            >
-              <span className="level-n">{g + 1}</span>
-              <span className="level-text">
-                <b>Group {g + 1}</b>
-                <small>{m.length ? m.join(', ') : 'No one yet'}</small>
-              </span>
-              <span className="level-state">
-                <Icon name="next" />
-              </span>
-            </button>
-          ))}
-        </>
+        <section className="battle-group-section" aria-labelledby="pick-group-title">
+          <div className="battle-section-heading"><h2 id="pick-group-title">Choose your group</h2><p>Join the group your teacher assigned.</p></div>
+          <div className="battle-group-grid">
+            {snap.members.map((m, g) => (
+              <button key={g} className="battle-group-card" onClick={() => { setGroup(g); if (snap.state === 'live') setInBattle(true) }}>
+                <span className="battle-group-body"><span className="battle-group-number" aria-hidden="true">{g + 1}</span><span><b>Group {g + 1}</b><small>{m.length ? `${m.length} ${m.length === 1 ? 'player' : 'players'} joined` : 'Be the first to join'}</small></span></span>
+                {m.length > 0 && <span className="battle-group-members">{m.join(', ')}</span>}
+                <span className="battle-group-footer"><span>Join group</span><Icon name="next" /></span>
+              </button>
+            ))}
+          </div>
+        </section>
       ) : (
         <>
-          <section className="card lobby">
-            <h2>Group {group + 1}</h2>
-            <p>{members.map((m) => (m === code ? `${m} (you)` : m)).join(', ')}</p>
-            <p className="sub" role="status">
-              Waiting for your teacher to start…
-            </p>
+          <section className="battle-wait-card lobby" aria-labelledby="your-group-title">
+            <span className="battle-joined">Joined</span>
+            <Art name="controller" className="battle-lobby-art" />
+            <p className="eyebrow">Your group</p><h2 id="your-group-title">Group {group + 1}</h2>
+            <div className="battle-member-chips" aria-label="Group members">{members.map((member) => <span key={member} className={member === code ? 'you' : undefined}>{member}{member === code && <b> (you)</b>}</span>)}</div>
+            <p className="battle-waiting" role="status"><Icon name="clock" />Waiting for your teacher to start…</p>
+            <p className="battle-help">The puzzle opens automatically when the round starts.</p>
           </section>
-          <button className="big secondary" onClick={() => setGroup(null)}>
-            Change group
-          </button>
+          <button className="big secondary battle-change-group" onClick={() => setGroup(null)}>Change group</button>
+          <p className="battle-tip"><Art name="heart" /><span>Work together: your group shares {HEARTS} lives.</span></p>
         </>
       )}
     </main>
@@ -384,7 +388,8 @@ export function BattleHost() {
         <h2>
           <Deco>⚔️</Deco> Battle
         </h2>
-        <div className="row wrap">
+        <p className="teacher-battle-help">Set up the round, then share its code with your class.</p>
+        <div className="teacher-battle-setup">
           <label className="inline">
             Puzzle
             <select value={puzzle} onChange={(e) => setPuzzle(e.target.value)}>
@@ -413,7 +418,9 @@ export function BattleHost() {
 
   const left = h.startedAt ? Math.max(0, h.seconds - Math.floor((now - h.startedAt) / 1000)) : h.seconds
   function go(state: Room['state']) {
-    const next = { ...h!, state, startedAt: state === 'live' ? Date.now() : h!.startedAt }
+    // A cancelled lobby still needs a timestamp so waiting clients accept its done message.
+    const startedAt = state === 'live' ? Date.now() : h!.startedAt ?? Date.now()
+    const next = { ...h!, state, startedAt }
     setH(next)
     send.current(roomOf(next)) // start and end go out at once
   }
@@ -422,7 +429,7 @@ export function BattleHost() {
       <h2>
         <Deco>⚔️</Deco> {BATTLES.find((b) => b.id === h.puzzle)?.title} · room code
       </h2>
-      <p className="room-code">{h.room}</p>
+      <div className="teacher-room-banner"><span>SHARE THIS ROOM CODE</span><p className="room-code">{h.room}</p><small>{h.members.length} groups · {Math.round(h.seconds / 60)} minutes</small></div>
       {h.state === 'lobby' ? (
         <>
           <p>
@@ -441,7 +448,7 @@ export function BattleHost() {
           <p className="host-clock" role="status">
             {h.state === 'live' ? `${clock(left)} left` : 'Battle over: final ranking'}
           </p>
-          <Bars bars={barsOf(h)} total={h.total} members={h.members} names />
+          <Bars bars={barsOf(h)} total={h.total} members={h.members} names final={h.state === 'done'} />
         </>
       )}
       <div className="row wrap">

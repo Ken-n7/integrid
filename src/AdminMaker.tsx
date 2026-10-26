@@ -550,7 +550,7 @@ export function PuzzleMaker({ rows, level }: { rows: Row[]; level?: string }) {
         <div className="pz-head">
           <h3 id="mk-check-title">Check</h3>
           <span className={`badge ${ready ? 'ok' : 'warn'}`} role="status">
-            {!filled ? 'Empty grid' : ready ? '✓ Ready to use' : `${errors.length} to fix`}
+            {!filled ? 'Empty grid' : ready ? <><Deco>✓</Deco> Ready to use</> : `${errors.length} to fix`}
           </span>
         </div>
         {!filled && <p className="muted">Write an equation, or select a square and type.</p>}

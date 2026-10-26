@@ -5,11 +5,12 @@ import { bestWin, clock, coinsOf, isUnlocked, LEVELS, rankingFor, wonLevels, typ
 import { abandon, db, load, merge, newSave, persist, startScreen, sync, type Save, type Store } from './store.ts'
 import { useBack } from './back.ts'
 import { focusScreen } from './focus.ts'
-import { musicOn, setMusicOn, startMusic, stopMusic } from './music.ts'
-import { pauseAudio, setSoundOn, sfx, soundOn, warmSoundEffects } from './sound.ts'
+import { startMusic, stopMusic } from './music.ts'
+import { pauseAudio, warmSoundEffects } from './sound.ts'
 import { isCurrent, puzzleFor, refreshPuzzles } from './puzzles.ts'
 import { Coins, Deco, Dialog, Icon } from './ui.tsx'
 import { Art } from './Art.tsx'
+import { AudioSettings } from './AudioSettings.tsx'
 
 type Screen = 'landing' | 'login' | 'intro' | 'howto' | 'pre' | 'modes' | 'settings' | Mode | 'ranking' | { level: string }
 type HowToFrom = 'landing' | 'settings'
@@ -129,7 +130,10 @@ function Student() {
   // A new screen replaces the button that had focus; move focus to the new screen so keyboards
   // and screen readers aren't left on an empty page (unless something, like a pop-up, took it).
   useEffect(() => {
-    if (document.activeElement === document.body) focusScreen()
+    if (document.activeElement === document.body) {
+      window.scrollTo(0, 0)
+      focusScreen()
+    }
   }, [screen])
 
   const go = setScreen
@@ -213,6 +217,7 @@ function Student() {
       <Modes
         code={save.code}
         coins={shown}
+        won={won}
         expertOpen={isUnlocked('expert-1', won)}
         battleOpen={won.has('expert-5')}
         onPick={(m) => {
@@ -262,25 +267,19 @@ function Student() {
 }
 
 function Landing({ onStart }: { onStart: () => void }) {
+  const sample = ['−3', '+', '?', '=', '2', null, null, '×', null, null, null, null, '2', null, null, null, null, '=', null, null, null, null, '10', null, null]
   return (
-    <main className="screen landing" tabIndex={-1}>
-      {['+', '−', '×', '÷'].map((s, i) => (
-        <span key={s} className={`sticker s${i + 1}`} aria-hidden="true">
-          {s}
-        </span>
-      ))}
-      <h1>INTEGRID IN ACTION</h1>
-      <p className="tagline">
-        <Deco>🎮</Deco> A Math Crossword Adventure! <Deco>🧩</Deco>
-      </p>
-      <p className="sub">Master integer operations while having fun!</p>
-      <button className="start" onClick={onStart}>
-        <Deco>→</Deco> LET’S START!
-      </button>
-      <p className="sub">Tap to begin your adventure!</p>
-      <p className="emoji-row" aria-hidden="true">
-        <Art name="star" /> <Art name="target" /> <Art name="trophy" />
-      </p>
+    <main className="screen landing start-screen" tabIndex={-1}>
+      <p className="start-brand"><Art name="puzzle" />YOUR INTEGER ADVENTURE</p>
+      <div className="start-illustration" aria-hidden="true">
+        <span className="start-spark one"><Art name="star" /></span><span className="start-spark two"><Art name="leaf" /></span>
+        <div className="start-grid">{sample.map((value, i) => <span key={i} className={value === null ? 'empty' : value === '?' ? 'answer' : ''}>{value}</span>)}</div>
+        <span className="start-award"><Art name="medal" /></span>
+      </div>
+      <div className="start-copy"><h1>INTEGRID <span>IN ACTION</span></h1><p>A Math Crossword Adventure!</p><small>Learn the signs. Solve the grid. Build your skills.</small></div>
+      <div className="start-operations" aria-label="Addition, subtraction, multiplication and division"><span>+</span><span>−</span><span>×</span><span>÷</span></div>
+      <button className="start" onClick={onStart}><Art name="controller" />LET’S START!<Icon name="next" /></button>
+      <p className="start-note">Your next challenge starts with one box.</p>
     </main>
   )
 }
@@ -313,15 +312,15 @@ function Login({ store, onBack, onDone }: { store: Store; onBack: () => void; on
 
   useBack(onBack)
   return (
-    <main className="screen" tabIndex={-1}>
+    <main className="screen entry-screen" tabIndex={-1}>
       <header className="bar">
         <button className="icon" onClick={onBack} aria-label="Back to start">
           <Icon name="back" />
         </button>
-        <h1>Sign in</h1>
+        <span className="eyebrow">Your adventure</span>
       </header>
-      <p className="sub">Use the code and PIN from your teacher.</p>
-      <form className="card form" onSubmit={submit}>
+      <div className="entry-heading"><div><p className="eyebrow">Your place in the adventure</p><h1>Sign in</h1><p>Use the code and PIN from your teacher.</p></div><span className="entry-heading-art"><Art name="profile" /></span></div>
+      <form className="card form entry-form" onSubmit={submit}>
         <label>
           Student code
           <input
@@ -361,7 +360,7 @@ function Login({ store, onBack, onDone }: { store: Store; onBack: () => void; on
         <button className="big" disabled={busy}>
           {busy ? 'Checking…' : 'Let’s go!'}
         </button>
-        {!db && <p className="note">Dev mode: no server yet, any code and 4-digit PIN works.</p>}
+        <p className="entry-help"><Art name="info" />Need your details? Ask your teacher.</p>
       </form>
       {/* replace, not push: a student's back gesture must never land on the admin page */}
       <a
@@ -372,7 +371,7 @@ function Login({ store, onBack, onDone }: { store: Store; onBack: () => void; on
           location.replace('#admin')
         }}
       >
-        Admin sign in
+        <Art name="book" /> Teacher sign in
       </a>
     </main>
   )
@@ -391,9 +390,12 @@ function Pre({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
 
   if (i === total)
     return (
-      <main className="screen center" tabIndex={-1}>
+      <main className="screen center assessment-complete" tabIndex={-1}>
+        <span className="assessment-finish-art" aria-hidden="true"><Art name={score === total ? 'medal' : 'thumbs-up'} /></span>
+        <p className="eyebrow">Pre-assessment complete</p>
+        <div className="assessment-score" aria-hidden="true"><b>{score}</b><span>of {total}</span></div>
         <h1>
-          You got {score} of {total}! <Deco>{score === total ? '🌟' : '👍'}</Deco>
+          You got {score} of {total}!
         </h1>
         <p className="sub">You’re ready. Level 1 is open!</p>
         <button className="big" onClick={onDone}>
@@ -404,21 +406,22 @@ function Pre({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
 
   const q = PRE_ASSESSMENT[i]
   return (
-    <main className="screen" tabIndex={-1}>
+    <main className="screen assessment-screen" tabIndex={-1}>
       <header className="bar">
         <button className="icon" onClick={() => setLeaving(true)} aria-label="Back to start">
           <Icon name="back" />
         </button>
-        <div className="progress" aria-hidden="true">
+        <span className="assessment-bar-label">Integer rules</span><span className="assessment-count">{i + 1} / {total}</span>
+      </header>
+        <div className="progress" role="progressbar" aria-label="Questions answered" aria-valuemin={0} aria-valuemax={total} aria-valuenow={i + Number(picked !== null)}>
           {PRE_ASSESSMENT.map((_, j) => (
             <span key={j} className={j < i ? 'done' : j === i ? 'now' : ''} />
           ))}
         </div>
-      </header>
       <p className="eyebrow">
         Pre-Assessment: Integer Rules · {`${i + 1}\u00a0of\u00a0${total}`}
       </p>
-      <h1 className="question">{q.q}</h1>
+      <div className="assessment-question-card"><span className="assessment-question-art" aria-hidden="true"><Art name="book" /></span><h1 className="question">{q.q}</h1></div>
       <div className="choices">
         {q.choices.map((c, j) => (
           <button
@@ -430,14 +433,15 @@ function Pre({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
               if (j === q.answer) setScore(score + 1)
             }}
           >
-            <b>{'abcd'[j]}.</b> {c}
+            <b className="choice-letter">{'abcd'[j]}.</b><span>{c}</span>{picked !== null && (j === q.answer || j === picked) && <Art name={j === q.answer ? 'check' : 'error'} />}
           </button>
         ))}
       </div>
+      {picked === null && <p className="assessment-hint">There’s no timer. Take a moment to work it out.</p>}
       {picked !== null && (
         <>
           <p className={`feedback ${picked === q.answer ? 'ok' : 'no'}`} role="status">
-            {picked === q.answer ? '✓ Correct!' : `✗ Not quite. The answer is ${'abcd'[q.answer]}. ${q.choices[q.answer]}.`}
+            {picked === q.answer ? <><Deco>✓</Deco> Correct!</> : <><Deco>✗</Deco> Not quite. The answer is {'abcd'[q.answer]}. {q.choices[q.answer]}.</>}
           </p>
           <button
             className="big"
@@ -474,149 +478,134 @@ function Pre({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
   )
 }
 
-function Modes(props: { code: string; coins: number; expertOpen: boolean; battleOpen: boolean; onPick: (m: Mode) => void; onSettings: () => void }) {
+function Modes(props: { code: string; coins: number; won: ReadonlySet<string>; expertOpen: boolean; battleOpen: boolean; onPick: (m: Mode) => void; onSettings: () => void }) {
+  const relax = LEVELS.filter((level) => level.mode === 'relax')
+  const expert = LEVELS.filter((level) => level.mode === 'expert')
+  const relaxDone = relax.filter((level) => props.won.has(level.id)).length
+  const expertDone = expert.filter((level) => props.won.has(level.id)).length
+  const completed = relaxDone + expertDone
+  const suggested = !props.expertOpen ? 'relax' : !props.battleOpen ? 'expert' : null
+  const modes = [
+    {
+      id: 'relax', title: 'RELAX MODE', art: 'leaf', open: true,
+      description: 'Practice at your pace, with free clues to help.',
+      progress: `${relaxDone} / ${relax.length} levels cleared`,
+      action: relaxDone ? 'Choose a level' : 'Start playing',
+      badge: relaxDone ? 'Keep going' : 'Start here',
+    },
+    {
+      id: 'expert', title: 'EXPERT MODE', art: 'flame', open: props.expertOpen,
+      description: 'Take on bigger grids and climb the rankings.',
+      progress: props.expertOpen ? `${expertDone} / ${expert.length} levels cleared` : `Unlock: ${relaxDone} / ${relax.length} Relax levels cleared`,
+      action: 'Choose a level', badge: 'Next challenge',
+    },
+    {
+      id: 'battle', title: 'BATTLE MODE', art: 'battle', open: props.battleOpen,
+      description: 'Team up and race the other groups.',
+      progress: props.battleOpen ? 'Your teacher hosts the battle' : `Unlock: ${expertDone} / ${expert.length} Expert levels cleared`,
+      action: 'Join a battle', badge: '',
+    },
+  ] as const
+
   return (
-    <main className="screen" tabIndex={-1}>
-      <header className="bar">
+    <main className="screen adventure" tabIndex={-1}>
+      <header className="bar adventure-bar">
         <span className="who">
-          <Icon name="user" />
-          <span className="sr">Signed in as&nbsp;</span>
-          {props.code}
+          <span className="adventure-avatar"><Icon name="user" /></span>
+          <span className="adventure-player"><small>PLAYER</small><b className="clip">{props.code}</b></span>
         </span>
         <Coins n={props.coins} />
         <button className="icon" onClick={props.onSettings} aria-label="Settings">
           <Icon name="settings" />
         </button>
       </header>
-      <h1>
-        Choose Your Adventure! <Deco>🗺️</Deco>
-      </h1>
-      <p className="sub">Pick a style that feels right for you today</p>
-      <button className="mode relax" onClick={() => props.onPick('relax')}>
-        <span className="mode-icon" aria-hidden="true"><Art name="leaf" /></span>
-        <span>
-          <b>RELAX MODE</b>
-          <small>Go at your own pace! Free clues, no pressure.</small>
-        </span>
-      </button>
-      <button className="mode expert" disabled={!props.expertOpen} onClick={() => props.onPick('expert')}>
-        <span className="mode-icon" aria-hidden="true">
-          <Art name="flame" />
-          {!props.expertOpen && <span className="mode-art-lock"><Icon name="lock" /></span>}
-        </span>
-        <span>
-          <b>EXPERT MODE</b>
-          <small>{props.expertOpen ? 'Bigger grids, beat the clock, climb the ranking!' : 'Finish all 4 Relax levels to unlock.'}</small>
-        </span>
-      </button>
-      <button className="mode battle" disabled={!props.battleOpen} onClick={() => props.onPick('battle')}>
-        <span className="mode-icon" aria-hidden="true">
-          <Art name="battle" />
-          {!props.battleOpen && <span className="mode-art-lock"><Icon name="lock" /></span>}
-        </span>
-        <span>
-          <b>BATTLE MODE</b>
-          <small>{props.battleOpen ? 'Team up with your group and race the other groups!' : 'Finish all 5 Expert levels to unlock.'}</small>
-        </span>
-      </button>
+
+      <div className="adventure-heading">
+        <div>
+          <p className="eyebrow">Your integer journey</p>
+          <h1>Choose Your <span>Adventure!</span></h1>
+        </div>
+        <span className="adventure-map" aria-hidden="true"><Art name="map" /></span>
+      </div>
+
+      <section className="adventure-progress" aria-label="Your progress">
+        <div><b>{completed === LEVELS.length ? 'All solo levels cleared!' : 'Every level is a step forward'}</b><span>{completed} / {LEVELS.length} <span className="sr">solo levels cleared</span></span></div>
+        <div className="adventure-track" role="progressbar" aria-label="Solo levels cleared" aria-valuemin={0} aria-valuemax={LEVELS.length} aria-valuenow={completed}>
+          {LEVELS.map((level) => <span key={level.id} className={`${level.mode}${props.won.has(level.id) ? ' cleared' : ''}`} />)}
+        </div>
+      </section>
+
+      <div className="adventure-options" role="group" aria-label="Choose a game mode">
+        {modes.map((mode) => (
+          <button key={mode.id} className={`mode ${mode.id}${suggested === mode.id ? ' suggested' : ''}`} disabled={!mode.open} onClick={() => props.onPick(mode.id)}>
+            <span className="mode-body">
+              <span className="mode-icon" aria-hidden="true">
+                <Art name={mode.art} />
+                {!mode.open && <span className="mode-art-lock"><Icon name="lock" /></span>}
+              </span>
+              <span className="mode-copy">
+                <span className="mode-heading"><b>{mode.title}</b></span>
+                <span className="mode-description">{mode.description}</span>
+              </span>
+              {suggested === mode.id && <span className="mode-badge">{mode.badge}</span>}
+            </span>
+            <span className="mode-footer">
+              <span className="mode-progress">{mode.progress}</span>
+              <span className="mode-action">{mode.open ? <>{mode.action}<Icon name="next" /></> : <><Icon name="lock" /> Locked</>}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+      <p className="adventure-note">{props.battleOpen ? 'All modes are open. Choose your next challenge.' : 'Clear each level to open the next part of your adventure.'}</p>
     </main>
   )
 }
 
-// Settings: replay the intro or How to Play, sound/music, and signing out.
+// Settings: replay the guides, saved audio preferences and account actions.
 function Settings({ code, onBack, onIntro, onHowTo, onSignOut }: { code: string; onBack: () => void; onIntro: () => void; onHowTo: () => void; onSignOut: () => void }) {
   const [confirm, setConfirm] = useState(false)
-  const [sound, setSound] = useState(soundOn)
-  const [music, setMusic] = useState(musicOn)
   useBack(onBack)
   return (
-    <main className="screen" tabIndex={-1}>
-      <header className="bar">
-        <button className="icon" onClick={onBack} aria-label="Back to modes">
-          <Icon name="back" />
-        </button>
-        <h1>Settings</h1>
+    <main className="screen settings-screen" tabIndex={-1}>
+      <header className="bar settings-bar">
+        <button className="icon" onClick={onBack} aria-label="Back to modes"><Icon name="back" /></button>
+        <span className="eyebrow">Your adventure</span>
       </header>
-      <button className="level" onClick={onIntro}>
-        <span className="level-n"><Deco>🗺️</Deco></span>
-        <span className="level-text">
-          <b>Adventure Intro</b>
-          <small>Your mission and the journey to INTEGRID Legend</small>
-        </span>
-        <span className="level-state"><Icon name="next" /></span>
-      </button>
-      <button className="level" onClick={onHowTo}>
-        <span className="level-n">
-          <Icon name="info" />
-        </span>
-        <span className="level-text">
-          <b>How to Play</b>
-          <small>The rules, the number bank, lives and coins</small>
-        </span>
-        <span className="level-state">
-          <Icon name="next" />
-        </span>
-      </button>
-      <button
-        className="level"
-        role="switch"
-        aria-checked={sound}
-        onClick={() => {
-          setSoundOn(!sound)
-          setSound(!sound)
-          if (!sound) sfx.right() // a sample, so you hear it's on
-        }}
-      >
-        <span className="level-n">
-          <Deco>{sound ? '🔊' : '🔇'}</Deco>
-        </span>
-        <span className="level-text">
-          <b>Sound effects</b>
-          <small>A “ding” when right, a low sound when wrong</small>
-        </span>
-        <span className={`toggle${sound ? ' on' : ''}`} aria-hidden="true">
-          {sound ? 'On' : 'Off'}
-        </span>
-      </button>
-      <button
-        className="level"
-        role="switch"
-        aria-checked={music}
-        onClick={() => {
-          setMusicOn(!music)
-          setMusic(!music)
-        }}
-      >
-        <span className="level-n">
-          <Art name={music ? 'music-on' : 'music-off'} />
-        </span>
-        <span className="level-text">
-          <b>Music</b>
-          <small>Background music while you play</small>
-        </span>
-        <span className={`toggle${music ? ' on' : ''}`} aria-hidden="true">
-          {music ? 'On' : 'Off'}
-        </span>
-      </button>
-      <section className="card account">
-        <p className="who">
-          <Icon name="user" />
-          Signed in as {code}
-        </p>
-        <button className="big secondary" onClick={() => setConfirm(true)}>
-          Sign out
-        </button>
+      <div className="settings-heading">
+        <div><p className="eyebrow">Make yourself at home</p><h1>Settings</h1><p>Sound, guides, and your account.</p></div>
+        <span className="settings-heading-art" aria-hidden="true"><Art name="settings" /></span>
+      </div>
+      <section className="settings-section" aria-labelledby="settings-sound-title">
+        <h2 id="settings-sound-title">Sound</h2>
+        <AudioSettings />
       </section>
+      <section className="settings-section" aria-labelledby="settings-guides-title">
+        <h2 id="settings-guides-title">Need a refresher?</h2>
+        <div className="settings-list">
+          <button className="settings-row" onClick={onIntro}>
+            <span className="settings-row-art intro"><Art name="map" /></span>
+            <span className="settings-row-copy"><b>Adventure Intro</b><small>Your mission and the journey ahead</small></span>
+            <Icon name="next" />
+          </button>
+          <button className="settings-row" onClick={onHowTo}>
+            <span className="settings-row-art guide"><Art name="book" /></span>
+            <span className="settings-row-copy"><b>How to Play</b><small>The grid, number bank, lives and hints</small></span>
+            <Icon name="next" />
+          </button>
+        </div>
+      </section>
+      <section className="settings-account" aria-label="Your account">
+        <span className="settings-account-art"><Art name="profile" /></span>
+        <span className="settings-account-copy"><small>Signed in as</small><b>{code}</b></span>
+        <button onClick={() => setConfirm(true)}>Sign out</button>
+      </section>
+      <p className="settings-footnote">Your progress stays saved on this device.</p>
       {confirm && (
-        <Dialog title={`Sign out of ${code}?`} onClose={() => setConfirm(false)}>
+        <Dialog title={`Sign out of ${code}?`} onClose={() => setConfirm(false)} className="settings-confirm-panel">
           <p>Your progress stays saved. To come back, you’ll need your code and PIN.</p>
           <div className="row">
-            <button className="big secondary" onClick={() => setConfirm(false)} autoFocus>
-              Stay signed in
-            </button>
-            <button className="big" onClick={onSignOut}>
-              Sign out
-            </button>
+            <button className="big secondary" onClick={() => setConfirm(false)} autoFocus>Stay signed in</button>
+            <button className="big" onClick={onSignOut}>Sign out</button>
           </div>
         </Dialog>
       )}
@@ -626,58 +615,84 @@ function Settings({ code, onBack, onIntro, onHowTo, onSignOut }: { code: string;
 
 function Levels(props: { mode: Mode; attempts: Attempt[]; won: Set<string>; coins: number; open?: string; onPlay: (id: string) => void; onBack: () => void; onRanking: () => void }) {
   useBack(props.onBack)
+  const expert = props.mode === 'expert'
+  const levels = LEVELS.filter((level) => level.mode === props.mode)
+  const completed = levels.filter((level) => props.won.has(level.id)).length
+  const available = levels.filter((level) => puzzleFor(level.id) && isUnlocked(level.id, props.won))
+  const suggested = available.find((level) => level.id === props.open) ?? available.find((level) => !props.won.has(level.id))
+  const complete = completed === levels.length
+
   return (
-    <main className="screen" tabIndex={-1}>
-      <header className="bar">
+    <main className={`screen level-select ${props.mode}`} tabIndex={-1}>
+      <header className="bar level-select-bar">
         <button className="icon" onClick={props.onBack} aria-label="Back to modes">
           <Icon name="back" />
         </button>
-        <h1>
-          <Deco>{props.mode === 'relax' ? '🌿' : '🔥'}</Deco> {props.mode === 'relax' ? 'Relax Mode' : 'Expert Mode'}
-        </h1>
+        <span className="eyebrow">Your adventure</span>
         <Coins n={props.coins} />
       </header>
-      {props.mode === 'expert' && (
-        <button className="big secondary" onClick={props.onRanking}>
-          <Deco>🏆</Deco> Ranking
-        </button>
-      )}
-      <ol className="levels">
-        {LEVELS.filter((l) => l.mode === props.mode).map((l) => {
-          const puzzle = puzzleFor(l.id)
-          const best = bestWin(props.attempts, l.id)
-          const state = !puzzle ? 'soon' : !isUnlocked(l.id, props.won) ? 'locked' : l.id === props.open ? 'resume' : best ? 'done' : 'play'
+
+      <div className="level-select-heading">
+        <div>
+          <p className="eyebrow">{expert ? 'Take on the challenge' : 'Build your skills'}</p>
+          <h1>{expert ? 'Expert Mode' : 'Relax Mode'}</h1>
+          <p>{expert ? 'Mix your skills. Take on bigger challenges.' : 'One operation at a time. Go at your pace.'}</p>
+        </div>
+        <span className="level-select-art" aria-hidden="true"><Art name={expert ? 'flame' : 'leaf'} /></span>
+      </div>
+
+      <section className="level-select-progress" aria-label="Mode progress">
+        <div className="level-select-tools">
+          <b>{completed} of {levels.length} levels cleared</b>
+          {expert && <button className="level-ranking" onClick={props.onRanking}><Deco>🏆</Deco> Ranking <Icon name="next" /></button>}
+        </div>
+        <div className="level-select-track" role="progressbar" aria-label={`${expert ? 'Expert' : 'Relax'} levels cleared`} aria-valuemin={0} aria-valuemax={levels.length} aria-valuenow={completed}>
+          {levels.map((level) => <span key={level.id} className={props.won.has(level.id) ? 'cleared' : ''} />)}
+        </div>
+      </section>
+
+      <ol className="levels level-route" aria-label={`${expert ? 'Expert' : 'Relax'} levels`}>
+        {levels.map((level) => {
+          const puzzle = puzzleFor(level.id)
+          const best = bestWin(props.attempts, level.id)
+          const state = !puzzle ? 'soon' : !isUnlocked(level.id, props.won) ? 'locked' : level.id === props.open ? 'resume' : best ? 'done' : 'play'
+          const next = suggested?.id === level.id
           return (
-            <li key={l.id}>
-              <button className={`level ${state}`} disabled={state === 'soon' || state === 'locked'} onClick={() => props.onPlay(l.id)}>
-                <span className="level-n">{l.n}</span>
-                <span className="level-text">
-                  <b>
-                    Level {l.n} {puzzle?.sample && <span className="tag">SAMPLE</span>}
-                  </b>
-                  <small>{l.title}</small>
+            <li key={level.id}>
+              <button className={`level level-route-card ${state}${next ? ' next' : ''}`} disabled={state === 'soon' || state === 'locked'} onClick={() => props.onPlay(level.id)}>
+                <span className="level-route-body">
+                  <span className="level-n" aria-hidden="true">{level.n}</span>
+                  <span className="level-route-copy">
+                    <span className="level-route-label">Level {level.n} {puzzle?.sample && <span className="tag">SAMPLE</span>}</span>
+                    <b>{level.title}</b>
+                  </span>
+                  {next && <span className="level-next-label">{state === 'resume' ? 'In progress' : 'Up next'}</span>}
                 </span>
-                <span className="level-state">
-                  {state === 'done' && (
-                    <>
-                      <span className="sr">Best time </span>✓ {clock(best.seconds)}
-                    </>
-                  )}
-                  {state === 'locked' && (
-                    <>
-                      <Icon name="lock" />
-                      <span className="sr">Locked</span>
-                    </>
-                  )}
-                  {state === 'soon' && 'Soon'}
-                  {state === 'resume' && 'Continue'}
-                  {state === 'play' && <Icon name="next" />}
+                <span className="level-route-footer">
+                  <span className="level-route-status">
+                    {state === 'done' && <><Art name="check" /><span>Cleared <span className="level-best">· Best {clock(best.seconds)}</span></span></>}
+                    {state === 'locked' && <>Clear Level {level.n - 1} to unlock</>}
+                    {state === 'soon' && 'Puzzle coming soon'}
+                    {state === 'resume' && <><Art name="controller" />Your game is saved</>}
+                    {state === 'play' && (next ? 'Your next challenge' : 'Ready to play')}
+                  </span>
+                  <span className="level-route-action">
+                    {state === 'locked' ? <><Icon name="lock" />Locked</> : state === 'soon' ? 'Soon' : <>{state === 'resume' ? 'Continue' : state === 'done' ? 'Play again' : 'Start'}<Icon name="next" /></>}
+                  </span>
                 </span>
               </button>
             </li>
           )
         })}
       </ol>
+
+      {complete ? (
+        <button className="level-unlock" onClick={props.onBack}>
+          <Art name={expert ? 'battle' : 'flame'} />
+          <span className="level-unlock-copy"><b>{expert ? 'Battle' : 'Expert'} Mode unlocked!</b><small>Back to adventures</small></span>
+          <Icon name="next" />
+        </button>
+      ) : <p className="level-select-note">Clear all {levels.length} levels to unlock {expert ? 'Battle' : 'Expert'} Mode.</p>}
     </main>
   )
 }
@@ -697,43 +712,48 @@ function Ranking(props: { rows: Rank[] | null; attempts: Attempt[]; code: string
   const list = rankingFor((props.rows ?? []).filter((r) => isCurrent(r.level, r.puzzle)), id, mine && { level: id, code: props.code, seconds: mine.seconds, wrong: mine.wrong })
 
   return (
-    <main className="screen" tabIndex={-1}>
+    <main className="screen leaderboard-screen" tabIndex={-1}>
       <header className="bar">
         <button className="icon" onClick={props.onBack} aria-label="Back to Expert levels">
           <Icon name="back" />
         </button>
-        <h1>
-          <Deco>🏆</Deco> Expert Ranking
-        </h1>
+        <span className="eyebrow">Your adventure</span>
       </header>
-      <div className="tabs" role="tablist" aria-label="Expert level">
+      <div className="leaderboard-heading"><div><p className="eyebrow">Challenge your best</p><h1>Expert Ranking</h1><p>See how your best time compares.</p></div><span><Art name="trophy" /></span></div>
+      <div className="tabs" role="tablist" aria-label="Expert level" onKeyDown={(e) => {
+        const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End']
+        if (!keys.includes(e.key)) return
+        e.preventDefault()
+        const current = levels.findIndex((level) => level.id === id)
+        const next = e.key === 'Home' ? 0 : e.key === 'End' ? levels.length - 1 : (current + (e.key === 'ArrowRight' ? 1 : -1) + levels.length) % levels.length
+        setId(levels[next].id)
+        e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus()
+      }}>
         <span className="tabs-label" aria-hidden="true">
           Level
         </span>
         {levels.map((l) => (
-          <button key={l.id} role="tab" id={`tab-${l.id}`} aria-selected={l.id === id} aria-controls="ranking-panel" aria-label={`Level ${l.n}`} onClick={() => setId(l.id)}>
+          <button key={l.id} role="tab" id={`tab-${l.id}`} tabIndex={l.id === id ? 0 : -1} aria-selected={l.id === id} aria-controls="ranking-panel" aria-label={`Level ${l.n}`} onClick={() => setId(l.id)}>
             {l.n}
           </button>
         ))}
       </div>
+      <p className="leaderboard-order">Fastest time first. Fewer mistakes break a tie.</p>
       <div id="ranking-panel" role="tabpanel" aria-labelledby={`tab-${id}`}>
+        <h2 className="leaderboard-level-title">{levels.find((level) => level.id === id)?.title}</h2>
         {props.rows === null && <p className="note">Connect to the internet to see everyone’s times.</p>}
         {list.length ? (
           <ol className="ranking">
             {list.map((r, i) => (
               <li key={r.code} className={r.code === props.code ? 'me' : ''}>
                 <span className="place">#{i + 1}</span>
-                <span className="name">
-                  {r.code}
-                  {r.code === props.code && ' (you)'}
-                </span>
-                <span>{clock(r.seconds)}</span>
-                <span className="muted">{r.wrong} wrong</span>
+                <span className="name"><b>{r.code}</b><small>{r.code === props.code ? 'Your best run' : 'Player'}</small></span>
+                <span className="ranking-run"><b>{clock(r.seconds)}</b><small>{r.wrong} wrong</small></span>
               </li>
             ))}
           </ol>
         ) : (
-          <p className="note">No one has finished this level yet. Be the first!</p>
+          <div className="ranking-empty"><Art name="target" /><h2>{props.rows === null ? 'Connect to see the rankings' : 'Your next challenge awaits'}</h2><p>{props.rows === null ? 'Everyone’s times will appear when you’re online.' : 'No one has finished this level yet. Be the first!'}</p></div>
         )}
       </div>
     </main>

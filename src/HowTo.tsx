@@ -24,7 +24,7 @@ export function HowTo({ step, onStep, replay, preDone, onBack, onDone }: {
       nextLabel={last && replay ? 'Back to settings' : card.action}
       nextNote={last ? replay ? 'Come back whenever you need a reminder.' : preDone ? 'Next: Choose Your Adventure' : 'Next: Pre-Assessment · 5 questions' : 'Go at your own pace. Try the examples!'}
     >
-      <p className="tutorial-copy">{card.text}</p>
+      <p className="tutorial-copy">{card.text.includes('🥧') ? <>{card.text.replace('🥧', '')}<Deco>🥧</Deco></> : card.text}</p>
       {step === 0 && <GridExample />}
       {step === 1 && <RulesExample />}
       {step === 2 && <BankPractice />}
@@ -109,7 +109,7 @@ function BankPractice() {
           setSelected(false)
           setMessage('You did it! The box turns green and the number is used up.')
           requestAnimationFrame(() => reset.current?.focus())
-        }}>5{solved && <span className="tutorial-used" aria-hidden="true">✓</span>}</button>
+        }}>5{solved && <span className="tutorial-used" aria-hidden="true"><Art name="check" /></span>}</button>
       </div>
       <p className={`tutorial-feedback${solved ? ' tutorial-success' : ''}`} role="status">{message}</p>
       {solved && <button ref={reset} className="tutorial-reset" onClick={() => {
@@ -157,7 +157,7 @@ function HelpPractice() {
         requestAnimationFrame(() => rulesButton.current?.focus())
       }}>Reset the example</button>}
       <p className="tutorial-tip">Practice only. Your game coins stay saved.</p>
-      {rules && <Dialog title="Rules & a free clue" onClose={() => setRules(false)}>
+      {rules && <Dialog title="Rules & a free clue" onClose={() => setRules(false)} className="rules-panel relax">
         <p className="tutorial-clue" role="img" aria-label="Negative plus positive equals positive."><span aria-hidden="true">(−) + (+) = (+)</span></p>
         <p>{SIGN_RULES[0].groups[1].text}</p>
         <p className="tutorial-dialog-note">This Relax clue is free. It helps with the signs without filling the box.</p>

@@ -1,0 +1,157 @@
+{
+  "hint": {
+    "file": "hint.png",
+    "tool": "built-in image_gen",
+    "prompt": "Edit image 1, the new light-bulb icon. Images 2\u20135 are STYLE REFERENCES ONLY: match their very simple flat-color cartoon sprite rendering. Keep the light bulb subject and transparent background, but simplify it drastically to match the supplied pack. Use a smooth rounded polygon globe, just 3 or 4 large solid yellow/orange color regions, a small angular white shine at upper left, an uncomplicated orange filament, and a short screw base with 3 broad horizontal steel-blue color bands. Remove the dense triangular crystal facets and realistic gradients; the pack is flat vector-like game sprite art with a little lower-right depth. Clean hard silhouette with antialiasing, no stray pixels or floating specks. Make it compact and readable at 22px. Center the entire bulb on a SQUARE transparent canvas with roughly 10% padding on all sides, no text, no enclosing badge, no surrounding cast shadow. Preserve genuine transparent alpha. Prefer 256x256 output.",
+    "originalFile": "exec-171334d9-9e53-4be6-b801-65ea5145b60d.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "bytes": 652738,
+    "initialPrompt": "Use case: stylized-concept. Asset type: a single transparent PNG game UI icon for a Grade 7 integer adventure game. Subject: one golden yellow hint light bulb, unmistakable bulb silhouette with a rounded faceted glass globe, a simple warm orange filament, and short silver-blue screw base. Match a friendly low-poly 2.5D cartoon game icon pack: front-facing, crisp flat vector-like solid color planes (3 to 5 tones per material), slight lower-right extruded depth, small angular white highlight on upper-left edges, saturated colors, clean rounded polygon silhouette. This is simple faceted sprite artwork, NOT a realistic or glossy 3D render. Palette yellow #ffd34e, gold #ffb400, orange #ff8a00, steel blue #64b5d2. Single object centered in a square canvas, fills about 80% of its width and height with even transparent padding; all edges fully visible. Intended to read clearly at 22px and 44px. Genuine transparent background with alpha. No drop shadow outside the object, no ground plane, no vignette, no checkerboard pattern, no enclosing circle/tile/button, no text, no watermark, no black or dark outlines, no glow haze, no floating extra decorations. Prefer compact 256x256 PNG output."
+  },
+  "puzzle": {
+    "file": "puzzle.png",
+    "tool": "built-in image_gen",
+    "prompt": "Edit the generated base icon (image 1), replacing its light-bulb subject completely with the requested new subject. Images 2\u20134 are STYLE REFERENCES ONLY for the existing game pack. Preserve the simple pack-compatible cartoon sprite style: clean rounded polygon silhouette, 3\u20135 broad solid color planes per material, a little lower-right extruded depth, tiny angular white highlight at upper left. Flat vector-like 2.5D icon, no black outline, no realistic rendering, no dense triangulation, no texture, no gradients, no soft haze. A SINGLE recognizable UI icon, centered on a SQUARE genuinely transparent alpha canvas; object occupies about 80% of canvas with equal padding, entirely visible and readable at 22\u201344px. No background, no enclosing circle/tile/button, no surrounding cast shadow, no text, no watermark. Prefer 256px PNG.\nNew subject: one chunky turquoise-blue jigsaw puzzle piece with one round tab at its top and right, one curved socket at the left, a squared bottom, a simple recognizable puzzle-piece silhouette; use cyan #2c9cf3 face, lighter cyan top-left facets, deep blue lower-right thin depth",
+    "originalFile": "exec-1750101b-27c4-4a8e-b31f-3b87d35e821a.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "bytes": 717926
+  },
+  "map": {
+    "file": "map.png",
+    "tool": "built-in image_gen",
+    "prompt": "Edit the generated base icon (image 1), replacing its light-bulb subject completely with the requested new subject. Images 2\u20134 are STYLE REFERENCES ONLY for the existing game pack. Preserve the simple pack-compatible cartoon sprite style: clean rounded polygon silhouette, 3\u20135 broad solid color planes per material, a little lower-right extruded depth, tiny angular white highlight at upper left. Flat vector-like 2.5D icon, no black outline, no realistic rendering, no dense triangulation, no texture, no gradients, no soft haze. A SINGLE recognizable UI icon, centered on a SQUARE genuinely transparent alpha canvas; object occupies about 80% of canvas with equal padding, entirely visible and readable at 22\u201344px. No background, no enclosing circle/tile/button, no surrounding cast shadow, no text, no watermark. Prefer 256px PNG.\nNew subject: one folded adventure map with 3 broad cream/tan paper panels, a small green land patch, a curved dashed route and one red location X; no words, no tiny geographic details; keep a recognizable folded-map silhouette",
+    "originalFile": "exec-cc2d94ab-d414-41df-ab39-af1c81d4df2f.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "bytes": 886220
+  },
+  "arrow-left": {
+    "file": "arrow-left.png",
+    "tool": "built-in image_gen",
+    "prompt": "Edit the generated base icon (image 1), replacing its light-bulb subject completely with the requested new subject. Images 2\u20134 are STYLE REFERENCES ONLY for the existing game pack. Preserve the simple pack-compatible cartoon sprite style: clean rounded polygon silhouette, 3\u20135 broad solid color planes per material, a little lower-right extruded depth, tiny angular white highlight at upper left. Flat vector-like 2.5D icon, no black outline, no realistic rendering, no dense triangulation, no texture, no gradients, no soft haze. A SINGLE recognizable UI icon, centered on a SQUARE genuinely transparent alpha canvas; object occupies about 80% of canvas with equal padding, entirely visible and readable at 22\u201344px. No background, no enclosing circle/tile/button, no surrounding cast shadow, no text, no watermark. Prefer 256px PNG.\nNew subject: one chunky teal-blue back/left chevron, a thick single chevron pointing LEFT like < with equal length arms and rounded polygon corners, no tail and no button or enclosing shape; use teal #64b5d2 with a light upper-left bevel and darker lower-right depth",
+    "originalFile": "exec-717bf92c-04e2-4ffc-9301-71986a65feda.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "bytes": 467945
+  },
+  "undo": {
+    "file": "undo.png",
+    "tool": "built-in image_gen",
+    "prompt": "Edit the generated light bulb (image 1): completely replace its subject with the new subject below. Images 2 and 3 are STYLE REFERENCES ONLY. Make a matching original game UI icon: very simple flat vector-like cartoon rendering, rounded chunky polygon forms, 3\u20135 broad solid color regions, shallow lower-right depth, small white upper-left highlight, no black outline, no realistic materials, no dense triangular faceting, no texture. Single recognizable object centered on a SQUARE transparent alpha canvas with 10% clear padding on every side, fully visible, reads clearly at 22px. No background or opaque matte, no enclosing tile or circle, no exterior shadow, no text/watermark, no extra decorations. For arrows use the steel/teal-blue palette of the settings gear. Prefer a compact 256px PNG.\nNew subject: one simple chunky curved teal-blue undo arrow: a short horizontal shaft curves upward then turns to point LEFT with a large clear triangular arrowhead, an unmistakable undo/return symbol; single arrow, no circular second arrow",
+    "originalFile": "exec-5a8ed1e7-11be-44f3-a28d-92d82a0d4654.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "bytes": 535142
+  },
+  "restart": {
+    "file": "restart.png",
+    "tool": "built-in image_gen",
+    "prompt": "Edit the generated light bulb (image 1): completely replace its subject with the new subject below. Images 2 and 3 are STYLE REFERENCES ONLY. Make a matching original game UI icon: very simple flat vector-like cartoon rendering, rounded chunky polygon forms, 3\u20135 broad solid color regions, shallow lower-right depth, small white upper-left highlight, no black outline, no realistic materials, no dense triangular faceting, no texture. Single recognizable object centered on a SQUARE transparent alpha canvas with 10% clear padding on every side, fully visible, reads clearly at 22px. No background or opaque matte, no enclosing tile or circle, no exterior shadow, no text/watermark, no extra decorations. For arrows use the steel/teal-blue palette of the settings gear. Prefer a compact 256px PNG.\nNew subject: one chunky teal-blue clockwise almost-circular restart arrow with a clear arrowhead near the upper-right, a large open center and a visible break beside the head; a simple recognizable refresh/restart symbol, no numbers",
+    "originalFile": "exec-cf4f681c-9c74-4bbc-b1fd-ac64ff9bab65.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "bytes": 581795
+  },
+  "download": {
+    "file": "download.png",
+    "tool": "built-in image_gen",
+    "prompt": "Edit the generated light bulb (image 1): completely replace its subject with the new subject below. Images 2 and 3 are STYLE REFERENCES ONLY. Make a matching original game UI icon: very simple flat vector-like cartoon rendering, rounded chunky polygon forms, 3\u20135 broad solid color regions, shallow lower-right depth, small white upper-left highlight, no black outline, no realistic materials, no dense triangular faceting, no texture. Single recognizable object centered on a SQUARE transparent alpha canvas with 10% clear padding on every side, fully visible, reads clearly at 22px. No background or opaque matte, no enclosing tile or circle, no exterior shadow, no text/watermark, no extra decorations. For arrows use the steel/teal-blue palette of the settings gear. Prefer a compact 256px PNG.\nNew subject: one chunky teal-blue DOWNLOAD icon: one thick downward arrow with a triangular head above a short shallow matching blue receiving tray; use one cohesive readable symbol",
+    "originalFile": "exec-26b03358-4840-4c40-8f9d-263613b9b293.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "bytes": 572821
+  },
+  "controller": {
+    "file": "controller.png",
+    "tool": "built-in image_gen",
+    "prompt": "Edit the generated light bulb (image 1): completely replace its subject with the new subject below. Images 2 and 3 are STYLE REFERENCES ONLY. Make a matching original game UI icon: very simple flat vector-like cartoon rendering, rounded chunky polygon forms, 3\u20135 broad solid color regions, shallow lower-right depth, small white upper-left highlight, no black outline, no realistic materials, no dense triangular faceting, no texture. Single recognizable object centered on a SQUARE transparent alpha canvas with 10% clear padding on every side, fully visible, reads clearly at 22px. No background or opaque matte, no enclosing tile or circle, no exterior shadow, no text/watermark, no extra decorations. For arrows use the steel/teal-blue palette of the settings gear. Prefer a compact 256px PNG.\nNew subject: one simple friendly blue game controller/gamepad, symmetric front view, short handles, one dark-blue plus-shaped D-pad on the left and two small orange buttons on the right; no cords, no branding, no lettering",
+    "originalFile": "exec-6f072e07-86ca-4505-8b71-063a594c3818.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "bytes": 680821
+  },
+  "party": {
+    "file": "party.png",
+    "tool": "built-in image_gen",
+    "prompt": "Edit the generated base icon in image 1: replace the light bulb entirely with the new subject. Images 2\u20133 are STYLE REFERENCES ONLY for the supplied game pack. Keep a simple friendly 2.5D cartoon game sprite: chunky rounded polygon silhouette, only a few broad flat color regions per material, a little lower-right depth, a small angular upper-left highlight, clean edges, bright colors matching the pack, no black outline or realistic texture. Composition: ONE recognizable UI pictogram, fully visible and centered with even 10% padding on a SQUARE canvas, legible at 22px/44px. Genuine transparent alpha background, no enclosing badge/tile, no ground plane, no exterior cast shadow, no words, no watermark, no random decorative particles. Any details explicitly requested as part of the subject are allowed. Prefer compact 256px PNG output.\nNew subject: one small orange-and-gold striped party-popper cone angled upward-right, with 5 large simple colorful paper confetti pieces above its opening, cohesive compact silhouette; bright cyan, pink and gold confetti, no tiny dust or sparkles",
+    "originalFile": "exec-9c712ae1-b7fa-428e-917d-db9bf16e2ad7.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "bytes": 576646
+  },
+  "flag": {
+    "file": "flag.png",
+    "tool": "built-in image_gen",
+    "prompt": "Edit the generated base icon in image 1: replace the light bulb entirely with the new subject. Images 2\u20133 are STYLE REFERENCES ONLY for the supplied game pack. Keep a simple friendly 2.5D cartoon game sprite: chunky rounded polygon silhouette, only a few broad flat color regions per material, a little lower-right depth, a small angular upper-left highlight, clean edges, bright colors matching the pack, no black outline or realistic texture. Composition: ONE recognizable UI pictogram, fully visible and centered with even 10% padding on a SQUARE canvas, legible at 22px/44px. Genuine transparent alpha background, no enclosing badge/tile, no ground plane, no exterior cast shadow, no words, no watermark, no random decorative particles. Any details explicitly requested as part of the subject are allowed. Prefer compact 256px PNG output.\nNew subject: one racing finish/checkered flag on a short dark-blue pole, flag extending to the right with a simple bold 3 by 3 alternating white and dark-blue checker pattern, slight friendly wave, no extra flags",
+    "originalFile": "exec-a051e52d-80c9-4cfc-943a-678d67b3769b.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "bytes": 635985
+  },
+  "thumbs-up": {
+    "file": "thumbs-up.png",
+    "tool": "built-in image_gen",
+    "prompt": "Edit the generated base icon in image 1: replace the light bulb entirely with the new subject. Images 2\u20133 are STYLE REFERENCES ONLY for the supplied game pack. Keep a simple friendly 2.5D cartoon game sprite: chunky rounded polygon silhouette, only a few broad flat color regions per material, a little lower-right depth, a small angular upper-left highlight, clean edges, bright colors matching the pack, no black outline or realistic texture. Composition: ONE recognizable UI pictogram, fully visible and centered with even 10% padding on a SQUARE canvas, legible at 22px/44px. Genuine transparent alpha background, no enclosing badge/tile, no ground plane, no exterior cast shadow, no words, no watermark, no random decorative particles. Any details explicitly requested as part of the subject are allowed. Prefer compact 256px PNG output.\nNew subject: one friendly golden-yellow thumbs-up hand, front view with a raised thumb and four simplified curled fingers, short blue cuff at bottom, no face or character; clean chunky encouraging approval icon",
+    "originalFile": "exec-b1cd3c7e-0fa3-4172-b477-d3410d0d79e9.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "bytes": 700324
+  },
+  "phone": {
+    "file": "phone.png",
+    "tool": "built-in image_gen",
+    "prompt": "Edit the generated base icon in image 1: replace the light bulb entirely with the new subject. Images 2\u20133 are STYLE REFERENCES ONLY for the supplied game pack. Keep a simple friendly 2.5D cartoon game sprite: chunky rounded polygon silhouette, only a few broad flat color regions per material, a little lower-right depth, a small angular upper-left highlight, clean edges, bright colors matching the pack, no black outline or realistic texture. Composition: ONE recognizable UI pictogram, fully visible and centered with even 10% padding on a SQUARE canvas, legible at 22px/44px. Genuine transparent alpha background, no enclosing badge/tile, no ground plane, no exterior cast shadow, no words, no watermark, no random decorative particles. Any details explicitly requested as part of the subject are allowed. Prefer compact 256px PNG output.\nNew subject: one upright PORTRAIT smartphone, blue rounded polygon body, a plain light cyan screen, a small speaker slot and one simple round home indicator, clearly a vertical phone; no app graphics, no text, no hand",
+    "originalFile": "exec-fabc2830-d797-45f7-a6e6-beaa783cedb8.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "bytes": 612952
+  },
+  "printer": {
+    "file": "printer.png",
+    "tool": "built-in image_gen",
+    "prompt": "Edit the generated base icon in image 1: replace the light bulb entirely with the new subject. Images 2\u20133 are STYLE REFERENCES ONLY for the supplied game pack. Keep a simple friendly 2.5D cartoon game sprite: chunky rounded polygon silhouette, only a few broad flat color regions per material, a little lower-right depth, a small angular upper-left highlight, clean edges, bright colors matching the pack, no black outline or realistic texture. Composition: ONE recognizable UI pictogram, fully visible and centered with even 10% padding on a SQUARE canvas, legible at 22px/44px. Genuine transparent alpha background, no enclosing badge/tile, no ground plane, no exterior cast shadow, no words, no watermark, no random decorative particles. Any details explicitly requested as part of the subject are allowed. Prefer compact 256px PNG output.\nNew subject: one compact friendly blue-and-cream desktop printer viewed from front with slight upper surface visible, one blank white sheet emerging at top, a dark blue paper opening and a small green status light; no text or logos",
+    "originalFile": "exec-53fca46f-9776-4a17-bebd-413cf71db329.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "bytes": 774502
+  },
+  "pie": {
+    "file": "pie.png",
+    "tool": "built-in image_gen",
+    "prompt": "Edit the generated base icon in image 1: replace the light bulb entirely with the new subject. Images 2\u20133 are STYLE REFERENCES ONLY for the supplied game pack. Keep a simple friendly 2.5D cartoon game sprite: chunky rounded polygon silhouette, only a few broad flat color regions per material, a little lower-right depth, a small angular upper-left highlight, clean edges, bright colors matching the pack, no black outline or realistic texture. Composition: ONE recognizable UI pictogram, fully visible and centered with even 10% padding on a SQUARE canvas, legible at 22px/44px. Genuine transparent alpha background, no enclosing badge/tile, no ground plane, no exterior cast shadow, no words, no watermark, no random decorative particles. Any details explicitly requested as part of the subject are allowed. Prefer compact 256px PNG output.\nNew subject: one small triangular slice of golden baked pie with a simple red fruit filling, golden top crust with two broad lattice strips and a small cream edge, no plate, no fork, no face; recognizable simple pie slice",
+    "originalFile": "exec-553c90ec-7066-41f2-854a-a83fac694d52.png",
+    "size": [
+      1254,
+      1254
+    ],
+    "bytes": 828823
+  }
+}

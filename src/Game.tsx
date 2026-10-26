@@ -10,6 +10,8 @@ import { sfx } from './sound.ts'
 import { uuid, type Pending } from './store.ts'
 import { Coins, Deco, Dialog, Icon, Num } from './ui.tsx'
 import { Art } from './Art.tsx'
+import { AudioSettings } from './AudioSettings.tsx'
+import { SoloResults } from './SoloResults.tsx'
 
 type Run = {
   id: string
@@ -27,6 +29,7 @@ type Run = {
 // The (!) button and the pop-up it opens when a level starts: hidden Oct 17 (Ken: it repeated 📖 Rules,
 // which now holds Relax's free clue). true brings both back.
 const INFO = false
+const RULE_TITLES = { '+': 'Addition', '−': 'Subtraction', '×': 'Multiplication', '÷': 'Division' } as const
 
 const newRun = (): Run => ({ id: uuid(), at: new Date().toISOString(), start: Date.now(), filled: {}, hearts: HEARTS, wrong: 0, hints: 0, mistakes: [], status: 'play' })
 
@@ -85,6 +88,13 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
   const [confirmReturn, setConfirmReturn] = useState<'settings' | null>(null)
   const [celebration, setCelebration] = useState<WinMessage | null>(null)
   const stopResultSound = useRef<() => void>(() => {})
+  const battleResult = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!battle?.over || !battleResult.current) return
+    battleResult.current.focus({ preventScroll: true })
+    const panel = battleResult.current.closest<HTMLElement>('.panel')
+    if (panel) panel.scrollTop = 0
+  }, [battle?.over])
   useEffect(() => () => stopResultSound.current(), [])
   const [info, setInfo] = useState(INFO && !battle) // the (!) popup opens when the level starts…
   const [started, setStarted] = useState(!!battle || !INFO) // …and the clock starts when it closes, so reading costs no coins
@@ -164,6 +174,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
   }, [grid])
 
   const filled = battle ? { ...battle.shared, ...run.filled } : run.filled
+  const filledCount = blanks.filter((k) => k in filled).length
   const allDone = blanks.every((k) => k in filled)
   const seconds = started ? Math.max(0, Math.floor(((run.end ?? now) - run.start) / 1000)) : 0
   const left = battle ? Math.max(0, battle.seconds - Math.floor((now - run.start) / 1000)) : 0
@@ -375,11 +386,9 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
   const sharedRule = clues.every((c) => c.pat === clues[0].pat && c.text === clues[0].text) // Across and Down often share one: say it once
   const clueBox = clues.length > 0 && (
     <section className="clue">
-      <h3>
-        <Deco>🔎</Deco> Clue for your box
-      </h3>
+      <h3><Art name="magnifier" /><span>Clue for your box</span><span className="clue-free">Free</span></h3>
       {clues.map((c, i) => (
-        <div key={i}>
+        <div key={i} className="clue-direction">
           <p>
             <b>{c.dir}:</b> <Pattern p={c.pattern} />
           </p>
@@ -395,13 +404,14 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
     <><Deco>🏁</Deco> Battle over!</>
   ) : dialog === 'settings' ? (
     <>
+      <span className="game-menu-kicker"><Art name="settings" />Game settings</span>
+      <span className="game-menu-title">{level.title}</span>
       <span className="game-menu-label">{battle ? battle.title : `${level.mode === 'expert' ? 'Expert' : 'Relax'} · Level ${level.n}`}</span>
-      {level.title}
     </>
   ) : dialog === 'leave' ? (battle ? 'Leave the battle?' : 'Leave this level?') : 'Start this level over?'
 
   return (
-    <main className="screen game" tabIndex={-1}>
+    <main className="screen game" data-mode={level.mode} tabIndex={-1}>
       <h1 className="sr">{heading}, {subheading}{sample ? ', sample puzzle' : ''}</h1>
       <header className="game-header" data-mode={level.mode} aria-label="Game status and settings">
         <span className="hearts" role="img" aria-label={`${hearts} of ${HEARTS} ${battle ? 'group lives' : 'lives'} left`}>
@@ -437,7 +447,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
         </div>
       </header>
 
-      {battle?.bars}
+      {battle && !battle.over && battle.bars}
 
       {/* the puzzle box: fills the space between the header and the tray, and the grid scales to fit it */}
       <div className="board-wrap">
@@ -507,6 +517,13 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
           {battle && !battle.over && !playing ? (allDone ? 'Your group finished! Waiting for the other groups…' : 'Your group is out of hearts! Wait for the final ranking.') : msg}
         </p>
 
+        <div className="bank-heading">
+          <span className="bank-prompt">{allDone ? 'Puzzle complete' : sel ? 'Choose a number' : 'Tap a yellow box'}</span>
+          <div className="puzzle-progress" role="progressbar" aria-label="Puzzle boxes filled" aria-valuemin={0} aria-valuemax={blanks.length} aria-valuenow={filledCount}>
+            <span className="puzzle-progress-count">{filledCount} / {blanks.length} <span>filled</span></span>
+            <span className="puzzle-progress-track" aria-hidden="true"><span style={{ width: `${filledCount / blanks.length * 100}%` }} /></span>
+          </div>
+        </div>
         <Bank tiles={tiles} disabled={!playing} onPick={place} />
 
         <div className="tools">
@@ -516,21 +533,20 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
             aria-label={!INFO && rules.clue ? 'Rules and a free clue' : undefined}
             aria-haspopup="dialog"
           >
-            <Deco>📖</Deco> Rules
+            <span className="tool-title"><Deco>📖</Deco> Rules</span>
           </button>
           {!battle && (
             <button className={playing && undoable ? '' : 'off'} onClick={undo}>
-              <Deco>↩️</Deco> Undo
+              <span className="tool-title"><Deco>↩️</Deco> Undo</span>
             </button>
           )}
           <button className={canHint ? '' : 'off'} onClick={hint}>
-            <Deco>💡</Deco> Hint{' '}
-            <small aria-hidden="true">
-              −{rules.hintCost}
-              {Number.isFinite(rules.hintLimit) && ` · ${rules.hintLimit - run.hints} left`}
-            </small>
+            <span className="tool-title"><Deco>💡</Deco> Hint</span>
+            <span className="hint-badge" aria-hidden="true">
+              <Art name="coin" />{rules.hintCost}<span className="hint-badge-divider">·</span>{Number.isFinite(rules.hintLimit) ? `${Math.max(0, rules.hintLimit - run.hints)} left` : '∞'}
+            </span>
             <span className="sr">
-              &nbsp;costs {rules.hintCost} coins{Number.isFinite(rules.hintLimit) && `, ${rules.hintLimit - run.hints} left`}
+              &nbsp;costs {rules.hintCost} coins{Number.isFinite(rules.hintLimit) ? `, ${Math.max(0, rules.hintLimit - run.hints)} left` : ', unlimited hints per level'}
             </span>
           </button>
         </div>
@@ -555,59 +571,48 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
       )}
 
       {dialog === 'rules' && (
-        <Dialog
-          title={
-            <>
-              <Deco>📖</Deco> Integer Rules
-            </>
-          }
-          onClose={() => setDialog(null)}
-        >
-          {SIGN_RULES.map((s) => (
-            <RuleCard key={s.title} s={s} />
-          ))}
-          {/* last, beside the button the pop-up scrolls to */}
-          {!INFO && clueBox}
-          {!INFO && rules.clue && !clues.length && <p className="note">Tip: tap a yellow box, then tap Rules for a free clue about that box.</p>}
-          <button className="big" onClick={() => setDialog(null)} autoFocus>
-            Got it!
-          </button>
+        <Dialog title={<><Art name="book" /> Integer Rules</>} onClose={() => setDialog(null)} className={`rules-panel ${level.mode}`}>
+          <RulesHelp freeClue={rules.clue} clueBox={clueBox} initialRule={RULE_TITLES[level.ops[0]]} onClose={() => setDialog(null)} />
         </Dialog>
       )}
 
       {(battle?.over || dialog === 'settings' || dialog === 'leave' || dialog === 'restart') && (
         <Dialog
           title={actionTitle}
+          className={battle?.over ? '' : `game-actions-panel ${level.mode}`}
           onClose={battle?.over ? undefined : () => setDialog(dialog === 'settings' ? null : confirmReturn)}
           onBack={battle?.over ? onExit : undefined}
         >
           {battle?.over ? (
             <>
-              {battle.result}
+              <div ref={battleResult} className="battle-final-summary" role="group" aria-label="Your Battle result" tabIndex={-1}>{battle.result}</div>
               {battle.bars}
-              <button className="big" onClick={onExit} autoFocus>Back to modes</button>
+              <button className="big" onClick={onExit}>Back to modes</button>
             </>
           ) : dialog === 'settings' ? (
             <div className="game-menu">
               {sample && <span className="tag">SAMPLE</span>}
-              <p className="note">The timer keeps running.</p>
-              <button className="big" onClick={() => setDialog(null)} autoFocus>Return to game</button>
+              <button className="big game-menu-return" onClick={() => setDialog(null)} autoFocus><Art name="controller" />Return to game<Icon name="next" /></button>
+              <p className="game-menu-notice"><Icon name="clock" />The timer keeps running.</p>
+              <section className="game-menu-audio" aria-label="Sound"><h3>Sound</h3><AudioSettings compact /></section>
+              <div className="game-menu-actions">
               {!battle && (
-                <button className="big secondary game-menu-action" onClick={() => {
+                <button className="game-menu-action" onClick={() => {
                   if (!active) return restart()
                   setConfirmReturn('settings')
                   setDialog('restart')
                 }}>
-                  <Icon name="restart" /> Restart level
+                  <span className="game-menu-action-icon"><Icon name="restart" /></span><b>Restart level</b><Icon name="next" />
                 </button>
               )}
-              <button className="big secondary game-menu-action" onClick={() => {
+              <button className="game-menu-action" onClick={() => {
                 if (!active) return onExit()
                 setConfirmReturn('settings')
                 setDialog('leave')
               }}>
-                <Icon name="back" /> {battle ? 'Exit battle' : 'Exit to levels'}
+                <span className="game-menu-action-icon"><Icon name="back" /></span><b>{battle ? 'Exit battle' : 'Exit to levels'}</b><Icon name="next" />
               </button>
+              </div>
             </div>
           ) : (
             <>
@@ -635,57 +640,11 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
       {celebration && <Celebration message={celebration} onDone={() => setCelebration(null)} />}
 
       {!battle && !playing && !celebration && (
-        <Dialog title={<>{run.status === 'win' ? <><Deco>🎉</Deco> Level complete!</> : <><Deco>💔</Deco> Game over</>}</>}>
-          {run.status === 'win' ? (
-            <Summary>
-              <dt>
-                <Deco>⏱</Deco> Time
-              </dt>
-              <dd>{clock(seconds)}</dd>
-              <dt>
-                <Deco>❌</Deco> Wrong answers
-              </dt>
-              <dd>{run.wrong}</dd>
-              <dt>
-                <Deco>💡</Deco> Hints used
-              </dt>
-              <dd>{run.hints}</dd>
-              <dt>
-                <Deco>💰</Deco> Coins earned
-              </dt>
-              <dd>+{reward(level.mode, seconds)}</dd>
-              {rules.ranked && (
-                <>
-                  <dt>
-                    <Deco>🏆</Deco> Ranking
-                  </dt>
-                  <dd>{rank ? `#${rank} on this level` : 'Updates when you’re online'}</dd>
-                </>
-              )}
-            </Summary>
-          ) : (
-            <p>You ran out of lives. Every try starts with {HEARTS} fresh hearts. You can do it!</p>
-          )}
-          <div className="row">
-            {run.status === 'win' && onNext && (
-              <button className="big" onClick={onNext} autoFocus>
-                Next level <Deco>▶</Deco>
-              </button>
-            )}
-            <button className={run.status === 'win' && onNext ? 'big secondary' : 'big'} onClick={restart} autoFocus={!(run.status === 'win' && onNext)}>
-              Try again
-            </button>
-            <button className="big secondary" onClick={onExit}>
-              Levels
-            </button>
-          </div>
-        </Dialog>
+        <SoloResults level={level} won={run.status === 'win'} seconds={seconds} wrong={run.wrong} hints={run.hints} earned={run.status === 'win' ? reward(level.mode, seconds) : 0} ranked={rules.ranked} rank={rank} onNext={onNext} onRetry={restart} onLevels={onExit} />
       )}
     </main>
   )
 }
-
-const Summary = ({ children }: { children: ReactNode }) => <dl className="summary">{children}</dl>
 
 const Pattern = ({ p }: { p: string }) => (
   <>
@@ -696,9 +655,36 @@ const Pattern = ({ p }: { p: string }) => (
   </>
 )
 
+// One rule at a time keeps the help readable; Relax starts with its selected-box clue.
+function RulesHelp({ freeClue, clueBox, initialRule, onClose }: { freeClue: boolean; clueBox: ReactNode; initialRule: string; onClose: () => void }) {
+  const [view, setView] = useState<'clue' | 'rules'>(freeClue ? 'clue' : 'rules')
+  const [title, setTitle] = useState(initialRule)
+  const help = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    help.current?.focus({ preventScroll: true })
+    const panel = help.current?.closest<HTMLElement>('.panel')
+    if (panel) panel.scrollTop = 0
+  }, [])
+  const selected = SIGN_RULES.find((rule) => rule.title === title) ?? SIGN_RULES[0]
+  const symbols = ['+', '−', '×', '÷', 'MDAS']
+  return (
+    <>
+      <div ref={help} className="rules-help-content" role="group" aria-label="Integer help" tabIndex={-1}>
+      {freeClue && <div className="rules-view-switch" role="group" aria-label="Help views"><button aria-pressed={view === 'clue'} onClick={() => setView('clue')}><Art name="magnifier" />Free clue</button><button aria-pressed={view === 'rules'} onClick={() => setView('rules')}><Art name="book" />Sign rules</button></div>}
+      {view === 'clue' ? clueBox || <section className="clue-empty"><Art name="magnifier" /><h3>Pick a yellow box first</h3><p>Tap a yellow box in the puzzle, then open Rules for a free clue about that box.</p><span className="clue-empty-grid" aria-hidden="true"><span>−3</span><span>+</span><span /></span></section> : <>
+        <p className="rules-lead">Choose an operation to review its sign rules.</p>
+        <div className="rules-operations" role="group" aria-label="Integer operations">{SIGN_RULES.map((rule, i) => <button key={rule.title} aria-label={`${rule.title} rules`} aria-pressed={selected.title === rule.title} onClick={() => setTitle(rule.title)}>{symbols[i]}</button>)}</div>
+        <RuleCard s={selected} />
+      </>}
+      </div>
+      <button className="big rules-done" onClick={onClose}>Got it! <Icon name="next" /></button>
+    </>
+  )
+}
+
 // One rule: each group of sign patterns, then its line in plain words.
 const RuleCard = ({ s }: { s: RuleSection }) => (
-  <section className="rule">
+  <section className="rule" aria-label={`${s.title} guide`}>
     <h3>{s.title}</h3>
     {s.groups.map((g) => (
       <div key={g.text} className="rule-group">
@@ -729,44 +715,33 @@ const Why = ({ pat, text }: { pat: string | null; text: string }) => (
   </>
 )
 
-// Number bank: always two rows (smaller half on top), swiped sideways when it doesn't fit.
-// An arrow shows on each side that still has numbers hidden past the edge.
+// Prefer two rows. Narrow banks wrap instead of making the numbers smaller than 36px.
 function Bank({ tiles, disabled, onPick }: { tiles: { v: number; used: boolean }[]; disabled: boolean; onPick: (i: number) => void }) {
-  const row = useRef<HTMLDivElement>(null)
-  const [more, setMore] = useState({ left: false, right: false })
+  const wrap = useRef<HTMLDivElement>(null)
+  const [columns, setColumns] = useState(() => Math.max(1, Math.ceil(tiles.length / 2)))
   useEffect(() => {
-    const el = row.current!
-    const check = () => setMore({ left: el.scrollLeft > 2, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 2 })
-    check()
-    el.addEventListener('scroll', check, { passive: true })
-    const resize = new ResizeObserver(check)
-    resize.observe(el)
-    return () => {
-      el.removeEventListener('scroll', check)
-      resize.disconnect()
+    const el = wrap.current!
+    const fit = () => {
+      const gap = 5 // matches --bank-gap in the responsive tray
+      const available = Math.max(1, Math.floor((el.clientWidth - 4 + gap) / (36 + gap)))
+      setColumns(Math.max(1, Math.min(Math.ceil(tiles.length / 2), available)))
     }
+    fit()
+    const resize = new ResizeObserver(fit)
+    resize.observe(el)
+    return () => resize.disconnect()
   }, [tiles.length])
-  const slide = (dir: number) => row.current!.scrollBy({ left: dir * row.current!.clientWidth * 0.8 })
 
   return (
-    <div className="bank-wrap">
-      {more.left && (
-        <button className="bank-arrow left" onClick={() => slide(-1)} aria-label="More numbers on the left">
-          <Icon name="back" />
-        </button>
-      )}
-      <div ref={row} className="bank" role="group" aria-label="Number bank" tabIndex={0} style={{ '--bank-cols': Math.ceil(tiles.length / 2) } as CSSProperties}>
+    <div className="bank-wrap" ref={wrap}>
+      <div className="bank" role="group" aria-label="Number bank" style={{ '--bank-cols': columns } as CSSProperties}>
         {tiles.map((t, i) => (
-          <button key={i} className="tile" disabled={t.used || disabled} onClick={() => onPick(i)} aria-label={`Place ${sayNum(t.v)}`}>
-            {t.v < 0 ? `−${-t.v}` : t.v}
+          <button key={i} className={`tile${t.used ? ' used' : ''}`} data-digits={String(t.v).length} disabled={t.used || disabled} onClick={() => onPick(i)} aria-label={`${t.used ? 'Used' : 'Place'} ${sayNum(t.v)}`}>
+            <span className="tile-value">{t.v < 0 ? `−${-t.v}` : t.v}</span>
+            {t.used && <span className="tile-used" aria-hidden="true"><Art name="check" /></span>}
           </button>
         ))}
       </div>
-      {more.right && (
-        <button className="bank-arrow right" onClick={() => slide(1)} aria-label="More numbers on the right">
-          <Icon name="next" />
-        </button>
-      )}
     </div>
   )
 }

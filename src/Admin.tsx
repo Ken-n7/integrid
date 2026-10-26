@@ -10,6 +10,7 @@ import { isCurrent, refreshPuzzles } from './puzzles.ts'
 import { BATTLES, clock, LEVELS, MODES, rankingFor, reward, START_COINS } from './rules.ts'
 import { db } from './store.ts'
 import { Deco, Dialog } from './ui.tsx'
+import { Art } from './Art.tsx'
 
 type Student = { code: string; pin: string }
 type Row = {
@@ -41,18 +42,11 @@ function download(name: string, rows: (string | number)[][]) {
 }
 
 const Shell = ({ children }: { children: ReactNode }) => (
-  <main className="admin">
-    <p className="no-print">
-      <a
-        href="#"
-        onClick={(e) => {
-          e.preventDefault()
-          location.replace('#') // like the student app's admin link: switching never piles up back steps
-        }}
-      >
-        <Deco>←</Deco> Student app
-      </a>
-    </p>
+  <main className="admin teacher-workspace">
+    <header className="teacher-brandbar no-print">
+      <div className="teacher-brand"><Art name="book" /><span><b>INTEGRID</b><small>TEACHER WORKSPACE</small></span></div>
+      <a href="#" onClick={(e) => { e.preventDefault(); location.replace('#') }}><Deco>←</Deco> Student app</a>
+    </header>
     {children}
   </main>
 )
@@ -144,7 +138,7 @@ function SignIn() {
   return (
     <Shell>
       <form className="card form narrow" onSubmit={submit}>
-        <h1>Admin sign in</h1>
+        <span className="teacher-auth-art"><Art name="profile" /></span><h1>Teacher sign in</h1><p className="muted">Your classroom tools, in one place.</p>
         <label>
           Email
           <input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -168,13 +162,17 @@ function SignIn() {
 
 type Tab = 'overview' | 'students' | 'puzzles' | 'maker' | 'research' | 'battle'
 const TABS: [Tab, string][] = [
-  ['students', 'Students'],
-  ['battle', 'Battle'],
-  ['overview', 'Overview'],
-  ['puzzles', 'Puzzles'],
-  ['maker', 'Puzzle maker'],
-  ['research', 'Research'],
+  ['overview', 'Overview'], ['students', 'Students'], ['research', 'Research'],
+  ['puzzles', 'Puzzles'], ['maker', 'Puzzle maker'], ['battle', 'Battle'],
 ]
+const TAB_INFO = {
+  overview: { art: 'target', title: 'Class overview', description: 'See progress, participation, and where learners need support.' },
+  students: { art: 'profile', title: 'Manage your class', description: 'Create access codes and follow each learner’s progress.' },
+  research: { art: 'book', title: 'Research workspace', description: 'Bring pretests, posttests, and learning experiences together.' },
+  puzzles: { art: 'puzzle', title: 'Puzzle library', description: 'Review the level puzzles and see what is ready for play.' },
+  maker: { art: 'map', title: 'Puzzle workshop', description: 'Arrange cells, check the equations, and prepare a level.' },
+  battle: { art: 'battle', title: 'Host a class battle', description: 'Choose a puzzle, share the room code, and start the group race.' },
+} as const
 const TAB_KEY = 'integrid:admin-tab'
 const NEEDS_UPDATE = 'This needs the database update: paste all of supabase/schema.sql into Supabase’s SQL Editor and press Run (safe to run again). Until then nothing here is saved.'
 
@@ -296,8 +294,8 @@ function Dashboard({ email, demo = false }: { email: string; demo?: boolean }) {
 
   return (
     <Shell>
-      <header className="bar no-print">
-        <h1>INTEGRID Admin</h1>
+      <header className="bar no-print teacher-dashboard-title">
+        <div><p className="eyebrow">Classroom hub</p><h1>Teacher workspace</h1></div>
         {!demo && (
           <>
             <span className="muted">{email}</span>
@@ -307,17 +305,26 @@ function Dashboard({ email, demo = false }: { email: string; demo?: boolean }) {
           </>
         )}
       </header>
-      {demo && <p className="notice no-print">Dev mode: sample students, no server connected. Nothing here is saved.</p>}
+      {demo && <p className="notice no-print">Preview classroom · Sample data is shown. Changes here do not update school records.</p>}
       {status && <p className="note no-print">{status}</p>}
 
-      <nav className="admin-tabs no-print" role="tablist" aria-label="Admin sections">
+      <div className="teacher-layout no-print">
+      <nav className="admin-tabs" role="tablist" aria-label="Admin sections" onKeyDown={(e) => {
+        if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return
+        e.preventDefault()
+        const current = TABS.findIndex(([id]) => id === tab)
+        const next = e.key === 'Home' ? 0 : e.key === 'End' ? TABS.length - 1 : (current + (['ArrowRight', 'ArrowDown'].includes(e.key) ? 1 : -1) + TABS.length) % TABS.length
+        go(TABS[next][0])
+        e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus()
+      }}>
         {TABS.map(([t, label]) => (
-          <button key={t} role="tab" id={`tab-${t}`} aria-selected={t === tab} aria-controls="admin-panel" onClick={() => go(t)}>
-            {label}
+          <button key={t} role="tab" id={`tab-${t}`} tabIndex={t === tab ? 0 : -1} aria-selected={t === tab} aria-controls="admin-panel" onClick={() => go(t)}>
+            <Art name={TAB_INFO[t].art} /><span>{label}</span><Art name="arrow-right" className="teacher-nav-arrow" />
           </button>
         ))}
       </nav>
-      <div id="admin-panel" role="tabpanel" aria-labelledby={`tab-${tab}`} className="admin-panel no-print">
+      <div id="admin-panel" role="tabpanel" aria-labelledby={`tab-${tab}`} className="admin-panel">
+        <header className="teacher-page-intro"><span className="teacher-page-icon"><Art name={TAB_INFO[tab].art} /></span><div><p className="eyebrow">{['overview', 'students', 'research'].includes(tab) ? 'Track and understand' : 'Prepare and play'}</p><h2>{TAB_INFO[tab].title}</h2><p>{TAB_INFO[tab].description}</p></div></header>
         {tab === 'overview' && <Overview students={students} byStudent={byStudent} rows={rows} onOpen={openStudent} />}
         {tab === 'students' && (
           <StudentsTab students={students} byStudent={byStudent} rows={rows} research={research} onAdd={addStudents} onReload={reload} open={open} onOpen={setOpen} />
@@ -326,6 +333,7 @@ function Dashboard({ email, demo = false }: { email: string; demo?: boolean }) {
         {tab === 'maker' && <PuzzleMaker rows={rows} level={makerLevel} />}
         {tab === 'research' && <ResearchTab codes={students.map((s) => s.code)} data={research} saveIssue={researchIssue} onSave={saveResearch} />}
         {tab === 'battle' && <BattleHost />}
+      </div>
       </div>
 
       <section className="slips" aria-hidden="true">
@@ -581,7 +589,7 @@ function StudentsTab(props: {
                       const tries = list.filter((r) => r.level === l.id).length
                       return (
                         <td key={l.id} className={best ? 'won' : ''}>
-                          {best ? `✓ ${clock(best.seconds)}` : tries ? `${tries} ${tries === 1 ? 'try' : 'tries'}` : '—'}
+                          {best ? <><Deco>✓</Deco> {clock(best.seconds)}</> : tries ? `${tries} ${tries === 1 ? 'try' : 'tries'}` : '—'}
                         </td>
                       )
                     })}
@@ -629,7 +637,7 @@ function StudentRecord({ code, pin, list, research, onClose }: { code: string; p
   const post = score(research?.post)
   const n = (v: number) => (v < 0 ? `−${-v}` : String(v))
   return (
-    <Dialog title={`Learner ${code}`} onClose={onClose}>
+    <Dialog title={`Learner ${code}`} onClose={onClose} className="teacher-record-panel" focusTitle>
       <p className="muted">
         PIN {pin} · {list.length} plays · {hours(sum(list, (r) => r.seconds))} playing
         {list.length ? ` · last played ${new Date(list.at(-1)!.played_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''}
@@ -640,7 +648,7 @@ function StudentRecord({ code, pin, list, research, onClose }: { code: string; p
         </p>
       ) : null}
       {levels.length ? (
-        <table className="rtable">
+        <div className="table-wrap" role="region" aria-label="Learner level results" tabIndex={0}><table className="rtable">
           <thead>
             <tr>
               <th>Level</th>
@@ -667,7 +675,7 @@ function StudentRecord({ code, pin, list, research, onClose }: { code: string; p
               )
             })}
           </tbody>
-        </table>
+        </table></div>
       ) : (
         <p className="note">Hasn’t played yet.</p>
       )}

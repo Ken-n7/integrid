@@ -44,7 +44,7 @@ function TestEditor({ code, which, value, onSave, onClose, saving, error }: { co
   const [marks, setMarks] = useState<boolean[]>(value ?? Array(ITEMS).fill(false))
   const s = score(marks)
   return (
-    <Dialog title={`${code}: ${which === 'pre' ? 'pretest' : 'posttest'} (Part I)`} onClose={onClose}>
+    <Dialog title={`${code}: ${which === 'pre' ? 'pretest' : 'posttest'} (Part I)`} onClose={onClose} focusTitle>
       <p className="muted">Tap the items the learner got right. The answer key is shown to help you check the paper.</p>
       <div className="row wrap">
         <button className="link" onClick={() => setMarks(Array(ITEMS).fill(true))} disabled={saving}>
@@ -59,7 +59,7 @@ function TestEditor({ code, which, value, onSave, onClose, saving, error }: { co
           <li key={i}>
             <button className={marks[i] ? 'right' : 'wrong'} aria-pressed={marks[i]} disabled={saving} onClick={() => setMarks(marks.map((m, j) => (j === i ? !m : m)))}>
               <span className="n">{i + 1}.</span> {it.q} = {it.a < 0 ? `−${-it.a}` : it.a}
-              <b>{marks[i] ? '✓ Right' : '✗ Wrong'}</b>
+              <b><Deco>{marks[i] ? '✓' : '✗'}</Deco> {marks[i] ? 'Right' : 'Wrong'}</b>
             </button>
           </li>
         ))}
@@ -85,7 +85,7 @@ function SurveyEditor({ code, value, onSave, onClose, saving, error }: { code: s
   const [answers, setAnswers] = useState<number[]>(value ?? Array(SURVEY.length).fill(0))
   const done = answers.every((a) => a >= 1)
   return (
-    <Dialog title={`${code}: survey (Part II)`} onClose={onClose}>
+    <Dialog title={`${code}: survey (Part II)`} onClose={onClose} focusTitle>
       <label>
         Quick entry: type the 20 answers in order (1–4; a 0 marks one not answered yet)
         <input
@@ -500,10 +500,10 @@ export function ResearchTab({
     <>
       <section className="card">
         <h2>Research results</h2>
-        <p>
+        <details className="teacher-explainer"><summary>About the research instrument</summary><p>
           Type in the paper instrument (Appendix 5): <b>Part I</b>, the 20-item test, before and after the intervention, and <b>Part II</b>, the learning-experience survey. The
           page works out what your four research questions need. Codes only; only signed-in admins can see this.
-        </p>
+        </p></details>
         {saveIssue && <p className="notice">{saveIssue}</p>}
         <p className="muted">
           A convenience, not a replacement for your statistician: check the numbers in SPSS or jamovi with the CSV.{' '}
@@ -535,7 +535,7 @@ export function ResearchTab({
                     <td>{r.pre && r.post ? `${score(r.post) - score(r.pre) >= 0 ? '+' : '−'}${Math.abs(score(r.post) - score(r.pre))}` : '—'}</td>
                     <td>
                       <button className="link" onClick={() => openEntry(c, 'survey')} aria-label={`${c} survey: ${r.survey ? 'entered, edit' : 'enter'}`}>
-                        {r.survey ? `✓ mean ${f2(mean(r.survey))}` : 'Enter'}
+                        {r.survey ? <><Deco>✓</Deco> mean {f2(mean(r.survey))}</> : 'Enter'}
                       </button>
                     </td>
                   </tr>
