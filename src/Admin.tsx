@@ -13,6 +13,7 @@ import { Art } from './Art.tsx'
 import { ConfirmDialog } from './ConfirmDialog.tsx'
 import { deleteStudent } from './studentAdmin.ts'
 import { useBack } from './back.ts'
+import { useAppUpdateBlocker } from './useAppUpdateBlocker.ts'
 
 type Student = { code: string; pin: string }
 type Row = {
@@ -124,6 +125,7 @@ function SignIn() {
   const [password, setPassword] = useState('')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
+  useAppUpdateBlocker(busy || !!email || !!password)
   async function submit(e: FormEvent) {
     e.preventDefault()
     setBusy(true)
@@ -528,6 +530,7 @@ function StudentsTab(props: {
   const [countText, setCountText] = useState('10') // kept as typed; clamped to 1–60 when used
   const count = Math.max(1, Math.min(60, Math.round(Number(countText)) || 1))
   const [busy, setBusy] = useState('')
+  useAppUpdateBlocker(!!busy)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState('')
   const [deleted, setDeleted] = useState('')

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useEffectEvent, useRef, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { PRE_ASSESSMENT } from './content.ts'
 import { Game } from './Game.tsx'
 import { BATTLES, bestWin, clock, coinsOf, isUnlocked, LEVELS, rankingFor, wonLevels, type Attempt, type Mode, type Rank } from './rules.ts'
@@ -12,6 +12,8 @@ import { Coins, Deco, Dialog, Icon } from './ui.tsx'
 import { Art } from './Art.tsx'
 import { AudioSettings } from './AudioSettings.tsx'
 import { ConfirmDialog } from './ConfirmDialog.tsx'
+import { startAppUpdates } from './appUpdates.ts'
+import { useAppUpdateBlocker } from './useAppUpdateBlocker.ts'
 
 type Screen = 'landing' | 'login' | 'intro' | 'howto' | 'pre' | 'modes' | 'settings' | Mode | 'ranking' | { level: string }
 type HowToFrom = 'landing' | 'settings'
@@ -23,6 +25,7 @@ const Intro = lazy(() => import('./Intro.tsx').then(({ Intro }) => ({ default: I
 const HowTo = lazy(() => import('./HowTo.tsx').then(({ HowTo }) => ({ default: HowTo })))
 
 export default function App() {
+  useEffect(() => { if (import.meta.env.PROD) startAppUpdates() }, [])
   const [admin, setAdmin] = useState(() => location.hash === '#admin')
   useEffect(() => {
     const onHash = () => setAdmin(location.hash === '#admin')
@@ -51,6 +54,7 @@ export default function App() {
 function Student() {
   const [store, setStore] = useState(load)
   const [screen, setScreen] = useState<Screen>('landing')
+  useAppUpdateBlocker(screen === 'pre' || screen === 'intro' || screen === 'howto')
   const [ranking, setRanking] = useState<Rank[] | null>(null) // null = not fetched yet (offline)
   const [howtoFrom, setHowtoFrom] = useState<HowToFrom>('landing')
   const [howtoStep, setHowtoStep] = useState(0)
@@ -62,6 +66,12 @@ function Student() {
   const latest = useRef(store)
   const busy = useRef(false)
   const save = store.who ? store.saves[store.who] : null
+  const saveBeforeUpdate = useEffectEvent(() => persist(store))
+  useLayoutEffect(() => {
+    const save = () => saveBeforeUpdate()
+    addEventListener('integrid:before-update', save)
+    return () => removeEventListener('integrid:before-update', save)
+  }, [])
 
   useEffect(() => {
     latest.current = store
@@ -308,6 +318,7 @@ function Login({ store, onBack, onDone }: { store: Store; onBack: () => void; on
   const [pin, setPin] = useState('')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
+  useAppUpdateBlocker(busy || !!code || !!pin)
 
   async function submit(e: FormEvent) {
     e.preventDefault()

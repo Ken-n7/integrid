@@ -2,6 +2,7 @@ import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from 'rea
 import { useBack } from './back.ts'
 import { focusScreen } from './focus.ts'
 import { Art, type ArtName } from './Art.tsx'
+import { useAppUpdateBlocker } from './useAppUpdateBlocker.ts'
 
 // Negative numbers in parentheses like the paper's test items, (−7), with slim parentheses
 // so the digits stay big in small cells.
@@ -53,6 +54,7 @@ export const Coins = ({ n }: { n: number }) => (
 // to whatever opened it (e.g. the (!) button).
 // onBack: what Android's back gesture does while it's open (default: close it).
 export function Dialog({ title, onClose, onBack = onClose, children, className = '', focusTitle = false }: { title: ReactNode; onClose?: () => void; onBack?: () => void; children: ReactNode; className?: string; focusTitle?: boolean }) {
+  useAppUpdateBlocker(true)
   const panel = useRef<HTMLDivElement>(null)
   useBack(() => onBack?.(), 'popup', !!onBack)
   const onKey = useEffectEvent((e: KeyboardEvent) => {

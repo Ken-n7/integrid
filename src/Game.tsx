@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { useBack } from './back.ts'
+import { useAppUpdateBlocker } from './useAppUpdateBlocker.ts'
 import { Celebration } from './Celebration.tsx'
 import { clue, guideFor, RELAX_WIN_MESSAGES, sayNum, sayPattern, SIGN_RULES, WIN_MESSAGES, type RuleSection, type WinMessage } from './content.ts'
 import { bankOf, blanksOf, equations, key, lenOf, parse } from './puzzle.ts'
@@ -62,6 +63,7 @@ type Props = {
 }
 
 export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, onExit, onNext, resume, battle }: Props) {
+  useAppUpdateBlocker(true)
   const rules = MODES[level.mode]
   const { grid, eqs, blanks, bank, version } = useMemo(() => {
     const grid = parse(csv)

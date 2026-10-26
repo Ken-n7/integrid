@@ -5,9 +5,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig({
   plugins: [
     react(),
-    // Offline after the first visit. A new version installs in the background and applies on the next open.
+    // Keep offline play, while the app controls when it is safe to refresh an open screen.
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: false,
       includeAssets: ['icon.svg'],
       manifest: {
         name: 'INTEGRID In Action',
@@ -24,7 +25,13 @@ export default defineConfig({
         ],
       },
       // the music too, so it plays offline. Only the Latin font file: the other scripts' fonts are never shown, so don't download them for offline
-      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,ogg,mp3}', '**/nunito-latin-wght-*.woff2'] },
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,svg,png,ogg,mp3}', '**/nunito-latin-wght-*.woff2'],
+        globIgnores: ['**/gallery.html'],
+      },
     }),
   ],
 })
