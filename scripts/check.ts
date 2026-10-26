@@ -2,6 +2,7 @@
 //   npm run check
 import assert from 'node:assert/strict'
 import './check-flows.ts'
+import './check-student-admin.ts'
 import { readdirSync, readFileSync } from 'node:fs'
 import { bankOf, countSolutions, equations, parse, validate } from '../src/puzzle.ts'
 import { ALL_OPS, LEVELS, rankingFor, reward } from '../src/rules.ts'

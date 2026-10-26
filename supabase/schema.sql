@@ -74,6 +74,7 @@ begin
     ['admins', 'admins see themselves', 'for select to authenticated using (uid = auth.uid())'],
     ['students', 'admins read students', 'for select to authenticated using (public.is_admin())'],
     ['students', 'admins add students', 'for insert to authenticated with check (public.is_admin())'],
+    ['students', 'admins delete students', 'for delete to authenticated using (public.is_admin())'],
     ['attempts', 'admins read attempts', 'for select to authenticated using (public.is_admin())'],
     ['puzzles', 'everyone reads puzzles', 'for select to anon, authenticated using (true)'],
     ['puzzles', 'admins add puzzles', 'for insert to authenticated with check (public.is_admin())'],
@@ -90,7 +91,7 @@ end $$;
 
 revoke all on public.admins, public.students, public.attempts, public.research from anon;
 grant select on public.admins, public.attempts to authenticated;
-grant select, insert on public.students to authenticated;
+grant select, insert, delete on public.students to authenticated;
 grant select on public.puzzles to anon, authenticated;
 grant insert, update on public.puzzles to authenticated;
 grant select, insert, update on public.research to authenticated;

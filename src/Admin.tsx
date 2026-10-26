@@ -1,9 +1,8 @@
 import type { Session } from '@supabase/supabase-js'
-import { useEffect, useEffectEvent, useState, type FormEvent, type ReactNode } from 'react'
-import { PuzzleMaker } from './AdminMaker.tsx'
+import { useEffect, useEffectEvent, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Puzzles } from './AdminPuzzles.tsx'
 import { ResearchTab, type Research } from './AdminResearch.tsx'
-import { BattleHost } from './Battle.tsx'
+import { BattleHost, type HostGuard } from './Battle.tsx'
 import { rng } from './generate.ts'
 import { RESEARCH_SURVEY, RESEARCH_TEST } from './content.ts'
 import { isCurrent, refreshPuzzles } from './puzzles.ts'
@@ -11,6 +10,9 @@ import { BATTLES, clock, LEVELS, MODES, rankingFor, reward, START_COINS } from '
 import { db } from './store.ts'
 import { Deco, Dialog } from './ui.tsx'
 import { Art } from './Art.tsx'
+import { ConfirmDialog } from './ConfirmDialog.tsx'
+import { deleteStudent } from './studentAdmin.ts'
+import { useBack } from './back.ts'
 
 type Student = { code: string; pin: string }
 type Row = {
@@ -41,11 +43,11 @@ function download(name: string, rows: (string | number)[][]) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-const Shell = ({ children }: { children: ReactNode }) => (
+const Shell = ({ children, onStudentApp }: { children: ReactNode; onStudentApp?: () => void }) => (
   <main className="admin teacher-workspace">
     <header className="teacher-brandbar no-print">
       <div className="teacher-brand"><Art name="book" /><span><b>INTEGRID</b><small>TEACHER WORKSPACE</small></span></div>
-      <a href="#" onClick={(e) => { e.preventDefault(); location.replace('#') }}><Deco>←</Deco> Student app</a>
+      <a href="#" onClick={(e) => { e.preventDefault(); if (onStudentApp) onStudentApp(); else location.replace('#') }}><Deco>←</Deco> Student app</a>
     </header>
     {children}
   </main>
@@ -160,17 +162,16 @@ function SignIn() {
   )
 }
 
-type Tab = 'overview' | 'students' | 'puzzles' | 'maker' | 'research' | 'battle'
+type Tab = 'overview' | 'students' | 'puzzles' | 'research' | 'battle'
 const TABS: [Tab, string][] = [
   ['overview', 'Overview'], ['students', 'Students'], ['research', 'Research'],
-  ['puzzles', 'Puzzles'], ['maker', 'Puzzle maker'], ['battle', 'Battle'],
+  ['puzzles', 'Puzzles'], ['battle', 'Battle'],
 ]
 const TAB_INFO = {
   overview: { art: 'target', title: 'Class overview', description: 'See progress, participation, and where learners need support.' },
   students: { art: 'profile', title: 'Manage your class', description: 'Create access codes and follow each learner’s progress.' },
   research: { art: 'book', title: 'Research workspace', description: 'Bring pretests, posttests, and learning experiences together.' },
   puzzles: { art: 'puzzle', title: 'Puzzle library', description: 'Review the level puzzles and see what is ready for play.' },
-  maker: { art: 'map', title: 'Puzzle workshop', description: 'Arrange cells, check the equations, and prepare a level.' },
   battle: { art: 'battle', title: 'Host a class battle', description: 'Choose a puzzle, share the room code, and start the group race.' },
 } as const
 const TAB_KEY = 'integrid:admin-tab'
@@ -214,16 +215,19 @@ function Dashboard({ email, demo = false }: { email: string; demo?: boolean }) {
   const [open, setOpen] = useState<string | null>(null) // a learner's record
   const [tab, setTab] = useState<Tab>(() => {
     try {
-      return (localStorage.getItem(TAB_KEY) as Tab) || 'students'
+      const saved = localStorage.getItem(TAB_KEY)
+      return TABS.find(([id]) => id === saved)?.[0] ?? 'students'
     } catch {
       return 'students'
     }
   })
   const [, setPuzzles] = useState(0)
-  const [makerLevel, setMakerLevel] = useState<string>() // the level a Puzzles card sent to the maker
-  function go(t: Tab, level?: string) {
+  const [hostGuard, setHostGuard] = useState<HostGuard | null>(null)
+  const [leaving, setLeaving] = useState<'student' | 'signout' | null>(null)
+  const [leavingBusy, setLeavingBusy] = useState(false)
+  const [leavingError, setLeavingError] = useState('')
+  function go(t: Tab) {
     setTab(t)
-    setMakerLevel(level)
     try {
       localStorage.setItem(TAB_KEY, t)
     } catch {
@@ -265,6 +269,36 @@ function Dashboard({ email, demo = false }: { email: string; demo?: boolean }) {
     }
   }
 
+  async function removeStudent(code: string) {
+    if (!demo) await deleteStudent(db!, code)
+    setStudents((cur) => cur.filter((s) => s.code !== code))
+    setRows((cur) => cur.filter((r) => r.student !== code))
+    setResearch((cur) => { const next = { ...cur }; delete next[code]; return next })
+    setOpen((cur) => cur === code ? null : cur)
+  }
+
+  function askLeave(action: 'student' | 'signout') {
+    if (action === 'student' && !hostGuard) { location.replace('#'); return }
+    setLeavingError('')
+    setLeaving(action)
+  }
+  async function leave() {
+    if (leavingBusy) return
+    setLeavingBusy(true)
+    setLeavingError('')
+    try {
+      // Publish the ended room before closing the teacher's channels.
+      await hostGuard?.end()
+      if (leaving === 'signout') {
+        const { error } = await db!.auth.signOut()
+        if (error) throw error
+      } else location.replace('#')
+      setLeaving(null)
+    } catch { setLeavingError('Couldn’t finish leaving. Check your connection and try again.') }
+    finally { setLeavingBusy(false) }
+  }
+  useBack(() => askLeave('student'), 'screen', !!hostGuard)
+
   async function saveResearch(code: string, patch: Partial<Research>) {
     const next = { ...(research[code] ?? { pre: null, post: null, survey: null }), ...patch }
     if (!demo) {
@@ -293,13 +327,13 @@ function Dashboard({ email, demo = false }: { email: string; demo?: boolean }) {
   }
 
   return (
-    <Shell>
+    <Shell onStudentApp={() => askLeave('student')}>
       <header className="bar no-print teacher-dashboard-title">
         <div><p className="eyebrow">Classroom hub</p><h1>Teacher workspace</h1></div>
         {!demo && (
           <>
             <span className="muted">{email}</span>
-            <button className="link" onClick={() => db!.auth.signOut()}>
+            <button className="link" onClick={() => askLeave('signout')}>
               Sign out
             </button>
           </>
@@ -327,14 +361,19 @@ function Dashboard({ email, demo = false }: { email: string; demo?: boolean }) {
         <header className="teacher-page-intro"><span className="teacher-page-icon"><Art name={TAB_INFO[tab].art} /></span><div><p className="eyebrow">{['overview', 'students', 'research'].includes(tab) ? 'Track and understand' : 'Prepare and play'}</p><h2>{TAB_INFO[tab].title}</h2><p>{TAB_INFO[tab].description}</p></div></header>
         {tab === 'overview' && <Overview students={students} byStudent={byStudent} rows={rows} onOpen={openStudent} />}
         {tab === 'students' && (
-          <StudentsTab students={students} byStudent={byStudent} rows={rows} research={research} onAdd={addStudents} onReload={reload} open={open} onOpen={setOpen} />
+          <StudentsTab students={students} byStudent={byStudent} rows={rows} research={research} onAdd={addStudents} onDelete={removeStudent} onReload={reload} open={open} onOpen={setOpen} />
         )}
-        {tab === 'puzzles' && <Puzzles rows={rows} onEdit={(level) => go('maker', level)} />}
-        {tab === 'maker' && <PuzzleMaker rows={rows} level={makerLevel} />}
+        {tab === 'puzzles' && <Puzzles rows={rows} />}
         {tab === 'research' && <ResearchTab codes={students.map((s) => s.code)} data={research} saveIssue={researchIssue} onSave={saveResearch} />}
-        {tab === 'battle' && <BattleHost />}
+        {/* Keep the room alive while the teacher checks other sections. */}
+        <div hidden={tab !== 'battle'}><BattleHost onGuardChange={setHostGuard} /></div>
       </div>
       </div>
+
+      {leaving && <ConfirmDialog title={leaving === 'signout' ? 'Sign out of the teacher workspace?' : 'Leave the teacher workspace?'}
+        confirmLabel={hostGuard ? 'End battle and leave' : 'Sign out'} cancelLabel="Stay here" onCancel={() => setLeaving(null)} onConfirm={() => void leave()} busy={leavingBusy} error={leavingError}>
+        <p>{hostGuard ? `Room ${hostGuard.room} is ${hostGuard.state === 'live' ? 'running' : 'waiting for players'}. Leaving will end the battle for every group.` : 'Your class records stay saved. You’ll need to sign in again to return.'}</p>
+      </ConfirmDialog>}
 
       <section className="slips" aria-hidden="true">
         {students.map((s) => (
@@ -480,6 +519,7 @@ function StudentsTab(props: {
   rows: Row[]
   research: Record<string, Research>
   onAdd: (count: number) => Promise<void>
+  onDelete: (code: string) => Promise<void>
   onReload: () => Promise<void>
   open: string | null
   onOpen: (code: string | null) => void
@@ -488,6 +528,22 @@ function StudentsTab(props: {
   const [countText, setCountText] = useState('10') // kept as typed; clamped to 1–60 when used
   const count = Math.max(1, Math.min(60, Math.round(Number(countText)) || 1))
   const [busy, setBusy] = useState('')
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState('')
+  const [deleted, setDeleted] = useState('')
+  const deletingNow = useRef(false)
+  async function confirmDelete() {
+    if (!deleting || deletingNow.current) return
+    deletingNow.current = true
+    setBusy('Deleting…')
+    setDeleteError('')
+    try {
+      await props.onDelete(deleting)
+      setDeleted(`Deleted ${deleting} and their saved class records.`)
+      setDeleting(null)
+    } catch (e) { setDeleteError(`Couldn’t delete ${deleting}: ${(e as Error).message}`) }
+    finally { deletingNow.current = false; setBusy('') }
+  }
 
   function exportAttempts() {
     download('attempts.csv', [
@@ -551,7 +607,8 @@ function StudentsTab(props: {
             <Deco>↻</Deco> Refresh
           </button>
         </div>
-        {busy && <p className="note">{busy}</p>}
+        {busy && <p className="note" role="status">{busy}</p>}
+        {deleted && <p className="note" role="status">{deleted}</p>}
         <p className="muted table-hint">Tap a code to see that learner’s full record. Swipe the table sideways for every level and the totals.</p>
         <div className="table-wrap" role="region" aria-label="Student progress" tabIndex={0}>
           <table>
@@ -559,6 +616,7 @@ function StudentsTab(props: {
               <tr>
                 <th>Code</th>
                 <th>PIN</th>
+                <th>Actions</th>
                 {LEVELS.map((l) => (
                   <th key={l.id} title={l.title}>
                     {shortLevel(l.id)}
@@ -584,6 +642,7 @@ function StudentsTab(props: {
                       </button>
                     </td>
                     <td>{s.pin}</td>
+                    <td><button className="student-delete" aria-label={`Delete student ${s.code}`} disabled={!!busy} onClick={() => { setDeleteError(''); setDeleting(s.code) }}>Delete</button></td>
                     {LEVELS.map((l) => {
                       const best = bestOf(list, l.id)
                       const tries = list.filter((r) => r.level === l.id).length
@@ -619,6 +678,12 @@ function StudentsTab(props: {
           </button>
         </div>
       </section>
+
+      {deleting && <ConfirmDialog title={`Delete student ${deleting}?`} confirmLabel={`Delete ${deleting}`} onCancel={() => setDeleting(null)} onConfirm={() => void confirmDelete()} busy={busy === 'Deleting…'} error={deleteError}>
+        <p>This permanently deletes the student’s code, {byStudent.get(deleting)?.length ?? 0} saved game results, and any pretest, posttest and survey records. It also removes them from rankings and class reports.</p>
+        <p>This cannot be undone. Download the class data first if you need a copy.</p>
+        <p className="muted small">Copies already saved on student devices remain there, but this code will stop syncing to the class.</p>
+      </ConfirmDialog>}
 
       {props.open && byStudent.has(props.open) && (
         <StudentRecord code={props.open} pin={students.find((s) => s.code === props.open)!.pin} list={byStudent.get(props.open)!} research={props.research[props.open]} onClose={() => props.onOpen(null)} />

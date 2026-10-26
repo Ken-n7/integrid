@@ -13,6 +13,9 @@ export type Research = {
   survey: number[] | null
 }
 type Which = 'pre' | 'post'
+import { ConfirmDialog } from './ConfirmDialog.tsx'
+import { useBeforeUnload } from './useBeforeUnload.ts'
+
 type EntryStatus = { saving: boolean; error: string }
 
 const ITEMS = RESEARCH_TEST.length
@@ -40,11 +43,27 @@ function download(name: string, rows: (string | number)[][]) {
 
 // ---------- entry ----------
 
+// Only ask to discard when the editor differs from its saved value.
+function useDiscardChanges(dirty: boolean, saving: boolean, onClose: () => void) {
+  const [confirming, setConfirming] = useState(false)
+  useBeforeUnload(dirty || saving)
+  return {
+    confirming,
+    keepEditing: () => setConfirming(false),
+    requestClose: () => { if (saving) return; if (dirty) setConfirming(true); else onClose() },
+  }
+}
+
+
 function TestEditor({ code, which, value, onSave, onClose, saving, error }: { code: string; which: Which; value: boolean[] | null; onSave: (v: boolean[]) => void; onClose: () => void } & EntryStatus) {
   const [marks, setMarks] = useState<boolean[]>(value ?? Array(ITEMS).fill(false))
   const s = score(marks)
+  const discard = useDiscardChanges(marks.some((m, i) => m !== (value?.[i] ?? false)), saving, onClose)
+  if (discard.confirming) return <ConfirmDialog title={`Discard changes to ${code}?`} confirmLabel="Discard changes" cancelLabel="Keep editing" onCancel={discard.keepEditing} onConfirm={onClose}>
+    <p>Your changes to this {which === 'pre' ? 'pretest' : 'posttest'} have not been saved. Discarding keeps the previously saved marks.</p>
+  </ConfirmDialog>
   return (
-    <Dialog title={`${code}: ${which === 'pre' ? 'pretest' : 'posttest'} (Part I)`} onClose={onClose} focusTitle>
+    <Dialog title={`${code}: ${which === 'pre' ? 'pretest' : 'posttest'} (Part I)`} onClose={discard.requestClose} focusTitle>
       <p className="muted">Tap the items the learner got right. The answer key is shown to help you check the paper.</p>
       <div className="row wrap">
         <button className="link" onClick={() => setMarks(Array(ITEMS).fill(true))} disabled={saving}>
@@ -68,7 +87,7 @@ function TestEditor({ code, which, value, onSave, onClose, saving, error }: { co
         Score: <b>{s} / 20</b> · MPS {mps(s)}% · {mastery(mps(s))}
       </p>
       <div className="row">
-        <button className="big secondary" onClick={onClose} disabled={saving}>
+        <button className="big secondary" onClick={discard.requestClose} disabled={saving}>
           Cancel
         </button>
         <button className="big" onClick={() => onSave(marks)} disabled={saving}>
@@ -84,8 +103,12 @@ const SCALE = ['Strongly Disagree', 'Disagree', 'Agree', 'Strongly Agree']
 function SurveyEditor({ code, value, onSave, onClose, saving, error }: { code: string; value: number[] | null; onSave: (v: number[]) => void; onClose: () => void } & EntryStatus) {
   const [answers, setAnswers] = useState<number[]>(value ?? Array(SURVEY.length).fill(0))
   const done = answers.every((a) => a >= 1)
+  const discard = useDiscardChanges(answers.some((a, i) => a !== (value?.[i] ?? 0)), saving, onClose)
+  if (discard.confirming) return <ConfirmDialog title={`Discard changes to ${code}?`} confirmLabel="Discard changes" cancelLabel="Keep editing" onCancel={discard.keepEditing} onConfirm={onClose}>
+    <p>Your survey changes have not been saved. Discarding keeps the previously saved answers.</p>
+  </ConfirmDialog>
   return (
-    <Dialog title={`${code}: survey (Part II)`} onClose={onClose} focusTitle>
+    <Dialog title={`${code}: survey (Part II)`} onClose={discard.requestClose} focusTitle>
       <label>
         Quick entry: type the 20 answers in order (1–4; a 0 marks one not answered yet)
         <input
@@ -130,7 +153,7 @@ function SurveyEditor({ code, value, onSave, onClose, saving, error }: { code: s
         {done ? `All 20 answered · mean ${f2(mean(answers))}` : `${answers.filter(Boolean).length} of 20 answered`}
       </p>
       <div className="row">
-        <button className="big secondary" onClick={onClose} disabled={saving}>
+        <button className="big secondary" onClick={discard.requestClose} disabled={saving}>
           Cancel
         </button>
         <button className="big" onClick={() => onSave(answers)} disabled={!done || saving}>

@@ -1,8 +1,4 @@
-// Puzzles tab: each level's puzzle. Puzzle files from the researchers (puzzles/<level>.csv) are
-// locked for the whole study (§13, question 9). Otherwise a level's puzzle is built in the Puzzle
-// maker (AdminMaker.tsx), or a sample is approved or regenerated (same generator and checks as
-// `npm run generate`); either reaches every phone the next time it opens the app, and swapping one
-// that learners already played asks first.
+// Read and review the study puzzles. Researcher files stay locked.
 import { useState, type CSSProperties } from 'react'
 import { blanksOf, parse } from './puzzle.ts'
 import { approvePuzzle, builtIn, isCurrent, puzzleFor } from './puzzles.ts'
@@ -53,7 +49,7 @@ function makeAnother(id: string) {
   })
 }
 
-function LevelCard({ level, rows, answers, onChange, onEdit }: { level: Level; rows: Row[]; answers: boolean; onChange: () => void; onEdit: () => void }) {
+function LevelCard({ level, rows, answers, onChange }: { level: Level; rows: Row[]; answers: boolean; onChange: () => void }) {
   const current = puzzleFor(level.id)!
   const [next, setNext] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -72,7 +68,7 @@ function LevelCard({ level, rows, answers, onChange, onEdit }: { level: Level; r
       if (p) setNext(p.csv)
       else setMsg('No puzzle passed the checks this time. Try again.')
     } catch {
-      setMsg('Couldn’t start the puzzle maker. Reload the page and try again.')
+      setMsg('Couldn’t generate a puzzle. Reload the page and try again.')
     } finally {
       setBusy(false)
     }
@@ -141,9 +137,6 @@ function LevelCard({ level, rows, answers, onChange, onEdit }: { level: Level; r
               <button className="big secondary" onClick={generate} disabled={busy}>
                 {busy ? 'Making a puzzle…' : 'Generate another'}
               </button>
-              <button className="big secondary" onClick={onEdit}>
-                Edit in the puzzle maker
-              </button>
             </>
           )}
         </div>
@@ -171,7 +164,7 @@ function LevelCard({ level, rows, answers, onChange, onEdit }: { level: Level; r
   )
 }
 
-export function Puzzles({ rows, onEdit }: { rows: Row[]; onEdit: (level: string) => void }) {
+export function Puzzles({ rows }: { rows: Row[] }) {
   const [answers, setAnswers] = useState(true)
   const [, setTick] = useState(0)
   const all = [...LEVELS, ...BATTLES].filter((l) => puzzleFor(l.id))
@@ -181,7 +174,7 @@ export function Puzzles({ rows, onEdit }: { rows: Row[]; onEdit: (level: string)
       <section className="card">
         <h2>Puzzles</h2>
         <details className="teacher-explainer"><summary>About puzzle sources and updates</summary><p>
-          The study uses <b>the researchers’ own problems</b>. Build each level’s puzzle in the <b>Puzzle maker</b>; until then it has a <b>sample</b> from the generator,
+          The study uses <b>the researchers’ own problems</b>. These puzzle files are locked for the study. Any level without a researcher’s file uses a <b>sample</b> from the generator,
           which you can approve or swap for another. Learners get a new puzzle the next time they open the app. Swapping one they already played asks first, so everyone
           solves the same problems.
         </p></details>
@@ -191,7 +184,7 @@ export function Puzzles({ rows, onEdit }: { rows: Row[]; onEdit: (level: string)
         </label>
       </section>
       <div className="puzzle-library">{all.map((l) => (
-        <LevelCard key={l.id} level={l} rows={rows} answers={answers} onChange={() => setTick((n) => n + 1)} onEdit={() => onEdit(l.id)} />
+        <LevelCard key={l.id} level={l} rows={rows} answers={answers} onChange={() => setTick((n) => n + 1)} />
       ))}</div>
     </>
   )

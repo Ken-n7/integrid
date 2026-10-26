@@ -61,7 +61,7 @@ export function Dialog({ title, onClose, onBack = onClose, children, className =
     const items = panel.current!.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input')
     const first = items[0]
     const last = items[items.length - 1]
-    if (!first) return
+    if (!first) { e.preventDefault(); return }
     const active = document.activeElement
     const outside = !panel.current!.contains(active)
     // Result summaries can receive initial focus before the first button.

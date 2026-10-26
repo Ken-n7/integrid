@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useEffectEvent, useRef, useState, type FormEvent } from 'react'
 import { PRE_ASSESSMENT } from './content.ts'
 import { Game } from './Game.tsx'
-import { bestWin, clock, coinsOf, isUnlocked, LEVELS, rankingFor, wonLevels, type Attempt, type Mode, type Rank } from './rules.ts'
+import { BATTLES, bestWin, clock, coinsOf, isUnlocked, LEVELS, rankingFor, wonLevels, type Attempt, type Mode, type Rank } from './rules.ts'
 import { abandon, db, load, merge, newSave, persist, startScreen, sync, type Save, type Store } from './store.ts'
 import { useBack } from './back.ts'
 import { focusScreen } from './focus.ts'
@@ -11,6 +11,7 @@ import { isCurrent, puzzleFor, refreshPuzzles } from './puzzles.ts'
 import { Coins, Deco, Dialog, Icon } from './ui.tsx'
 import { Art } from './Art.tsx'
 import { AudioSettings } from './AudioSettings.tsx'
+import { ConfirmDialog } from './ConfirmDialog.tsx'
 
 type Screen = 'landing' | 'login' | 'intro' | 'howto' | 'pre' | 'modes' | 'settings' | Mode | 'ranking' | { level: string }
 type HowToFrom = 'landing' | 'settings'
@@ -55,6 +56,7 @@ function Student() {
   const [howtoStep, setHowtoStep] = useState(0)
   const [introFrom, setIntroFrom] = useState<IntroFrom>('landing')
   const [introStep, setIntroStep] = useState(0)
+  const [pendingStart, setPendingStart] = useState<string | null>(null)
   const [playingPuzzle, setPlayingPuzzle] = useState<ReturnType<typeof puzzleFor>>(null)
   const [, setPuzzles] = useState(0) // bumped when the researchers' approved puzzles arrive
   const latest = useRef(store)
@@ -146,6 +148,20 @@ function Student() {
     setPlayingPuzzle(puzzle) // an approval arriving online must not replace a run already in progress
     go({ level: id })
   }
+  const hasSavedWork = !!save?.current && (Object.keys(save.current.filled).length > 0 || save.current.wrong > 0 || save.current.hints > 0)
+  const askPlay = (id: string) => {
+    if (hasSavedWork && open?.level !== id) { setPendingStart(id); return }
+    play(id)
+  }
+  const confirmStart = pendingStart && <ConfirmDialog title="End your saved try?" confirmLabel={pendingStart === 'battle' ? 'End try and join Battle' : 'End try and start level'} cancelLabel="Keep saved try" onCancel={() => setPendingStart(null)} onConfirm={() => {
+    const next = pendingStart
+    setPendingStart(null)
+    if (next === 'battle') { update(abandon); go('battle') }
+    else play(next)
+  }}>
+    <p>You have an unfinished try in {[...LEVELS, ...BATTLES].find((l) => l.id === save?.current?.level)?.title ?? 'another level'}. Starting something else will end it and clear its filled boxes. Spent hint coins stay spent.</p>
+  </ConfirmDialog>
+
   const howTo = (from: HowToFrom) => {
     setHowtoFrom(from)
     setHowtoStep(0)
@@ -214,21 +230,24 @@ function Student() {
   const shown = coins + (save.current?.coins ?? 0)
   if (screen === 'modes')
     return (
-      <Modes
+      <><Modes
         code={save.code}
         coins={shown}
         won={won}
         expertOpen={isUnlocked('expert-1', won)}
         battleOpen={won.has('expert-5')}
         onPick={(m) => {
-          if (m === 'battle') update(abandon)
+          if (m === 'battle') {
+            if (hasSavedWork) { setPendingStart('battle'); return }
+            update(abandon)
+          }
           go(m)
         }}
         onSettings={() => go('settings')}
-      />
+      />{confirmStart}</>
     )
   if (screen === 'relax' || screen === 'expert')
-    return <Levels mode={screen} attempts={save.attempts} won={won} coins={shown} open={open?.level} onPlay={play} onBack={() => go('modes')} onRanking={() => go('ranking')} />
+    return <><Levels mode={screen} attempts={save.attempts} won={won} coins={shown} open={open?.level} onPlay={askPlay} onBack={() => go('modes')} onRanking={() => go('ranking')} />{confirmStart}</>
   if (screen === 'battle')
     return (
       <BattleRoom

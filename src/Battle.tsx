@@ -5,7 +5,7 @@
 // One channel per group keeps each message to a handful of phones: the free plan allows about
 // 100 deliveries a second, and a class is ~40 phones.
 import type { RealtimeChannel } from '@supabase/supabase-js'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useBack } from './back.ts'
 import { apply, countWrong, isGroupMsg, isRoom, roundFinished, standings, sum, type Bar, type GroupMsg, type Host, type Room } from './battleState.ts'
 import { Game, type BattleLink } from './Game.tsx'
@@ -15,6 +15,8 @@ import { BATTLES, clock, HEARTS, type Attempt } from './rules.ts'
 import { db, uuid } from './store.ts'
 import { Coins, Deco, Icon } from './ui.tsx'
 import { Art } from './Art.tsx'
+import { ConfirmDialog } from './ConfirmDialog.tsx'
+import { useBeforeUnload } from './useBeforeUnload.ts'
 
 function channel<M>(name: string, onMsg: (m: M) => void, onReady: () => void = () => {}) {
   if (!db) {
@@ -36,7 +38,7 @@ function channel<M>(name: string, onMsg: (m: M) => void, onReady: () => void = (
     ch.subscribe((status) => status === 'SUBSCRIBED' && onReady())
   })()
   return {
-    send: (m: M) => void ch?.send({ type: 'broadcast', event: 'm', payload: m }),
+    send: (m: M) => ch?.send({ type: 'broadcast', event: 'm', payload: m }),
     close: () => {
       closed = true
       if (ch) void db!.removeChannel(ch)
@@ -328,7 +330,9 @@ const roomOf = (h: Host): Room => ({ puzzle: h.puzzle, csv: h.csv, seconds: h.se
 // A number box's text as a whole number in [lo, hi] (empty or junk: the default).
 const clampOf = (text: string, lo: number, hi: number, fallback: number) => Math.max(lo, Math.min(hi, Math.round(Number(text)) || fallback))
 
-export function BattleHost() {
+export type HostGuard = { room: string; state: 'lobby' | 'live'; end: () => Promise<void> }
+
+export function BattleHost({ onGuardChange }: { onGuardChange?: (guard: HostGuard | null) => void } = {}) {
   const [puzzle, setPuzzle] = useState(BATTLES[0].id)
   // kept as typed, so clearing a box to type a new number works; clamped when used
   const [groupsText, setGroupsText] = useState('2')
@@ -337,11 +341,31 @@ export function BattleHost() {
   const minutes = clampOf(minutesText, 1, 60, 10)
   const [h, setH] = useState<Host | null>(null)
   const [now, setNow] = useState(Date.now)
-  const send = useRef<(r: Room) => void>(() => {})
+  const send = useRef<(r: Room) => void | Promise<unknown>>(() => {})
   const latest = useRef<Host | null>(null)
   useEffect(() => {
     latest.current = h
   })
+
+  const [action, setAction] = useState<'start' | 'end' | 'cancel' | null>(null)
+  const [actionBusy, setActionBusy] = useState(false)
+  const [actionError, setActionError] = useState('')
+  const endHostedBattle = useCallback(async () => {
+    const cur = latest.current
+    if (!cur || cur.state === 'done') return
+    const next = { ...cur, state: 'done' as const, startedAt: cur.startedAt ?? Date.now() }
+    const result = await send.current(roomOf(next))
+    if (result && result !== 'ok') throw new Error('Couldn’t notify the class. Check your connection and try again.')
+    latest.current = next
+    setH(next)
+  }, [])
+  const hostedRoom = h?.room
+  const hostedState = h?.state
+  useEffect(() => {
+    onGuardChange?.(hostedRoom && hostedState && hostedState !== 'done' ? { room: hostedRoom, state: hostedState, end: endHostedBattle } : null)
+    return () => onGuardChange?.(null)
+  }, [onGuardChange, hostedRoom, hostedState, endHostedBattle])
+  useBeforeUnload(!!h && h.state !== 'done')
 
   const code = h?.room
   useEffect(() => {
@@ -376,6 +400,7 @@ export function BattleHost() {
   }, [code])
 
   function create() {
+    setAction(null)
     const room = String(crypto.getRandomValues(new Uint16Array(1))[0] % 10000).padStart(4, '0')
     const empty = <T,>(f: () => T) => Array.from({ length: groups }, f)
     const csv = puzzleFor(puzzle)!.csv
@@ -429,7 +454,7 @@ export function BattleHost() {
       <h2>
         <Deco>⚔️</Deco> {BATTLES.find((b) => b.id === h.puzzle)?.title} · room code
       </h2>
-      <div className="teacher-room-banner"><span>SHARE THIS ROOM CODE</span><p className="room-code">{h.room}</p><small>{h.members.length} groups · {Math.round(h.seconds / 60)} minutes</small></div>
+      <div className="teacher-room-banner"><span>SHARE THIS ROOM CODE</span><p className="room-code">{h.room}</p><small>{h.members.length} groups · {Math.round(h.seconds / 60)} {h.seconds === 60 ? 'minute' : 'minutes'}</small></div>
       {h.state === 'lobby' ? (
         <>
           <p>
@@ -453,12 +478,12 @@ export function BattleHost() {
       )}
       <div className="row wrap">
         {h.state === 'lobby' && (
-          <button className="big" onClick={() => go('live')}>
+          <button className="big" onClick={() => { setActionError(''); setAction('start') }}>
             Start battle
           </button>
         )}
         {h.state === 'live' && (
-          <button className="big secondary" onClick={() => go('done')}>
+          <button className="big secondary" onClick={() => { setActionError(''); setAction('end') }}>
             End now
           </button>
         )}
@@ -466,7 +491,8 @@ export function BattleHost() {
           <button
             className="big secondary"
             onClick={() => {
-              if (h.state === 'lobby') go('done') // tell waiting phones the room closed
+              if (h.state === 'lobby') { setActionError(''); setAction('cancel'); return }
+              setAction(null)
               setH(null)
             }}
           >
@@ -474,6 +500,25 @@ export function BattleHost() {
           </button>
         )}
       </div>
+      {action && (action === 'end' ? h.state === 'live' : h.state === 'lobby') && <ConfirmDialog
+        title={action === 'start' ? `Start room ${h.room}?` : action === 'cancel' ? `Cancel room ${h.room}?` : `End room ${h.room} now?`}
+        confirmLabel={action === 'start' ? 'Start battle' : action === 'cancel' ? 'Cancel battle' : 'End battle'}
+        cancelLabel={action === 'start' ? 'Keep waiting' : action === 'cancel' ? 'Keep room open' : 'Keep playing'} danger={action !== 'start'} onCancel={() => setAction(null)} busy={actionBusy} error={actionError}
+        onConfirm={() => {
+          if (actionBusy) return
+          setActionBusy(true)
+          setActionError('')
+          void (async () => {
+            try {
+              if (action === 'start') go('live')
+              else { await endHostedBattle(); if (action === 'cancel') setH(null) }
+              setAction(null)
+            } catch (e) { setActionError((e as Error).message) }
+            finally { setActionBusy(false) }
+          })()
+        }}>
+        <p>{action === 'start' ? `The ${Math.round(h.seconds / 60)}-minute timer will start for every group. Make sure the class is ready.` : action === 'cancel' ? 'Students waiting in this room will see that the battle has ended. They will need a new room code.' : 'This stops the round for every group and shows the final results. Students cannot continue this round.'}</p>
+      </ConfirmDialog>}
     </section>
   )
 }
