@@ -17,6 +17,7 @@ import { Coins, Deco, Icon } from './ui.tsx'
 import { Art } from './Art.tsx'
 import { ConfirmDialog } from './ConfirmDialog.tsx'
 import { useBeforeUnload } from './useBeforeUnload.ts'
+import { archiveBattle, type BattleOutcome, type BattleRecord } from './battleHistory.ts'
 
 function channel<M>(name: string, onMsg: (m: M) => void, onReady: () => void = () => {}) {
   if (!db) {
@@ -332,7 +333,7 @@ const clampOf = (text: string, lo: number, hi: number, fallback: number) => Math
 
 export type HostGuard = { room: string; state: 'lobby' | 'live'; end: () => Promise<void> }
 
-export function BattleHost({ onGuardChange }: { onGuardChange?: (guard: HostGuard | null) => void } = {}) {
+export function BattleHost({ onGuardChange, onArchive, onShowHistory }: { onGuardChange?: (guard: HostGuard | null) => void; onArchive?: (record: BattleRecord) => void; onShowHistory?: () => void } = {}) {
   const [puzzle, setPuzzle] = useState(BATTLES[0].id)
   // kept as typed, so clearing a box to type a new number works; clamped when used
   const [groupsText, setGroupsText] = useState('2')
@@ -343,22 +344,32 @@ export function BattleHost({ onGuardChange }: { onGuardChange?: (guard: HostGuar
   const [now, setNow] = useState(Date.now)
   const send = useRef<(r: Room) => void | Promise<unknown>>(() => {})
   const latest = useRef<Host | null>(null)
+  const archiveMeta = useRef<{ id: string; created_at: string; puzzle_version: string; roster: string[][]; saved: boolean } | null>(null)
   useEffect(() => {
     latest.current = h
   })
+  const saveArchive = useCallback((final: Host, outcome: BattleOutcome) => {
+    const meta = archiveMeta.current
+    if (!meta || meta.saved) return
+    meta.saved = true
+    onArchive?.(archiveBattle(final, meta, outcome))
+  }, [onArchive])
 
   const [action, setAction] = useState<'start' | 'end' | 'cancel' | null>(null)
   const [actionBusy, setActionBusy] = useState(false)
   const [actionError, setActionError] = useState('')
-  const endHostedBattle = useCallback(async () => {
+  const endHostedBattle = useCallback(async (outcome: 'ended' | 'cancelled' = 'ended') => {
     const cur = latest.current
     if (!cur || cur.state === 'done') return
     const next = { ...cur, state: 'done' as const, startedAt: cur.startedAt ?? Date.now() }
     const result = await send.current(roomOf(next))
     if (result && result !== 'ok') throw new Error('Couldn’t notify the class. Check your connection and try again.')
+    // The timer may have ended the same room while the broadcast was in flight.
+    if (latest.current?.state === 'done') return
+    saveArchive(next, cur.state === 'lobby' ? 'cancelled' : outcome)
     latest.current = next
     setH(next)
-  }, [])
+  }, [saveArchive])
   const hostedRoom = h?.room
   const hostedState = h?.state
   useEffect(() => {
@@ -372,7 +383,13 @@ export function BattleHost({ onGuardChange }: { onGuardChange?: (guard: HostGuar
     if (!code) return
     const roomCh = channel<Room>(`ig-${code}`, () => {})
     send.current = roomCh.send
-    const groupChs = latest.current!.members.map((_, g) => channel<GroupMsg>(`ig-${code}-${g}`, (m) => setH((cur) => cur && apply(cur, g, m))))
+    const groupChs = latest.current!.members.map((_, g) => channel<GroupMsg>(`ig-${code}-${g}`, (m) => {
+      // Keep players who joined and left between React renders in the archive roster.
+      if (latest.current?.state !== 'done' && isGroupMsg(m) && m.t === 'join' && archiveMeta.current) {
+        archiveMeta.current.roster[g] = [...new Set([...archiveMeta.current.roster[g], m.code])].sort()
+      }
+      setH((cur) => cur && apply(cur, g, m))
+    }))
     // Repeat the room: right away when it changed, every 4 s anyway for phones that just joined.
     let sent = ''
     let at = 0
@@ -381,7 +398,10 @@ export function BattleHost({ onGuardChange }: { onGuardChange?: (guard: HostGuar
       const cur = latest.current
       if (!cur) return
       if (roundFinished(cur)) {
-        setH({ ...cur, state: 'done' }) // time's up, or every group finished or ran out of hearts
+        const next = { ...cur, state: 'done' as const }
+        saveArchive(next, Date.now() - cur.startedAt! >= cur.seconds * 1000 ? 'time_up' : 'completed')
+        latest.current = next
+        setH(next) // time's up, or every group finished or ran out of hearts
         return
       }
       const r = roomOf(cur)
@@ -397,13 +417,15 @@ export function BattleHost({ onGuardChange }: { onGuardChange?: (guard: HostGuar
       roomCh.close()
       groupChs.forEach((c) => c.close())
     }
-  }, [code])
+  }, [code, saveArchive])
 
   function create() {
     setAction(null)
     const room = String(crypto.getRandomValues(new Uint16Array(1))[0] % 10000).padStart(4, '0')
     const empty = <T,>(f: () => T) => Array.from({ length: groups }, f)
-    const csv = puzzleFor(puzzle)!.csv
+    const currentPuzzle = puzzleFor(puzzle)!
+    const csv = currentPuzzle.csv
+    archiveMeta.current = { id: uuid(), created_at: new Date().toISOString(), puzzle_version: currentPuzzle.version, roster: empty(() => []), saved: false }
     setH({ room, puzzle, csv, total: totalOf(csv), seconds: minutes * 60, state: 'lobby', startedAt: null, members: empty(() => []), cells: empty(() => []), wrongs: empty(() => ({})), done: empty(() => null) })
   }
 
@@ -500,6 +522,7 @@ export function BattleHost({ onGuardChange }: { onGuardChange?: (guard: HostGuar
           </button>
         )}
       </div>
+      {h.state === 'done' && onShowHistory && <button className="big secondary" onClick={onShowHistory}>View in Battle History</button>}
       {action && (action === 'end' ? h.state === 'live' : h.state === 'lobby') && <ConfirmDialog
         title={action === 'start' ? `Start room ${h.room}?` : action === 'cancel' ? `Cancel room ${h.room}?` : `End room ${h.room} now?`}
         confirmLabel={action === 'start' ? 'Start battle' : action === 'cancel' ? 'Cancel battle' : 'End battle'}
@@ -511,7 +534,7 @@ export function BattleHost({ onGuardChange }: { onGuardChange?: (guard: HostGuar
           void (async () => {
             try {
               if (action === 'start') go('live')
-              else { await endHostedBattle(); if (action === 'cancel') setH(null) }
+              else { await endHostedBattle(action === 'cancel' ? 'cancelled' : 'ended'); if (action === 'cancel') setH(null) }
               setAction(null)
             } catch (e) { setActionError((e as Error).message) }
             finally { setActionBusy(false) }

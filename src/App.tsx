@@ -280,6 +280,7 @@ function Student() {
       csv={puzzle.csv}
       sample={puzzle.sample}
       coins={coins}
+      rewardEligible={!save.attempts.some((a) => a.level === level.id && a.result === 'win')}
       rankOf={(seconds, wrong) =>
         ranking && isCurrent(level.id, puzzle.version) ? rankingFor(ranking.filter((r) => isCurrent(r.level, r.puzzle)), level.id, { level: level.id, code: save.code, seconds, wrong }).findIndex((r) => r.code === save.code) + 1 : null
       }

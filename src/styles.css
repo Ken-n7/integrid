@@ -3016,3 +3016,47 @@ html:has(.admin-tabs) {
 .big.danger, .teacher-workspace .big.danger { color: #fff; background: #a83c3c; border-color: #853030; box-shadow: 0 3px 0 #853030; }
 .student-delete { min-height: 44px; padding: 8px 11px; border: 1px solid #e0b3ad; border-radius: 9px; background: #fff4ee; color: #9b3633; font-size: 0.72rem; font-weight: 800; }
 .student-delete:disabled { opacity: 0.5; cursor: default; }
+
+.teacher-battles { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.battle-view-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.battle-view-tabs button { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 47px; padding: 9px; border: 1px solid #cbd5ee; border-radius: 12px; background: #fffdf8; color: #52627e; font-size: 0.8rem; font-weight: 850; }
+.battle-view-tabs button .art-icon { width: 23px; height: 23px; }
+.battle-view-tabs [aria-selected='true'] { background: #edf2ff; border-color: #6c88c3; color: #3456a9; box-shadow: 0 2px 0 #cbd5ee; }
+.battle-history-count { display: grid; place-items: center; min-width: 21px; height: 21px; padding: 2px 5px; border-radius: 7px; background: #dce7ff; font-size: 0.65rem; }
+#battle-history-panel:not([hidden]), #battle-host-panel:not([hidden]) { display: flex; flex-direction: column; gap: 16px; }
+.battle-history-tools { display: flex; flex-direction: column; gap: 14px; }
+.battle-history-tools header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.battle-history-tools header h2 { color: #3456a9; font-size: 1.1rem; }
+.battle-history-tools header p { color: var(--muted); font-size: 0.8rem; margin-top: 5px; line-height: 1.5; }
+.battle-history-tools header > .art-icon { width: 45px; height: 45px; flex: none; }
+.battle-history-filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(130px, 0.55fr); gap: 12px; }
+.battle-history-filters label { display: flex; flex-direction: column; gap: 7px; }
+.battle-history-filters input, .battle-history-filters select { width: 100%; }
+.battle-history-tools .big .art-icon { width: 20px; height: 20px; vertical-align: middle; margin-right: 5px; }
+.battle-history-save-note { font-size: 0.72rem; color: #65738b; line-height: 1.5; }
+.battle-history-empty { display: flex; flex-direction: column; align-items: center; gap: 13px; text-align: center; }
+.battle-history-empty > .art-icon { width: 60px; height: 60px; }
+.battle-history-empty p { max-width: 27rem; color: var(--muted); }
+.battle-history-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 13px; list-style: none; margin: 0; padding: 0; }
+.battle-history-card { display: flex; flex-direction: column; gap: 11px; }
+.battle-history-card-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.battle-history-card time { font-size: 0.72rem; color: #65738b; }
+.battle-history-card h3 { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.battle-history-card h3 span { font-size: 0.74rem; font-weight: 850; padding: 5px 8px; border-radius: 7px; background: #edf2ff; color: #435b8f; }
+.battle-history-card > p { color: var(--muted); }
+.battle-history-card-bottom { display: flex; align-items: center; justify-content: space-between; gap: 13px; border-top: 1px solid #e1e3e7; padding-top: 11px; }
+.battle-history-card-bottom > span { font-size: 0.75rem; line-height: 1.5; color: #52627e; }
+.battle-history-card-bottom > button { flex: none; }
+.teacher-workspace .battle-history-detail { width: min(100%, 48rem); }
+.battle-history-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.battle-history-summary span { display: flex; flex-direction: column; gap: 4px; padding: 11px 5px; border: 1px solid #d4dcef; border-radius: 12px; background: #edf2ff; color: #65738b; font-size: 0.7rem; }
+.battle-history-summary b { color: #3456a9; font-size: 1.25rem; }
+.battle-history-detail table { min-width: 580px; text-align: left; }
+.battle-history-detail td:nth-child(3) { white-space: normal; min-width: 140px; overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .battle-history-filters { grid-template-columns: minmax(0, 1fr); }
+  .battle-view-tabs button { font-size: 0.72rem; gap: 5px; }
+  .battle-view-tabs button .art-icon { width: 20px; height: 20px; }
+  .battle-history-card-bottom { align-items: flex-start; flex-direction: column; }
+  .battle-history-card-bottom > button { width: 100%; }
+}

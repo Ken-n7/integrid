@@ -26,6 +26,7 @@ export function SoloResults({ level, won, seconds, wrong, hints, earned, ranked,
           <div><dt>Hints used</dt><dd>{hints}</dd></div>
         </dl>
         {won ? <div className="solo-reward"><Art name="coin" /><span><small>Coins earned</small><b>+{earned}</b></span></div> : <div className="solo-fresh-try"><span>Your next try</span><div role="img" aria-label={`${HEARTS} fresh lives`}>{Array.from({ length: HEARTS }, (_, i) => <Art key={i} name="heart" />)}</div></div>}
+        {won && earned === 0 && <p className="solo-retry-copy">You already earned this level’s coin reward. Replays are for practice and improving your best time.</p>}
         {won && ranked && <div className="solo-ranking"><Art name="medal" /><span><small>Expert ranking</small><b>{rank ? `#${rank} on this level` : 'Updates when you’re online'}</b></span></div>}
       </div>
       <div className="solo-result-actions">

@@ -274,7 +274,7 @@ Six tabs, in this order: Students (opens first), Battle, Overview, Puzzles, Puzz
 | Wrong answer | −1 💗 | −1 💗 | −1 💗 | docx |
 | At 0 hearts | Game Over → Try again, unlimited | same | the whole group is out; its boxes so far still count | client |
 | Timer | counts up, never ends the level | counts up, never ends the level | round time set by admin | client |
-| Coins for finishing | ≤1 min 60 · ≤2 40 · ≤3 30 · ≤4 20 · ≤5 10 · later 10 | ≤2 min 120 · ≤3 100 · ≤4 80 · ≤5 60 · later 60 | none: prizes are physical | docx / client; "later" = lowest bracket is our default |
+| Coins for first win | ≤1 min 60 · ≤2 40 · ≤3 30 · ≤4 20 · ≤5 10 · later 10 | ≤2 min 120 · ≤3 100 · ≤4 80 · ≤5 60 · later 60 | none: prizes are physical | docx / client; "later" = lowest bracket is our default |
 | Hint (direct answer) | 60 coins, unlimited while coins last | 120 coins, **max 2 per level** | 100 coins | docx / client |
 | Clue (guided practice) | free, unlimited | none | none | client |
 | Number bank | correct answers only | correct answers only | correct answers only | client |
@@ -282,7 +282,7 @@ Six tabs, in this order: Students (opens first), Battle, Overview, Puzzles, Puzz
 | Starting coins | **60**, once, at first sign-in | | | client |
 
 - Coins never go below 0.
-- Replaying a won level earns coins again, which is good practice. The ranking uses the best time.
+- Each student's first win on a Relax/Expert level earns its speed-based reward. Replays earn no coins; hints still cost coins and results still save for progress and best-time ranking. Existing saved/synced wins count across puzzle versions, and previous coin balances are preserved. This rule is integrated into the redesigned game, results, Settings and tutorial (Oct 26). Browser checks cover losses before winning, offline resume/reload, immediate replay, menu restart, hint charges, another level's first win, faster Expert ranking and older synced wins.
 - Mixed operations follow **MDAS**: × and ÷ before + and −, then left to right.
 
 ## 7. Puzzles: generator, review, format

@@ -23,6 +23,7 @@ type Run = {
   hearts: number
   wrong: number
   hints: number
+  earned: number // Fixed when the run finishes; recording the win changes reward eligibility.
   mistakes: [number, number][]
   status: 'play' | 'win' | 'lose'
 }
@@ -32,7 +33,7 @@ type Run = {
 const INFO = false
 const RULE_TITLES = { '+': 'Addition', '−': 'Subtraction', '×': 'Multiplication', '÷': 'Division' } as const
 
-const newRun = (): Run => ({ id: uuid(), at: new Date().toISOString(), start: Date.now(), filled: {}, hearts: HEARTS, wrong: 0, hints: 0, mistakes: [], status: 'play' })
+const newRun = (): Run => ({ id: uuid(), at: new Date().toISOString(), start: Date.now(), filled: {}, hearts: HEARTS, wrong: 0, hints: 0, earned: 0, mistakes: [], status: 'play' })
 
 // Battle Mode: the group's shared grid and live ranking, from the room (Battle.tsx).
 export type BattleLink = {
@@ -53,6 +54,7 @@ type Props = {
   csv: string
   sample: boolean
   coins: number // balance from finished attempts
+  rewardEligible?: boolean // Only the student's first win on a solo level earns coins.
   rankOf: (seconds: number, wrong: number) => number | null // null = offline
   onProgress: (a: Attempt, filled: Record<string, boolean>) => void
   onFinish: (a: Attempt) => void
@@ -62,7 +64,7 @@ type Props = {
   battle?: BattleLink
 }
 
-export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, onExit, onNext, resume, battle }: Props) {
+export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf, onProgress, onFinish, onExit, onNext, resume, battle }: Props) {
   useAppUpdateBlocker(true)
   const rules = MODES[level.mode]
   const { grid, eqs, blanks, bank, version } = useMemo(() => {
@@ -80,7 +82,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
     // Same try, same boxes, hearts and hints; the clock goes on from where it stopped.
     const filled = Object.fromEntries(Object.entries(resume.filled).filter(([k]) => blanks.includes(k)))
     const { id, at, wrong, hints, mistakes } = resume
-    return { id, at, start: Date.now() - resume.seconds * 1000, filled, hearts: HEARTS - wrong, wrong, hints, mistakes, status: 'play' }
+    return { id, at, start: Date.now() - resume.seconds * 1000, filled, hearts: HEARTS - wrong, wrong, hints, earned: 0, mistakes, status: 'play' }
   })
   const [sel, setSel] = useState<string | null>(null)
   const [flash, setFlash] = useState<{ k: string; v: number; ok: boolean; t: number } | null>(null) // the box that just got an answer: blinks green or red
@@ -255,7 +257,8 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
       onProgress(attemptOf(next, 'quit', 0, secs), next.filled) // saved as "quit" until the level ends
       return
     }
-    setRun({ ...next, status, end })
+    const earned = status === 'win' && rewardEligible ? reward(level.mode, secs) : 0
+    setRun({ ...next, status, end, earned })
     setSel(null)
     if (status === 'win') {
       setCelebration(RELAX_WIN_MESSAGES[level.id] ?? {
@@ -266,7 +269,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
     } else {
       stopResultSound.current = sfx.lose()
     }
-    onFinish(attemptOf(next, status, status === 'win' ? reward(level.mode, secs) : 0, secs))
+    onFinish(attemptOf(next, status, earned, secs))
   }
 
   // After choosing a box, keyboard focus jumps to the number bank (no visible change on touch screens).
@@ -596,6 +599,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
               {sample && <span className="tag">SAMPLE</span>}
               <button className="big game-menu-return" onClick={() => setDialog(null)} autoFocus><Art name="controller" />Return to game<Icon name="next" /></button>
               <p className="game-menu-notice"><Icon name="clock" />The timer keeps running.</p>
+              {!battle && !rewardEligible && <p className="game-menu-notice"><Art name="coin" className="utility-art" />Practice replay · no coin reward.</p>}
               <section className="game-menu-audio" aria-label="Sound"><h3>Sound</h3><AudioSettings compact /></section>
               <div className="game-menu-actions">
               {!battle && (
@@ -642,7 +646,7 @@ export function Game({ level, csv, sample, coins, rankOf, onProgress, onFinish, 
       {celebration && <Celebration message={celebration} onDone={() => setCelebration(null)} />}
 
       {!battle && !playing && !celebration && (
-        <SoloResults level={level} won={run.status === 'win'} seconds={seconds} wrong={run.wrong} hints={run.hints} earned={run.status === 'win' ? reward(level.mode, seconds) : 0} ranked={rules.ranked} rank={rank} onNext={onNext} onRetry={restart} onLevels={onExit} />
+        <SoloResults level={level} won={run.status === 'win'} seconds={seconds} wrong={run.wrong} hints={run.hints} earned={run.earned} ranked={rules.ranked} rank={rank} onNext={onNext} onRetry={restart} onLevels={onExit} />
       )}
     </main>
   )

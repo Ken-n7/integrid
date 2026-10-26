@@ -2,7 +2,8 @@ import type { Session } from '@supabase/supabase-js'
 import { useEffect, useEffectEvent, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Puzzles } from './AdminPuzzles.tsx'
 import { ResearchTab, type Research } from './AdminResearch.tsx'
-import { BattleHost, type HostGuard } from './Battle.tsx'
+import type { HostGuard } from './Battle.tsx'
+import { TeacherBattles } from './TeacherBattles.tsx'
 import { rng } from './generate.ts'
 import { RESEARCH_SURVEY, RESEARCH_TEST } from './content.ts'
 import { isCurrent, refreshPuzzles } from './puzzles.ts'
@@ -117,7 +118,7 @@ export function Admin() {
   }, [])
   if (!db) return <Dashboard email="" demo />
   if (!ready) return <Shell>Loading…</Shell>
-  return session ? <Dashboard email={session.user.email ?? ''} /> : <SignIn />
+  return session ? <Dashboard key={session.user.id} email={session.user.email ?? ''} teacherId={session.user.id} /> : <SignIn />
 }
 
 function SignIn() {
@@ -174,7 +175,7 @@ const TAB_INFO = {
   students: { art: 'profile', title: 'Manage your class', description: 'Create access codes and follow each learner’s progress.' },
   research: { art: 'book', title: 'Research workspace', description: 'Bring pretests, posttests, and learning experiences together.' },
   puzzles: { art: 'puzzle', title: 'Puzzle library', description: 'Review the level puzzles and see what is ready for play.' },
-  battle: { art: 'battle', title: 'Host a class battle', description: 'Choose a puzzle, share the room code, and start the group race.' },
+  battle: { art: 'battle', title: 'Class battles', description: 'Host a group race or revisit saved class rounds.' },
 } as const
 const TAB_KEY = 'integrid:admin-tab'
 const NEEDS_UPDATE = 'This needs the database update: paste all of supabase/schema.sql into Supabase’s SQL Editor and press Run (safe to run again). Until then nothing here is saved.'
@@ -206,7 +207,7 @@ async function readDashboard(): Promise<
   }
 }
 
-function Dashboard({ email, demo = false }: { email: string; demo?: boolean }) {
+function Dashboard({ email, demo = false, teacherId }: { email: string; demo?: boolean; teacherId?: string }) {
   const [sample] = useState(() => (demo ? sampleData() : null))
   const [students, setStudents] = useState<Student[]>(sample?.students ?? [])
   const [rows, setRows] = useState<Row[]>(sample?.rows ?? [])
@@ -368,7 +369,7 @@ function Dashboard({ email, demo = false }: { email: string; demo?: boolean }) {
         {tab === 'puzzles' && <Puzzles rows={rows} />}
         {tab === 'research' && <ResearchTab codes={students.map((s) => s.code)} data={research} saveIssue={researchIssue} onSave={saveResearch} />}
         {/* Keep the room alive while the teacher checks other sections. */}
-        <div hidden={tab !== 'battle'}><BattleHost onGuardChange={setHostGuard} /></div>
+        <div hidden={tab !== 'battle'}><TeacherBattles teacherId={teacherId} onGuardChange={setHostGuard} /></div>
       </div>
       </div>
 
@@ -619,7 +620,6 @@ function StudentsTab(props: {
               <tr>
                 <th>Code</th>
                 <th>PIN</th>
-                <th>Actions</th>
                 {LEVELS.map((l) => (
                   <th key={l.id} title={l.title}>
                     {shortLevel(l.id)}
@@ -631,6 +631,7 @@ function StudentsTab(props: {
                 <th>Hints</th>
                 <th>Coins</th>
                 <th>Last played</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -645,7 +646,6 @@ function StudentsTab(props: {
                       </button>
                     </td>
                     <td>{s.pin}</td>
-                    <td><button className="student-delete" aria-label={`Delete student ${s.code}`} disabled={!!busy} onClick={() => { setDeleteError(''); setDeleting(s.code) }}>Delete</button></td>
                     {LEVELS.map((l) => {
                       const best = bestOf(list, l.id)
                       const tries = list.filter((r) => r.level === l.id).length
@@ -661,6 +661,7 @@ function StudentsTab(props: {
                     <td>{sum(list, (r) => r.hints)}</td>
                     <td>{START_COINS + sum(list, (r) => r.coins)}</td>
                     <td>{last ? new Date(last.played_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'}</td>
+                    <td><button className="student-delete" aria-label={`Delete student ${s.code}`} disabled={!!busy} onClick={() => { setDeleteError(''); setDeleting(s.code) }}>Delete</button></td>
                   </tr>
                 )
               })}
@@ -683,7 +684,7 @@ function StudentsTab(props: {
       </section>
 
       {deleting && <ConfirmDialog title={`Delete student ${deleting}?`} confirmLabel={`Delete ${deleting}`} onCancel={() => setDeleting(null)} onConfirm={() => void confirmDelete()} busy={busy === 'Deleting…'} error={deleteError}>
-        <p>This permanently deletes the student’s code, {byStudent.get(deleting)?.length ?? 0} saved game results, and any pretest, posttest and survey records. It also removes them from rankings and class reports.</p>
+        <p>This permanently deletes the student’s code, {byStudent.get(deleting)?.length ?? 0} saved game results, and any pretest, posttest and survey records. It also removes their individual rankings and class reports. Past class Battle History stays saved.</p>
         <p>This cannot be undone. Download the class data first if you need a copy.</p>
         <p className="muted small">Copies already saved on student devices remain there, but this code will stop syncing to the class.</p>
       </ConfirmDialog>}

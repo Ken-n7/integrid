@@ -70,7 +70,7 @@ export const HOW_TO = [
   { label: 'Rules', action: 'Try the number bank', icon: '➗', title: 'Integer Rules', text: 'Apply the rules of addition, subtraction, multiplication, and division of integers, including sign rules.' },
   { label: 'Bank', action: 'Next: Lives', icon: '🏦', title: 'Use the Number Bank!', text: 'Pick numbers from your bank at the bottom. Tap a yellow cell, then tap a number to place it. Easy as pie! 🥧' },
   { label: 'Lives', action: 'Next: Coins & Hints', icon: '💗', title: 'Lives System', text: 'You have 5 lives. Each wrong answer costs 1 life. Lose all lives and it’s game over, but you can always try again!' },
-  { label: 'Help', action: 'CONTINUE', icon: '💰', title: 'Coins & Hints', text: 'Finish faster to earn more coins. Stuck? Tap Rules to see the sign rules, or spend coins on a hint. In Relax Mode, Rules also gives a free clue for the box you picked!' },
+  { label: 'Help', action: 'CONTINUE', icon: '💰', title: 'Coins & Hints', text: 'Finish faster to earn more coins. Only your first win on each level earns coins; replays are for practice. Stuck? Tap Rules to see the sign rules, or spend coins on a hint. In Relax Mode, Rules also gives a free clue for the box you picked!' },
 ]
 
 // Client's pre-assessment and answer key (integrid.docx, 3rd page). A drill: scores are not recorded.

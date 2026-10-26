@@ -1,0 +1,41 @@
+import assert from 'node:assert/strict'
+import { archiveBattle, historyCsv, mergeBattleRecords, readBattleRecord, readHistoryCache } from '../src/battleHistory.ts'
+import type { Host } from '../src/battleState.ts'
+
+const start = Date.parse('2026-10-27T01:00:00Z')
+const host: Host = { room: '0042', puzzle: 'battle-1', csv: '', seconds: 60, state: 'done', startedAt: start, total: 2, members: [['S01'], ['S03']], cells: [['1,1', '2,2'], ['1,1']], wrongs: [{ S01: 1 }, { S03: 2 }], done: [0, null] }
+const meta = { id: '00000000-0000-4000-8000-000000000001', created_at: new Date(start - 1000).toISOString(), puzzle_version: '12345678', roster: [['S02'], []] }
+const round = archiveBattle(host, meta, 'ended', start + 30_000)
+assert.equal(round.elapsed_seconds, 30)
+assert.equal(round.room, '0042')
+assert.deepEqual(round.groups.map((g) => [g.group, g.rank]), [[1, 1], [2, 2]])
+assert.deepEqual(round.groups[0].members, ['S01', 'S02'])
+assert.equal(round.groups[0].completed_seconds, 0)
+assert.deepEqual(readBattleRecord(round), round)
+const cancelled = archiveBattle(host, { ...meta, id: '00000000-0000-4000-8000-000000000002' }, 'cancelled', start + 40_000)
+assert.equal(cancelled.started_at, null)
+assert.equal(cancelled.elapsed_seconds, 0)
+assert(cancelled.groups.every((g) => g.rank === null && g.completed_seconds === null))
+const timeUp = archiveBattle(host, meta, 'time_up', start + 99_000)
+assert.equal(timeUp.elapsed_seconds, 60)
+const empty = archiveBattle({ ...host, members: [[], []], cells: [[], []], wrongs: [{}, {}], done: [null, null] }, { ...meta, roster: [[], []] }, 'ended', start + 4000)
+assert(empty.groups.every((g) => g.rank === null))
+const twoRounds = mergeBattleRecords([round], [cancelled])
+assert.equal(twoRounds.length, 2) // Reusing a 4-digit room code never overwrites another round.
+assert.equal(twoRounds[0].id, cancelled.id)
+assert.equal(mergeBattleRecords([round], [round]).length, 1)
+for (const bad of [null, {}, { ...round, id: 'not-a-uuid' }, { ...round, puzzle: 'expert-1' }, { ...round, outcome: {} }, { ...round, elapsed_seconds: 61 }, { ...round, groups: [round.groups[0], round.groups[0]] }, { ...round, groups: [{ ...round.groups[0], filled: 3 }, round.groups[1]] }]) assert.equal(readBattleRecord(bad), null)
+assert.deepEqual(readHistoryCache('{broken').records, [])
+const cache = readHistoryCache(JSON.stringify({ version: 1, records: [round, null, cancelled], pending: [round.id, round.id, 'unknown'] }))
+assert.equal(cache.records.length, 2)
+assert.deepEqual(cache.pending, [round.id])
+const csv = historyCsv([round])
+assert.equal(csv.split('\n').length, 3)
+assert(csv.includes('"0042"'))
+assert(csv.includes('"S01 S02"'))
+assert(csv.split('\n')[1].endsWith(',"0"'))
+host.members[0].push('S04')
+host.cells[0].push('3,3')
+assert.deepEqual(round.groups[0].members, ['S01', 'S02'])
+assert.equal(round.groups[0].filled, 2)
+console.log('✓ Battle History snapshots, zero-second finish, cancelled/empty rounds, room reuse, cache validation and CSV')
