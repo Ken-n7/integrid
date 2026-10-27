@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>INTEGRID share image artwork</title>
+  <style>
+    @font-face { font-family:Nunito; font-style:normal; font-weight:200 1000; src:url('/fonts/nunito.woff2') format('woff2'); }
+    * { box-sizing:border-box; }
+    html,body { margin:0; width:1200px; height:630px; overflow:hidden; }
+    body { color:#5c3a1e; font-family:Nunito,sans-serif; background:#fff7e8; }
+    .card { position:relative; display:flex; width:1200px; height:630px; overflow:hidden; background:linear-gradient(135deg,#fffaf0 10%,#fff2da 70%,#fde4b4); border:14px solid #fffdf5; }
+    .halo { position:absolute; width:600px; height:600px; border-radius:50%; background:#f8e4bd; right:-130px; top:-70px; opacity:.55; }
+    .copy { z-index:1; width:650px; padding:52px 0 0 48px; }
+    .eyebrow { display:flex; align-items:center; gap:12px; margin:0 0 21px; font-size:17px; font-weight:900; letter-spacing:.15em; color:#8f6236; }
+    .eyebrow img { width:30px; height:30px; }
+    h1 { margin:0; color:#7a3b0c; font-size:91px; font-weight:1000; line-height:.98; letter-spacing:-.045em; }
+    h1 span { display:block; padding:10px 0 0 5px; color:#ab641e; font-size:32px; letter-spacing:.22em; font-weight:950; }
+    h2 { margin:31px 0 9px; font-size:31px; line-height:1.25; font-weight:900; letter-spacing:-.025em; }
+    .tagline { margin:0; font-size:23px; color:#8f6236; line-height:1.5; font-weight:650; }
+    .modes { display:flex; gap:12px; margin-top:32px; }
+    .mode { display:flex; align-items:center; justify-content:center; gap:7px; padding:10px 16px; border:1px solid #b7d8b3; background:#e4f3dc; border-radius:17px; font-size:19px; font-weight:850; }
+    .mode.expert { background:#ffeed5; border-color:#edcb92; }.mode.battle { background:#eee5ff; border-color:#d4bfe8; }
+    .mode img { width:29px; height:29px; object-fit:contain; }
+    .swords { display:inline-block; position:relative; width:30px; height:30px; }
+    .swords img { position:absolute; inset:0; }.swords img:last-child { transform:scaleX(-1); }
+    .address { position:absolute; bottom:34px; left:53px; margin:0; font-size:17px; font-weight:750; color:#a17a4e; letter-spacing:.02em; }
+    .art { position:absolute; right:40px; top:59px; width:465px; height:490px; }
+    .board { position:absolute; top:26px; left:20px; width:408px; height:408px; padding:18px; transform:rotate(5deg); border:2px solid #d6b982; border-radius:28px; background:#fffdf5; box-shadow:0 9px 0 #e5c998,0 22px 40px #b7863a24; }
+    .grid { display:grid; grid-template-columns:repeat(5,1fr); grid-template-rows:repeat(5,1fr); gap:5px; height:100%; }
+    .cell { display:grid; place-items:center; min-width:0; font-size:32px; font-weight:900; line-height:1; color:#5c3a1e; background:#fff3d9; border:2px solid #9a7146; border-radius:10px; }
+    .cell.empty { visibility:hidden; }.cell.answer { background:#ffd34e; border-color:#c38b24; box-shadow:0 4px 0 #e4af33; font-size:39px; }.cell.solved { background:#d8efce; border-color:#8bb57e; }
+    .medal { position:absolute; width:136px; height:136px; bottom:8px; right:0; transform:rotate(-12deg); filter:drop-shadow(0 8px 5px #96621c22); }
+    .star { position:absolute; width:64px; height:64px; top:-10px; left:0; transform:rotate(-13deg); }
+    .spark { position:absolute; width:13px; height:13px; border-radius:4px; background:#dfb951; transform:rotate(25deg); }
+    .spark.one { left:76px; bottom:34px; background:#b6cca4; }.spark.two { top:12px; right:25px; background:#c6b1df; }.spark.three { top:215px; right:-5px; width:9px; height:9px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="halo"></div>
+    <section class="copy">
+      <p class="eyebrow"><img src="/art/generated/puzzle-96.webp" alt="" />YOUR INTEGER ADVENTURE</p>
+      <h1>INTEGRID<span>IN ACTION</span></h1>
+      <h2>A Math Crossword Adventure!</h2>
+      <p class="tagline">Learn the signs. Solve the grid.<br />Build your skills, one box at a time.</p>
+      <div class="modes">
+        <span class="mode"><img src="/art/leaf-96.webp" alt="" />Relax</span>
+        <span class="mode expert"><img src="/art/flame-96.webp" alt="" />Expert</span>
+        <span class="mode battle"><span class="swords"><img src="/art/sword-96.webp" alt="" /><img src="/art/sword-96.webp" alt="" /></span>Battle</span>
+      </div>
+    </section>
+    <div class="art" aria-hidden="true">
+      <div class="board"><div class="grid">
+        <span class="cell">−3</span><span class="cell">+</span><span class="cell answer">?</span><span class="cell">=</span><span class="cell solved">2</span>
+        <span class="cell empty"></span><span class="cell empty"></span><span class="cell">×</span><span class="cell empty"></span><span class="cell empty"></span>
+        <span class="cell empty"></span><span class="cell empty"></span><span class="cell">2</span><span class="cell empty"></span><span class="cell empty"></span>
+        <span class="cell empty"></span><span class="cell empty"></span><span class="cell">=</span><span class="cell empty"></span><span class="cell empty"></span>
+        <span class="cell empty"></span><span class="cell empty"></span><span class="cell solved">10</span><span class="cell empty"></span><span class="cell empty"></span>
+      </div></div>
+      <img class="star" src="/art/star-96.webp" alt="" />
+      <img class="medal" src="/art/medal-256.webp" alt="" />
+      <i class="spark one"></i><i class="spark two"></i><i class="spark three"></i>
+    </div>
+    <p class="address">integrid-phi.vercel.app</p>
+  </main>
+</body>
+</html>
