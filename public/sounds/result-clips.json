@@ -1,0 +1,23 @@
+{
+  "encoding": "PCM WAV, signed 16-bit, mono, 44100 Hz",
+  "loudness_target_lufs": -20,
+  "source": "Original MP3s supplied by Ken, 2026-10-22",
+  "clips": {
+    "win": {
+      "file": "level-win.wav",
+      "duration": 3.5519954648526078,
+      "bytes": 313364,
+      "gain_db": -4.07,
+      "source_sha256": "c7fef4281dd30ef114263e190c9df7f92f13dea369797370ea947944e9222a32",
+      "sha256": "9353c18084cd88b95bb483ed38f9cd33f0215c90dff4db218bdfef19e984644b"
+    },
+    "lose": {
+      "file": "game-over.wav",
+      "duration": 3.082448979591837,
+      "bytes": 271950,
+      "gain_db": -5.52,
+      "source_sha256": "823f98962337d66876cb4cedfe5bd6497250d60f3f5fd207cce78a8600b4fedb",
+      "sha256": "a15a88d02e6bb77dc0ec0d258fde9913b9c055db5ed6ff3d5d299d88557b3d66"
+    }
+  }
+}

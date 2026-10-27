@@ -1,5 +1,6 @@
 /// <reference lib="dom" />
 import assert from 'node:assert/strict'
+import { RESULT_CLIPS } from '../src/resultClips.ts'
 import { SOUND_BANK } from '../src/soundBank.generated.ts'
 import { MUSIC_PLAYLISTS, MUSIC_TRACKS, musicSceneForScreen } from '../src/musicPlaylists.ts'
 const originals = new Map(['AudioContext', 'document', 'localStorage', 'fetch', 'setTimeout', 'clearTimeout'].map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]))
@@ -29,7 +30,7 @@ class Context {
   createOscillator() { oscillatorCount++; return { frequency: param(), connect: () => gain(), disconnect() {}, start() {}, stop() {}, onended: null } }
   decodeAudioData(data: ArrayBuffer) { const kind = new TextDecoder().decode(data); return Promise.resolve({ duration: kind.includes('/music/') ? 20 : 5, kind }) }
 }
-let release: (() => void) | undefined, delay = ''
+let release: (() => void) | undefined, releaseWin: (() => void) | undefined, delay = '', delayWin = true
 const doc = { hidden: false }
 const tick = async () => { for (let n = 0; n < 8; n++) await Promise.resolve() }
 for (const [key, value] of Object.entries({
@@ -39,6 +40,7 @@ for (const [key, value] of Object.entries({
   clearTimeout: (id: number) => timers.delete(id),
   fetch: async (url: string) => {
     if (url === delay) await new Promise<void>((resolve) => { release = resolve })
+    if (url === RESULT_CLIPS.win && delayWin) await new Promise<void>((resolve) => { releaseWin = resolve })
     return { ok: true, arrayBuffer: async () => new TextEncoder().encode(url).buffer }
   },
 })) Object.defineProperty(globalThis, key, { configurable: true, value })
@@ -54,7 +56,8 @@ try {
   assert.equal(sources.at(-1)!.buffer?.kind, 'embedded-tap', 'first click works before downloads')
   assert.equal(sources.at(-1)!.duration, SOUND_BANK.tap.duration)
   sound.setSoundOn(false); sound.setSoundOn(true)
-  await sound.warmSoundEffects()
+  const warming = sound.warmSoundEffects()
+  await tick()
   await music.startMusic()
   assert.equal(lastMusic().buffer?.kind, MUSIC_TRACKS['sky-puzzle'].src)
   music.nextMusicTrack(); await tick()
@@ -62,15 +65,35 @@ try {
   assert.ok(sources[0].stopAt > Context.current.currentTime, 'crossfade schedules the outgoing song stop')
   const selected = lastMusic()
   Context.current.currentTime += 2.5
-  const stopResult = sound.sfx.win()
+  const cancelLoading = sound.sfx.win()
   assert.equal(selected.stopped, true)
-  assert.equal(sources.at(-1)!.offset, SOUND_BANK.win.offset)
-  assert.equal(sources.at(-1)!.duration, SOUND_BANK.win.duration)
+  assert.equal(sound.resultSoundPlaying(), true)
+  const whileLoading = sources.length
+  await music.startMusic()
+  assert.equal(sources.length, whileLoading, 'music stays paused while a result loads')
+  cancelLoading(); await tick()
+  assert.equal(lastMusic().offset, 2.5)
+  assert.ok(releaseWin)
+  delayWin = false; releaseWin!(); await warming
+  assert.ok(sources.every((source) => source.buffer?.kind !== RESULT_CLIPS.win), 'cancelled loading never starts a stale result')
+  const stopResult = sound.sfx.win()
+  assert.equal(sources.at(-1)!.buffer?.kind, RESULT_CLIPS.win)
+  assert.equal(sources.at(-1)!.loop, false)
+  assert.equal(sources.at(-1)!.offset, 0)
+  assert.equal(sources.at(-1)!.duration, 0, 'the full supplied recording is played')
   const sourceCount = sources.length, notes = oscillatorCount
   await music.startMusic(); sound.sfx.tap(); sound.sfx.wrong()
   assert.equal(sources.length, sourceCount); assert.equal(oscillatorCount, notes)
   stopResult(); await tick()
   assert.equal(lastMusic().offset, 2.5, 'result cue resumes the same song at its saved position')
+  const stopLoss = sound.sfx.lose(), loss = sources.at(-1)!
+  assert.equal(loss.buffer?.kind, RESULT_CLIPS.lose)
+  stopResult(); assert.equal(sound.resultSoundPlaying(), true, 'older cleanup cannot stop the new result')
+  Context.current.currentTime += 3.08
+  loss.onended!(); await tick()
+  assert.equal(sound.resultSoundPlaying(), false)
+  assert.equal(lastMusic().offset, 2.5, 'recording duration does not advance paused music')
+  stopLoss()
   const menuGain = gains.at(-1)!.gain.value
   const releaseFocus = music.focusMusic(), releaseSecond = music.focusMusic()
   assert.ok(gains.at(-1)!.gain.value < menuGain)
@@ -114,7 +137,7 @@ try {
   assert.ok(timers.size > 0, 'foreground playback re-arms song rotation')
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, get() { throw new Error('Blocked') } })
   music.setMusicOn(false); assert.equal(music.musicOn(), false)
-  console.log('✓ Selected playlists, rotation/crossfades, stale loads, result resume, focus/mute/volume, immediate sampled clicks and exact cue spans')
+  console.log('✓ Selected playlists, rotation/crossfades, stale loads, result resume, focus/mute/volume, recorded win/loss, loading cancellation and sampled cue spans')
 } finally {
   music.stopMusic(); sound.setSoundOn(false)
   for (const [key, descriptor] of originals) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else Reflect.deleteProperty(globalThis, key) }

@@ -1,15 +1,8 @@
-import { useEffect, useEffectEvent, type CSSProperties } from 'react'
+import { useEffect, useEffectEvent } from 'react'
 import type { WinMessage } from './content.ts'
 import { Dialog, Icon } from './ui.tsx'
 import { Art } from './Art.tsx'
-
-const PIECES = Array.from({ length: 22 }, (_, i) => ({
-  '--x': `${45 + (i * 43) % 155}px`,
-  '--y': `${-95 - (i * 31) % 150}px`,
-  '--spin': `${180 + i * 47}deg`,
-  '--delay': `${(i % 6) * 0.07}s`,
-  '--color': ['#f5bc32', '#2a8d69', '#de6b88', '#4b8ed5', '#ae75cc'][i % 5],
-}) as CSSProperties)
+import { WinConfetti } from './WinConfetti.tsx'
 
 export function Celebration({ message, onDone }: { message: WinMessage; onDone: () => void }) {
   const finish = useEffectEvent(onDone)
@@ -21,16 +14,15 @@ export function Celebration({ message, onDone }: { message: WinMessage; onDone: 
 
   return (
     <div className="celebration">
-      <div className="confetti" aria-hidden="true">
-        {['left', 'right'].map((side) => (
-          <div className={`confetti-side confetti-${side}`} key={side}>
-            {PIECES.map((style, i) => <i key={i} style={style} />)}
-          </div>
-        ))}
-      </div>
+      <WinConfetti />
       <Dialog className="achievement-panel" title={<>
         <span className="achievement-kicker">Achievement unlocked</span>
-        <span className="achievement-emblem" aria-hidden="true"><Art name="medal" /></span>
+        <span className="achievement-emblem" aria-hidden="true">
+          <Art name="medal" />
+          <span className="achievement-spark spark-one"><Art name="star" /></span>
+          <span className="achievement-spark spark-two"><Art name="star" /></span>
+          <span className="achievement-spark spark-three"><Art name="star" /></span>
+        </span>
         {message.level && <span className="celebration-level">{message.level}<span className="sr">: </span></span>}
         <span className="celebration-title">{message.title}</span>
       </>} onClose={onDone}>

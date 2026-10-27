@@ -64,3 +64,14 @@ Listening page: http://localhost:5184/artifacts/audio/instruments.html . Choose
 one action, compare the eight instruments with any selected soundtrack, and
 shortlist favorites. Shortlists are saved under an independent browser-only key;
 they do not change the game or student data. The user chooses before applying.
+
+## Supplied result recordings
+
+```sh
+python3 scripts/audio/convert_result_clips.py --source-dir <original-mp3-folder>
+```
+
+Uses FFmpeg (override `--ffmpeg` if it is outside PATH). Writes `level-win.wav`,
+`game-over.wav` and `result-clips.json` under `public/sounds/`. Mono 44.1kHz/16-bit
+PCM avoids an additional lossy encode; constant gain sets approximately -20 LUFS
+without compressing dynamics. The existing mallet sound bank is not regenerated.

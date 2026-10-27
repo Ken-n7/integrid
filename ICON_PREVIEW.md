@@ -211,3 +211,19 @@ Aesthetic fit remains a listening judgment. Local only; not deployed.
 The user requested deployment of the current game audio. Keep the sampled mallet
 bank and selected music playlists. Alternative instrument audition files remain
 local and are excluded from the production build.
+
+## Win confetti improvement — Oct 27 (local)
+
+Canvas confetti now rises from both sides in three waves, then falls with a few
+gold stars. The palette follows INTEGRID's gold, green, pink, blue and purple.
+The opaque achievement card protects message readability. A brief medal reveal
+and existing star artwork finish the card. The sequence is finite, with smaller
+particle budgets on phone widths, lazy loading and worker rendering where
+supported. Reduced motion shows the static achievement. Closing or backgrounding
+stops particles and queued bursts; StrictMode creates a fresh canvas each time.
+
+Production build/lint/whitespace checks pass. Browser checks cover 320–1280px,
+StrictMode, worker rendering, reduced motion, early dismissal, Relax reading,
+Expert's four-second progression and offline wins. A real puzzle win displays
+confetti and the converted Level Win clip; a real loss displays no confetti and
+uses Game Over. Preview and captures: artifacts/audio/confetti/. No deployment.

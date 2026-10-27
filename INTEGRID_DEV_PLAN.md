@@ -681,3 +681,54 @@ mode playlists and the sampled mallet SFX bank, independent volume/mute, Next
 song and credits. Eight instrument auditions and comparison players remain local
 under ignored artifacts; they do not change the selected game audio. Current
 WAV and generated cue metadata were verified unchanged from the accepted set.
+
+### User-supplied result recordings — Oct 27 (local)
+
+Win and game over use the original Level Win and Game Over assets from the main
+workspace's sounds folder. Converted to mono 44.1kHz/16-bit PCM WAV with constant
+gain targeting -20 LUFS and short edge fades; no additional lossy encode. Other
+selected effects/music retain their accepted files. Both recordings preload and
+are included in offline caching. Music pauses throughout each full clip and
+resumes its saved position. Pending/playing clips cancel on mute, retry or exit;
+failed loads fall back to the bank cue without trapping music in a paused state.
+
+Validation: production build, lint and audio regressions pass. Chromium wins and
+loses a real local puzzle, verifies the complete 3.55s/3.08s recordings and music
+pause/resume. Browser tests cover cancellation during loading, old-cleanup
+protection, mute and 404 fallback. Offline reload decodes both result WAVs. WAV
+loudness measures -20.00/-20.02 LUFS with peaks below -6dBFS. Conversion metadata
+and source/output hashes are in public/sounds/result-clips.json. No deployment
+was requested for this change; production remains at the prior audio release.
+
+### Fuller win confetti — Oct 27 (local)
+
+Replaced the 44 CSS pieces with a finite canvas-confetti 1.9.4 sequence: three
+staggered side bursts, falling paper and a few gold stars in the game's palette.
+Phones use 120 particles, larger viewports 176. The animation is lazy-loaded
+(4.2 KiB gzip), uses a worker when available and remains behind the achievement
+card. The existing medal gains a short reveal and three star assets. Achievement
+wording, Relax's learner-paced reading and Expert's four-second continuation
+retain their behavior. Reduced motion removes both the confetti and reveal
+animations. Dismissal/backgrounding cancels queued bursts and drawing; fresh
+canvases avoid double-transfer problems in React StrictMode.
+
+Validation: production build, lint and whitespace checks pass. Chromium checks
+cover StrictMode, worker rendering, 320–1280px layouts, clickable controls,
+finite animation cleanup, Escape cancellation, reduced motion both initially
+and during animation, and Expert timing. Actual puzzle win/loss checks confirm
+confetti only on wins and the new supplied result clips still pause/resume
+music correctly. An offline puzzle win loads the cached animation chunk and
+navigates to results. No JavaScript/worker errors in exercised flows. No physical
+phone performance claim. Screenshots and JSON evidence: artifacts/audio/confetti/.
+Interactive preview: http://localhost:5184/artifacts/audio/confetti/preview.html .
+Local only; not deployed.
+
+
+### Celebration release approved — Oct 27
+
+User approved deployment of the fuller win celebration. This release includes
+the pending PCM WAV Level Win/Game Over recordings and their guarded playback,
+as well as the canvas confetti, medal reveal, reduced-motion handling and cleanup.
+Local preview/audition pages remain excluded from production. Production build,
+lint and audio regressions pass; browser evidence covers actual wins/losses,
+phone layouts, worker rendering, cleanup, reduced motion and offline wins.

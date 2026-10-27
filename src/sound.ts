@@ -1,3 +1,4 @@
+import { loadResultClip, preloadResultClips, resultClip, scheduleResultClip } from './resultClips.ts'
 import { audioPreference, audioVolume, saveAudioPreference } from './audioPreferences.ts'
 import { preloadSoundPalette, scheduleCue, type SoundCue } from './soundPalette.ts'
 const KEY = 'integrid:sound', VOLUME_KEY = 'integrid:sound-volume'
@@ -33,7 +34,7 @@ export function pauseAudio(paused: boolean) {
 // Preload once; a small embedded sample covers the first click while decoding.
 export function warmSoundEffects() {
   const context = audio()
-  if (context) return preloadSoundPalette(context)
+  if (context) return Promise.all([preloadSoundPalette(context), preloadResultClips(context)]).then(() => {})
 }
 function output(context: AudioContext) {
   if (!effects) { effects = context.createGain(); effects.gain.value = soundVolume(); effects.connect(context.destination) }
@@ -66,7 +67,19 @@ function playResult(cue: 'win' | 'lose' | 'finish') {
   }
   stopResult = stop
   for (const listener of resultListeners) listener(true)
-  cancel = scheduleCue(context, output(context), cue, stop)
+  if (cue === 'finish') {
+    cancel = scheduleCue(context, output(context), cue, stop)
+  } else {
+    const play = (buffer: AudioBuffer) => {
+      if (stopResult !== stop) return // muted, restarted or left while loading
+      cancel = scheduleResultClip(context, output(context), buffer, stop)
+    }
+    const ready = resultClip(cue)
+    if (ready) play(ready)
+    else void loadResultClip(context, cue).then(play).catch(() => {
+      if (stopResult === stop) cancel = scheduleCue(context, output(context), cue, stop)
+    })
+  }
   return stop
 }
 export const sfx = {
