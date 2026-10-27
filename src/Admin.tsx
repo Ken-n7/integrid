@@ -11,6 +11,7 @@ import { BATTLES, clock, LEVELS, MODES, rankingFor, reward, START_COINS } from '
 import { db } from './store.ts'
 import { Deco, Dialog } from './ui.tsx'
 import { Art } from './Art.tsx'
+import { LoadingScreen } from './LoadingScreen.tsx'
 import { ConfirmDialog } from './ConfirmDialog.tsx'
 import { deleteStudent } from './studentAdmin.ts'
 import { useBack } from './back.ts'
@@ -117,7 +118,7 @@ export function Admin() {
     return () => data.subscription.unsubscribe()
   }, [])
   if (!db) return <Dashboard email="" demo />
-  if (!ready) return <Shell>Loading…</Shell>
+  if (!ready) return <Shell><LoadingScreen embedded title="Opening your classroom" detail="Getting your teacher tools ready." /></Shell>
   return session ? <Dashboard key={session.user.id} email={session.user.email ?? ''} teacherId={session.user.id} /> : <SignIn />
 }
 

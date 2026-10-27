@@ -44,7 +44,7 @@ export const Deco = ({ children }: { children: ReactNode }) => {
 // The shared coin asset keeps the same appearance on every phone.
 export const Coins = ({ n }: { n: number }) => (
   <span className="coins">
-    <img className="coin" src="/art/coin.png" width="20" height="20" alt="" aria-hidden="true" />
+    <img className="coin" src="/art/coin-96.webp" decoding="async" width="20" height="20" alt="" aria-hidden="true" />
     {n}
     <span className="sr">&nbsp;coins</span>
   </span>

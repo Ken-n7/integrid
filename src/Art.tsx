@@ -13,15 +13,17 @@ export type ArtName = typeof ASSETS[number] | typeof GENERATED[number] | 'battle
 const generatedNames: ReadonlySet<string> = new Set(GENERATED)
 
 // Decorative artwork: the nearby control label or labelled parent describes its purpose.
-export function Art({ name, className = '' }: { name: ArtName; className?: string }) {
+export function Art({ name, className = '', size = 48 }: { name: ArtName; className?: string; size?: number }) {
   if (name === 'battle') return (
     <span className={`art-icon art-battle ${className}`} aria-hidden="true">
-      <img src="/art/sword.png" width="256" height="256" alt="" draggable={false} />
-      <img src="/art/sword.png" width="256" height="256" alt="" draggable={false} />
+      <img src="/art/sword-96.webp" srcSet="/art/sword-96.webp 96w, /art/sword-192.webp 192w, /art/sword-256.webp 256w" sizes={`${size}px`} decoding="async" width="256" height="256" alt="" draggable={false} />
+      <img src="/art/sword-96.webp" srcSet="/art/sword-96.webp 96w, /art/sword-192.webp 192w, /art/sword-256.webp 256w" sizes={`${size}px`} decoding="async" width="256" height="256" alt="" draggable={false} />
     </span>
   )
   const direction = name === 'arrow-right' ? ' art-arrow-right' : name === 'arrow-down' ? ' art-arrow-down' : ''
   const asset = direction ? 'arrow-left' : name
-  const directory = generatedNames.has(asset) ? '/art/generated' : '/art'
-  return <img className={`art-icon${direction} ${className}`} src={`${directory}/${asset}.png`} width="256" height="256" alt="" aria-hidden="true" draggable={false} />
+  const generated = generatedNames.has(asset)
+  const directory = generated ? '/art/generated' : '/art'
+  const largest = generated ? 384 : 256
+  return <img className={`art-icon${direction} ${className}`} src={`${directory}/${asset}-96.webp`} srcSet={`${directory}/${asset}-96.webp 96w, ${directory}/${asset}-192.webp 192w, ${directory}/${asset}-${largest}.webp ${largest}w`} sizes={`${size}px`} decoding="async" width="256" height="256" alt="" aria-hidden="true" draggable={false} />
 }

@@ -1,4 +1,5 @@
 import { isBackNavigationSettling } from './back.ts'
+import { setOfflineState } from './offlineState.ts'
 
 // Only app files are refreshed. Student saves, sign-in and preferences stay in localStorage.
 const blockers = new Set<symbol>()
@@ -21,6 +22,7 @@ export function startAppUpdates() {
   const serviceWorker = navigator.serviceWorker
   let registration: ServiceWorkerRegistration | undefined
   let hadController = !!serviceWorker.controller
+  if (hadController) setOfflineState('ready')
   let needsReload = false
   let reloading = false
   let checking = false
@@ -38,6 +40,7 @@ export function startAppUpdates() {
   const queueUpdate = () => setTimeout(() => processUpdate?.(), 0)
   serviceWorker.addEventListener('controllerchange', () => {
     // Claiming a brand-new installation does not need another page load.
+    setOfflineState('ready')
     if (hadController) needsReload = true
     hadController = true
     queueUpdate()
@@ -54,7 +57,10 @@ export function startAppUpdates() {
   }
   function watchInstalling() {
     const worker = registration?.installing
+    if (worker) setOfflineState(hadController ? 'updating' : 'saving')
     worker?.addEventListener('statechange', () => {
+      if (worker.state === 'activated') setOfflineState('ready')
+      if (worker.state === 'redundant') setOfflineState(hadController ? 'ready' : 'idle')
       if (worker.state === 'installed' || worker.state === 'activated') queueUpdate()
     })
   }
@@ -67,13 +73,19 @@ export function startAppUpdates() {
       if (registration) {
         registration.addEventListener('updatefound', watchInstalling)
         watchInstalling()
+        if (registration.active?.state === 'activated' && !registration.installing) setOfflineState('ready')
         queueUpdate()
         void check(true)
       }
     } catch { /* First visit offline: keep the current page usable. */ }
     finally { connecting = false }
   }
-  void connect()
+  const begin = () => {
+    if ('requestIdleCallback' in window) requestIdleCallback(() => { void connect() }, { timeout: 3000 })
+    else setTimeout(() => { void connect() }, 0)
+  }
+  if (document.readyState === 'complete') begin()
+  else addEventListener('load', begin, { once: true })
   const checkOrConnect = (force = false) => registration ? check(force) : connect()
 
   addEventListener('integrid:history-settled', queueUpdate)

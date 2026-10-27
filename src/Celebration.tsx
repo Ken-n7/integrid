@@ -18,7 +18,7 @@ export function Celebration({ message, onDone }: { message: WinMessage; onDone: 
       <Dialog className="achievement-panel" title={<>
         <span className="achievement-kicker">Achievement unlocked</span>
         <span className="achievement-emblem" aria-hidden="true">
-          <Art name="medal" />
+          <Art name="medal" size={88} />
           <span className="achievement-spark spark-one"><Art name="star" /></span>
           <span className="achievement-spark spark-two"><Art name="star" /></span>
           <span className="achievement-spark spark-three"><Art name="star" /></span>

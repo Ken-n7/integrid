@@ -32,3 +32,6 @@ dist-ssr
 
 # Local audio authoring sources, listening previews and verification captures
 /artifacts/audio/
+
+# Local Lighthouse reports and browser performance captures
+/artifacts/performance/

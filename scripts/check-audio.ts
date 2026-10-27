@@ -54,7 +54,7 @@ try {
   for (const mode of ['relax', 'expert', 'battle']) { assert.equal(musicSceneForScreen(mode), mode); assert.equal(musicSceneForScreen({ level: mode + '-1' }), mode) }
   sound.sfx.tap()
   assert.equal(sources.at(-1)!.buffer?.kind, 'embedded-tap', 'first click works before downloads')
-  assert.equal(sources.at(-1)!.duration, SOUND_BANK.tap.duration)
+  assert.equal(sources.at(-1)!.duration, 0, 'the complete embedded click plays without a redundant duration boundary')
   sound.setSoundOn(false); sound.setSoundOn(true)
   const warming = sound.warmSoundEffects()
   await tick()

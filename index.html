@@ -6,11 +6,33 @@
     <title>INTEGRID In Action</title>
     <meta name="description" content="A math crossword adventure for mastering integer operations." />
     <meta name="theme-color" content="#ffd34e" />
+    <link rel="preload" href="/node_modules/@fontsource-variable/nunito/files/nunito-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main class="loading-screen" role="status" aria-live="polite">
+        <div class="loading-card"><p class="loading-brand">INTEGRID <span>IN ACTION</span></p>
+          <div class="loading-grid" aria-hidden="true"><span>−3</span><span>+</span><span class="loading-answer">?</span><span>=</span><span>2</span></div>
+          <h1>Getting your adventure ready</h1><p id="startup-message">Your next challenge is on its way.</p>
+          <span class="loading-dots" aria-hidden="true"><i></i><i></i><i></i></span><small>One box. One step closer.</small>
+          <button class="loading-retry" id="startup-retry" type="button" hidden>Try again</button>
+        </div>
+      </main>
+    </div>
+    <noscript><p>Enable JavaScript to play INTEGRID. Your progress stays saved on this device.</p></noscript>
+    <script>
+      (() => {
+        const retry = document.getElementById('startup-retry');
+        const message = document.getElementById('startup-message');
+        const slow = () => { if (retry && retry.isConnected) { retry.hidden = false; message.textContent = 'Taking a little longer. Check your connection and try again.'; } };
+        const timer = setTimeout(slow, 12000);
+        retry.onclick = () => location.reload();
+        addEventListener('integrid:ready', () => clearTimeout(timer), { once: true });
+        addEventListener('error', event => { if (event.target && event.target.tagName === 'SCRIPT') slow(); }, true);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

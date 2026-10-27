@@ -1,9 +1,11 @@
+import { readFileSync } from 'node:fs'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   plugins: [
+    { name: 'integrid-loading-shell', transformIndexHtml: (_html, context) => context.filename?.endsWith('/index.html') ? [{ tag: 'style', children: readFileSync('src/loading.css', 'utf8'), injectTo: 'head' }] : [] },
     react(),
     // Keep offline play, while the app controls when it is safe to refresh an open screen.
     VitePWA({
@@ -29,8 +31,8 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.ts',
       injectManifest: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ogg,mp3,wav}', '**/nunito-latin-wght-*.woff2'],
-        globIgnores: ['**/gallery.html'],
+        globPatterns: ['**/*.{js,css,html,svg,png,webp,ogg,mp3,wav}', '**/nunito-latin-wght-*.woff2'],
+        globIgnores: ['**/gallery.html', 'art/**/*.png'],
       },
     }),
   ],

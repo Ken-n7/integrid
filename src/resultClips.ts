@@ -15,7 +15,7 @@ export function loadResultClip(ctx: BaseAudioContext, cue: RecordedResult): Prom
   if (loading) return loading
   if (Date.now() < (retryAt.get(cue) ?? 0)) return Promise.reject(new Error('Result retry cooldown'))
   const promise = (async () => {
-    const response = await fetch(RESULT_CLIPS[cue], { signal: AbortSignal.timeout(6000) })
+    const response = await fetch(RESULT_CLIPS[cue], { priority: 'low', signal: AbortSignal.timeout(6000) })
     if (!response.ok) throw new Error('Result sound unavailable')
     const buffer = await ctx.decodeAudioData(await response.arrayBuffer())
     if (!Number.isFinite(buffer.duration) || buffer.duration <= 0 || buffer.duration > 15) throw new Error('Invalid result sound')

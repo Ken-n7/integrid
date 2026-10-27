@@ -71,7 +71,7 @@ async function loadTrack(id: MusicTrack, ctx: AudioContext): Promise<AudioBuffer
   if (existing) return existing
   if ((failedUntil.get(id) ?? 0) > Date.now()) throw new Error('Music retry cooldown')
   const promise = (async () => {
-    const response = await fetch(MUSIC_TRACKS[id].src, { signal: AbortSignal.timeout(12000) })
+    const response = await fetch(MUSIC_TRACKS[id].src, { priority: 'low', signal: AbortSignal.timeout(12000) })
     if (!response.ok) throw new Error('Music unavailable')
     const buffer = await ctx.decodeAudioData(await response.arrayBuffer())
     if (!Number.isFinite(buffer.duration) || buffer.duration <= 0) throw new Error('Invalid music')

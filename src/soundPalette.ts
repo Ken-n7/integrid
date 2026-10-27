@@ -11,7 +11,7 @@ export function preloadSoundPalette(ctx: BaseAudioContext) {
   if (bank || Date.now() < retryAt) return Promise.resolve()
   if (loading) return loading
   loading = (async () => {
-    const response = await fetch('/sounds/puzzle-kit.wav', { signal: AbortSignal.timeout(6000) })
+    const response = await fetch('/sounds/puzzle-kit.wav', { priority: 'low', signal: AbortSignal.timeout(6000) })
     if (!response.ok) throw new Error('Sound bank unavailable')
     const decoded = await ctx.decodeAudioData(await response.arrayBuffer())
     const last = SOUND_BANK.finish
@@ -42,7 +42,8 @@ export function scheduleCue(ctx: BaseAudioContext, destination: AudioNode, cue: 
     source.disconnect(); gain.disconnect()
     if (!stopped) onEnd()
   }
-  source.start(0, span.offset, span.duration)
+  if (bank) source.start(0, span.offset, span.duration)
+  else source.start() // the embedded click is already a complete, bounded buffer
   return () => {
     if (stopped || ended) return
     stopped = true

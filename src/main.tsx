@@ -1,7 +1,8 @@
-import '@fontsource-variable/nunito'
+import './fonts.css'
 import { Component, StrictMode, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
+import { LoadingScreen } from './LoadingScreen.tsx'
 import './styles.css'
 
 // If drawing a screen ever fails, show a way out instead of a blank page.
@@ -10,15 +11,7 @@ class Crash extends Component<{ children: ReactNode }, { failed: boolean }> {
   static getDerivedStateFromError = () => ({ failed: true })
   render() {
     if (!this.state.failed) return this.props.children
-    return (
-      <main className="screen center">
-        <h1>Something went wrong</h1>
-        <p className="sub">Finished levels are saved on this phone.</p>
-        <button className="big" onClick={() => location.reload()} autoFocus>
-          Reload
-        </button>
-      </main>
-    )
+    return <LoadingScreen title="Let’s try that again" detail="Your saved progress is safe. Reload to open your adventure." retryNow />
   }
 }
 

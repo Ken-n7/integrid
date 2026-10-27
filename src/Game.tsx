@@ -120,9 +120,21 @@ export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf
   const ticking = battle ? !battle.over : run.status === 'play' // a battle's clock runs until the round ends
   useEffect(() => {
     if (!ticking) return
-    const t = setInterval(() => setNow(Date.now()), 250)
-    return () => clearInterval(t)
-  }, [ticking])
+    let timer: ReturnType<typeof setTimeout>
+    const tick = () => {
+      clearTimeout(timer)
+      if (document.hidden) return
+      const time = Date.now()
+      setNow(time)
+      // The display changes once per second. Align to the run's start so Battle
+      // deadlines stay accurate without redrawing the entire board four times a second.
+      const intoSecond = ((time - run.start) % 1000 + 1000) % 1000
+      timer = setTimeout(tick, 1005 - intoSecond)
+    }
+    tick()
+    document.addEventListener('visibilitychange', tick)
+    return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', tick) }
+  }, [ticking, run.start])
   useEffect(() => {
     if (!flash) return
     const t = setTimeout(() => setFlash(null), 700)
@@ -186,7 +198,8 @@ export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf
     }
   }, [grid])
 
-  const filled = battle ? { ...battle.shared, ...run.filled } : run.filled
+  const shared = battle?.shared
+  const filled = useMemo(() => shared ? { ...shared, ...run.filled } : run.filled, [shared, run.filled])
   const filledCount = blanks.filter((k) => k in filled).length
   const allDone = blanks.every((k) => k in filled)
   const seconds = started ? Math.max(0, Math.floor(((run.end ?? now) - run.start) / 1000)) : 0

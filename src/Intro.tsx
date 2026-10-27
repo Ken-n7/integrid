@@ -51,7 +51,7 @@ function IntroArt({ step }: { step: number }) {
   )
   return (
     <div className="intro-art intro-goal">
-      <span className="intro-star" aria-hidden="true"><Art name="star" /></span>
+      <span className="intro-star" aria-hidden="true"><Art name="star" size={128} /></span>
       <p className="eyebrow">Your goal</p>
       <p className="intro-legend">INTEGRID Legend</p>
     </div>
