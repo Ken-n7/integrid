@@ -15,7 +15,7 @@ import { AudioSettings } from './AudioSettings.tsx'
 import { ConfirmDialog } from './ConfirmDialog.tsx'
 import { useAppUpdateBlocker } from './useAppUpdateBlocker.ts'
 
-type Screen = 'landing' | 'login' | 'intro' | 'howto' | 'pre' | 'modes' | 'settings' | Mode | 'ranking' | { level: string }
+type Screen = 'landing' | 'login' | 'intro' | 'howto' | 'outro' | 'pre' | 'modes' | 'settings' | Mode | 'ranking' | { level: string }
 type HowToFrom = 'landing' | 'settings'
 type IntroFrom = 'landing' | 'settings'
 
@@ -23,6 +23,7 @@ const Game = lazy(() => import('./Game.tsx').then(({ Game }) => ({ default: Game
 const BattleRoom = lazy(() => import('./Battle.tsx').then(({ BattleRoom }) => ({ default: BattleRoom })))
 const Intro = lazy(() => import('./Intro.tsx').then(({ Intro }) => ({ default: Intro })))
 const HowTo = lazy(() => import('./HowTo.tsx').then(({ HowTo }) => ({ default: HowTo })))
+const BattleOutro = lazy(() => import('./BattleOutro.tsx').then(({ BattleOutro }) => ({ default: BattleOutro })))
 
 export default function StudentApp() {
   const [store, setStore] = useState(load)
@@ -30,7 +31,7 @@ export default function StudentApp() {
     const saved = store.who ? store.saves[store.who] : null
     return saved ? startScreen(saved) : 'login'
   })
-  useAppUpdateBlocker(screen === 'pre' || screen === 'intro' || screen === 'howto')
+  useAppUpdateBlocker(screen === 'pre' || screen === 'intro' || screen === 'howto' || screen === 'outro')
   const [ranking, setRanking] = useState<Rank[] | null>(null) // null = not fetched yet (offline)
   const [howtoFrom, setHowtoFrom] = useState<HowToFrom>('landing')
   const [howtoStep, setHowtoStep] = useState(0)
@@ -188,6 +189,7 @@ export default function StudentApp() {
     completeOnboarding({ introDone: true, howtoDone: true })
     go(save.preDone ? 'modes' : 'pre')
   }} />
+  if (screen === 'outro') return <BattleOutro onDone={() => go('modes')} />
   if (screen === 'pre')
     return (
       <Pre
@@ -241,7 +243,7 @@ export default function StudentApp() {
       <BattleRoom
         code={save.code}
         coins={coins}
-        onExit={() => go('modes')}
+        onExit={(completedFinal) => go(completedFinal ? 'outro' : 'modes')}
         onProgress={(a) => update((s) => ({ ...s, current: { ...a, filled: {} } }))}
         onFinish={(a) => update((s) => ({ ...s, current: null, attempts: [...s.attempts, a] }))}
       />

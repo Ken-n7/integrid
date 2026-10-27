@@ -84,7 +84,7 @@ function Bars({ bars, total, mine, members, names = false, top = Infinity, compa
 
 // ---------- students ----------
 
-type Props = { code: string; coins: number; onExit: () => void; onProgress: (a: Attempt) => void; onFinish: (a: Attempt) => void }
+type Props = { code: string; coins: number; onExit: (completedFinal?: boolean) => void; onProgress: (a: Attempt) => void; onFinish: (a: Attempt) => void }
 
 export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props) {
   const [runId] = useState(uuid) // rejoining starts a new wrong-answer count, without restoring group hearts
@@ -237,7 +237,7 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
           onProgress(a)
         }}
         onFinish={onFinish}
-        onExit={onExit}
+        onExit={() => onExit(snap.state === 'done' && level.id === BATTLES.at(-1)?.id)}
         onNext={null}
         battle={link}
       />

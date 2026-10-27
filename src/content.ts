@@ -25,6 +25,16 @@ export const INTRO = [
   },
 ]
 
+// A closing message for every learner after the final class battle, regardless of placing.
+export const BATTLE_OUTRO = {
+  badge: 'Final battle complete',
+  title: 'Well played, Math Adventurer!',
+  lead: 'From integer puzzles to team battles, you kept learning, trying, and working together.',
+  message: 'Every correct answer builds confidence. Every mistake is a chance to learn.',
+  closing: 'Keep practising. Your next adventure awaits!',
+  action: 'Back to adventures',
+}
+
 export type WinMessage = { title: string; text: string; level?: string; detail?: string }
 
 // Researchers' approved wording for Relax's four operations (Ken, Oct 22).

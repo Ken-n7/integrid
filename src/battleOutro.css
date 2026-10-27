@@ -1,0 +1,29 @@
+/* Final-battle outro: one learner-paced closing card, using the intro's artwork and colors. */
+.screen.battle-outro { max-width: 32rem; padding-block: clamp(14px, 2.5dvh, 24px) max(16px, env(safe-area-inset-bottom)); gap: clamp(12px, 2dvh, 20px); }
+.outro-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.outro-header > span:first-child { color: var(--brown); font-size: .85rem; font-weight: 1000; letter-spacing: .04em; line-height: 1.1; }
+.outro-header small { display: block; margin-top: 3px; font-size: .43rem; letter-spacing: .16em; }
+.outro-complete { display: flex; align-items: center; gap: 5px; padding: 7px 9px; border: 1px solid #c4dbbf; border-radius: 999px; background: #e8f4df; color: #326144; font-size: .62rem; font-weight: 850; }
+.outro-complete .art-icon { width: 17px; height: 17px; }
+.outro-card { display: flex; flex-direction: column; align-items: center; gap: 16px; margin-block: auto; padding: 24px 22px; border: 1px solid #e7cc91; border-top: 5px solid #d5a138; border-radius: 28px; background: #fffdf7; box-shadow: 0 5px 0 #eddcb9, 0 12px 28px rgb(122 59 12 / .07); text-align: center; overflow-wrap: anywhere; }
+.outro-emblem { position: relative; width: 138px; height: 112px; display: grid; place-items: center; }
+.outro-medal { display: grid; place-items: center; width: 100px; height: 100px; border: 1px solid #eccb72; border-radius: 30px; background: #fff0b9; box-shadow: 0 4px 0 #efdb9e; transform: rotate(-5deg); }
+.outro-medal .art-icon { width: 88px; height: 88px; transform: rotate(5deg); }
+.outro-star { position: absolute; width: 28px; height: 28px; }.outro-star.one { top: 0; right: 0; transform: rotate(14deg); }.outro-star.two { width: 20px; height: 20px; bottom: 2px; left: 0; transform: rotate(-15deg); }
+.outro-card h1 { max-width: 18ch; font-size: clamp(1.4rem, 6vw, 1.8rem); color: var(--brown); line-height: 1.15; font-weight: 950; }
+.outro-lead { font-size: .9rem; line-height: 1.55; color: var(--muted); }
+.outro-journey { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; list-style: none; padding: 0; margin: 0; }
+.outro-journey li { min-width: 0; display: grid; justify-items: center; gap: 3px; padding: 10px 2px; border: 1px solid #c7dfbd; border-radius: 16px; background: #eaf4e1; color: #376243; }
+.outro-journey li:nth-child(2) { border-color: #edd2a8; background: #fff0d9; color: #984813; }.outro-journey li:nth-child(3) { border-color: #cbd5ee; background: #eaf0ff; color: #3456a9; }
+.outro-journey .art-icon { width: 32px; height: 32px; }.outro-journey b { font-size: .8rem; }.outro-journey small { font-size: .6rem; font-weight: 750; }
+.outro-message { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid #e4d7f1; border-radius: 14px; background: #f3edfa; font-size: .82rem; line-height: 1.5; color: #624482; text-align: left; font-weight: 750; }
+.outro-message .art-icon { width: 29px; height: 29px; flex-shrink: 0; }
+.outro-message span { min-width: 0; }
+.outro-footer { display: grid; gap: 10px; padding-block: 10px 4px; background: linear-gradient(0deg, var(--bg2) 88%, transparent); text-align: center; }
+.outro-footer p { font-size: .72rem; line-height: 1.4; font-weight: 800; color: var(--muted); }.outro-footer .big { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }.outro-footer .utility-art { width: 20px; height: 20px; }
+@media (max-height: 720px), (max-width: 360px) {
+  .screen.battle-outro { gap: 12px; }.outro-card { padding: 16px; gap: 12px; }.outro-emblem { width: 110px; height: 82px; }.outro-medal { width: 74px; height: 74px; border-radius: 23px; }.outro-medal .art-icon { width: 64px; height: 64px; }.outro-card h1 { font-size: 1.4rem; }.outro-lead { font-size: .82rem; }.outro-journey li { padding: 7px 2px; }.outro-journey .art-icon { width: 25px; height: 25px; }.outro-message { padding: 10px; font-size: .76rem; }.outro-footer { gap: 7px; }
+}
+@media (max-height: 680px) {
+  .screen.battle-outro { padding-block: 12px; gap: 10px; }.outro-card { padding: 12px 14px; gap: 9px; }.outro-emblem { width: 94px; height: 60px; }.outro-medal { width: 55px; height: 55px; border-radius: 18px; }.outro-medal .art-icon { width: 49px; height: 49px; }.outro-star.one { width: 21px; height: 21px; }.outro-star.two { width: 16px; height: 16px; }.outro-lead { line-height: 1.45; }.outro-journey li { padding: 6px 2px; }.outro-journey small { display: none; }.outro-message { padding: 9px; line-height: 1.4; }.outro-footer { padding-block: 4px; gap: 6px; }.outro-footer .big { min-height: 48px; font-size: .95rem; }
+}

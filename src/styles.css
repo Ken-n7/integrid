@@ -2340,6 +2340,13 @@ td.won {
 .battle-result-stats dt { font-size: 0.65rem; font-weight: 750; color: #52678f; }
 .battle-result-stats dd { margin: 3px 0 0; font-size: 1.5rem; font-weight: 950; color: #3456a9; }
 .battle-result-stats dd small { font-size: 0.75rem; }
+
+/* The winning group gets the same finite confetti sequence, behind readable results. */
+.battle-end { position: fixed; inset: 0; z-index: 10; }
+.battle-results-panel > h2 { padding-inline: 10px; }
+.battle-results-panel > .dialog-body > .big { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.battle-results-panel > .dialog-body > .big .utility-art { width: 20px; height: 20px; }
+
 .battle-ranking-title { margin-top: 8px; text-align: left; font-size: 0.95rem; color: #3456a9; }
 @media (hover: hover) { .battle-group-card:hover { border-color: #5471be; background: #fff; } }
 @media (min-width: 600px) { .battle-group-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

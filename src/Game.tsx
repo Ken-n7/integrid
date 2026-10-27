@@ -3,10 +3,11 @@ import { flushSync } from 'react-dom'
 import { useBack } from './back.ts'
 import { useAppUpdateBlocker } from './useAppUpdateBlocker.ts'
 import { Celebration } from './Celebration.tsx'
+import { BattleResults } from './BattleResults.tsx'
 import { clue, guideFor, RELAX_WIN_MESSAGES, sayNum, sayPattern, SIGN_RULES, WIN_MESSAGES, type RuleSection, type WinMessage } from './content.ts'
 import { bankOf, blanksOf, equations, key, lenOf, parse } from './puzzle.ts'
 import { versionOf } from './puzzles.ts'
-import { clock, HEARTS, MODES, reward, type Attempt, type Level, type Result } from './rules.ts'
+import { BATTLES, clock, HEARTS, MODES, reward, type Attempt, type Level, type Result } from './rules.ts'
 import { sfx } from './sound.ts'
 import { focusMusic } from './music.ts'
 import { uuid, type Pending } from './store.ts'
@@ -97,13 +98,6 @@ export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf
   const [confirmReturn, setConfirmReturn] = useState<'settings' | null>(null)
   const [celebration, setCelebration] = useState<WinMessage | null>(null)
   const stopResultSound = useRef<() => void>(() => {})
-  const battleResult = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!battle?.over || !battleResult.current) return
-    battleResult.current.focus({ preventScroll: true })
-    const panel = battleResult.current.closest<HTMLElement>('.panel')
-    if (panel) panel.scrollTop = 0
-  }, [battle?.over])
   useEffect(() => () => stopResultSound.current(), [])
   const battleOver = !!battle?.over, battleWon = !!battle?.won
   useEffect(() => {
@@ -433,9 +427,7 @@ export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf
   )
   const rank = playing || run.status === 'lose' || !rules.ranked ? undefined : rankOf(seconds, run.wrong)
   const [heading, subheading] = battle ? [level.title, battle.title] : [`Level ${level.n}`, level.title]
-  const actionTitle = battle?.over ? (
-    <><Deco>🏁</Deco> Battle over!</>
-  ) : dialog === 'settings' ? (
+  const actionTitle = dialog === 'settings' ? (
     <>
       <span className="game-menu-kicker"><Art name="settings" />Game settings</span>
       <span className="game-menu-title">{level.title}</span>
@@ -585,7 +577,7 @@ export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf
         </div>
       </div>
 
-      {info && (
+      {info && !battle?.over && (
         <Dialog title={battle ? level.title : `Level ${level.n} · ${level.title}`} onClose={closeInfo} onBack={started ? closeInfo : onExit}>
           {clueBox}
           {guide.map((s) => (
@@ -603,26 +595,19 @@ export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf
         </Dialog>
       )}
 
-      {dialog === 'rules' && (
+      {dialog === 'rules' && !battle?.over && (
         <Dialog title={<><Art name="book" /> Integer Rules</>} onClose={() => setDialog(null)} className={`rules-panel ${level.mode}`}>
           <RulesHelp freeClue={rules.clue} clueBox={clueBox} initialRule={RULE_TITLES[level.ops[0]]} onClose={() => setDialog(null)} />
         </Dialog>
       )}
 
-      {(battle?.over || dialog === 'settings' || dialog === 'leave' || dialog === 'restart') && (
+      {battle?.over ? <BattleResults battle={battle} finale={level.id === BATTLES.at(-1)?.id} onContinue={onExit} /> : (dialog === 'settings' || dialog === 'leave' || dialog === 'restart') && (
         <Dialog
           title={actionTitle}
-          className={battle?.over ? '' : `game-actions-panel ${level.mode}`}
-          onClose={battle?.over ? undefined : () => setDialog(dialog === 'settings' ? null : confirmReturn)}
-          onBack={battle?.over ? onExit : undefined}
+          className={`game-actions-panel ${level.mode}`}
+          onClose={() => setDialog(dialog === 'settings' ? null : confirmReturn)}
         >
-          {battle?.over ? (
-            <>
-              <div ref={battleResult} className="battle-final-summary" role="group" aria-label="Your Battle result" tabIndex={-1}>{battle.result}</div>
-              {battle.bars}
-              <button className="big" onClick={onExit}>Back to modes</button>
-            </>
-          ) : dialog === 'settings' ? (
+          {dialog === 'settings' ? (
             <div className="game-menu">
               {sample && <span className="tag">SAMPLE</span>}
               <button className="big game-menu-return" onClick={() => setDialog(null)} autoFocus><Art name="controller" />Return to game<Icon name="next" /></button>
