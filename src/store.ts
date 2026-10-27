@@ -1,6 +1,7 @@
 // Each student's save lives on the device; Supabase gets a copy whenever there's internet.
 import { createClient } from '@supabase/supabase-js'
 import { BATTLES, HEARTS, LEVELS, type Attempt, type Rank } from './rules.ts'
+import { mergePractice, readPracticeResult, type PracticeResult } from './practice.ts'
 
 const env = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env
 const url = env?.VITE_SUPABASE_URL
@@ -11,7 +12,7 @@ export const db = url && anonKey ? createClient(url, anonKey) : null
 // A level still being played, with its boxes (cell → solved with a hint?), so closing the app
 // mid-level can be continued.
 export type Pending = Attempt & { filled: Record<string, boolean> }
-export type Save = { code: string; pin: string; introDone: boolean; howtoDone: boolean; preDone: boolean; attempts: Attempt[]; current: Pending | null }
+export type Save = { code: string; pin: string; introDone: boolean; howtoDone: boolean; preDone: boolean; attempts: Attempt[]; current: Pending | null; practice?: PracticeResult[] }
 export type Store = { who: string | null; saves: Record<string, Save> }
 
 const KEY = 'integrid:v1'
@@ -46,15 +47,16 @@ export function readStore(raw: string | null): Store {
     for (const [code, s] of Object.entries(saved.saves)) {
       if (!/^[A-Z0-9-]{1,12}$/.test(code) || !record(s) || s.code !== code || typeof s.pin !== 'string' || !/^\d{4}$/.test(s.pin) || !Array.isArray(s.attempts)) continue
       const attempts = s.attempts.filter(attempt)
+      const practice = Array.isArray(s.practice) ? s.practice.map(readPracticeResult).filter((r): r is PracticeResult => r !== null) : []
       const c = s.current
       const filled = record(c) ? c.filled : null
       const open = attempt(c) && !attempts.some((a) => a.id === c.id) ? { ...c, filled: board(filled) ? filled : {} } : null
       // Older versions showed both guides on every Start. Existing students have already
       // been introduced; migrate them without another tour, keeping the assessment gate.
       const legacyGuides = !('introDone' in s) && !('howtoDone' in s)
-      const familiar = legacyGuides || s.preDone === true || attempts.length > 0 || open !== null
+      const familiar = legacyGuides || s.preDone === true || attempts.length > 0 || open !== null || practice.length > 0
       const howtoDone = s.howtoDone === true || familiar
-      const save: Save = { code, pin: s.pin, introDone: s.introDone === true || howtoDone, howtoDone, preDone: s.preDone === true, attempts, current: open }
+      const save: Save = { code, pin: s.pin, introDone: s.introDone === true || howtoDone, howtoDone, preDone: s.preDone === true || practice.length > 0, attempts, current: open, practice }
       // A Relax or Expert level open when the app closed waits to be continued. Anything else
       // (a battle, an older save without its boxes) counts as quit, spent hint coins included.
       const resumable = open && board(filled) && LEVELS.some((l) => l.id === open.level) && open.wrong < HEARTS
@@ -78,23 +80,25 @@ export function load(): Store {
 export function persist(store: Store) {
   try {
     localStorage.setItem(KEY, JSON.stringify(store))
+    return true
   } catch {
-    // full or blocked: keep playing, the server copy still syncs
+    return false // The student UI reports that this tab must stay open until results sync.
   }
 }
 
-export const newSave = (code: string, pin: string): Save => ({ code, pin, introDone: false, howtoDone: false, preDone: false, attempts: [], current: null })
+export const newSave = (code: string, pin: string): Save => ({ code, pin, introDone: false, howtoDone: false, preDone: false, attempts: [], current: null, practice: [] })
 
 // Resume only the unfinished introduction/assessment; completed guides live in Settings.
 export const startScreen = (save: Save) => !save.introDone ? 'intro' : !save.howtoDone ? 'howto' : !save.preDone ? 'pre' : 'modes'
 
-export function merge(save: Save, server: Attempt[]): Save {
+export function merge(save: Save, server: Attempt[], serverPractice?: PracticeResult[]): Save {
   const byId = new Map(save.attempts.map((a) => [a.id, a]))
   for (const a of server) byId.set(a.id, { ...a, synced: true })
-  // preDone only lives on the device; any played level on the server means the pre-assessment
-  // was finished (it gates Level 1), so a new phone or cleared browser doesn't ask again.
-  const familiar = save.preDone || save.attempts.length > 0 || save.current !== null || server.length > 0
-  return { ...save, introDone: save.introDone || save.howtoDone || familiar, howtoDone: save.howtoDone || familiar, preDone: save.preDone || server.length > 0, attempts: [...byId.values()] }
+  // A recorded practice check restores completion on another device. For older students,
+  // a played level also proves completion because the practice check gates Level 1.
+  const practice = mergePractice(save.practice ?? [], serverPractice ?? [])
+  const familiar = save.preDone || save.attempts.length > 0 || save.current !== null || server.length > 0 || practice.length > 0
+  return { ...save, introDone: save.introDone || save.howtoDone || familiar, howtoDone: save.howtoDone || familiar, preDone: save.preDone || server.length > 0 || practice.length > 0, attempts: [...byId.values()], practice }
 }
 
 // Sends unsent attempts; gets back the student's whole history (other devices too) and
@@ -110,6 +114,8 @@ export async function sync(save: Save, client: SyncClient | null = db): Promise<
     const { data, error } = await client.rpc('integrid_sync', { p_code: save.code, p_pin: save.pin, p_attempts: pending.slice(from, from + 500) })
     if (error) throw error
     if (!data) return 'bad-login'
+    if (!Array.isArray(data.attempts) || !data.attempts.every(attempt) || !Array.isArray(data.ranking)) throw new Error('The saved game results could not be verified.')
+    if (pending.slice(from, from + 500).some(attempt => !data.attempts.some(saved => saved.id === attempt.id))) throw new Error('Game results were not confirmed saved.')
     latest = data
   }
   return latest

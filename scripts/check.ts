@@ -2,6 +2,7 @@
 //   npm run check
 import assert from 'node:assert/strict'
 import './check-flows.ts'
+import './check-practice.ts'
 import './check-student-admin.ts'
 import './check-battle-history.ts'
 import { readdirSync, readFileSync } from 'node:fs'

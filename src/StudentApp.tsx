@@ -1,8 +1,8 @@
-import { lazy, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
+import { lazy, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { PRE_ASSESSMENT } from './content.ts'
 import { Landing } from './Landing.tsx'
 import { BATTLES, bestWin, clock, coinsOf, isUnlocked, LEVELS, rankingFor, wonLevels, type Attempt, type Mode, type Rank } from './rules.ts'
-import { abandon, db, load, merge, newSave, persist, startScreen, sync, type Save, type Store } from './store.ts'
+import { abandon, db, load, merge, newSave, persist, startScreen, sync, uuid, type Save, type Store } from './store.ts'
 import { useBack } from './back.ts'
 import { focusScreen } from './focus.ts'
 import { focusMusic, setMusicScene, startMusic, stopMusic } from './music.ts'
@@ -14,6 +14,7 @@ import { Art } from './Art.tsx'
 import { AudioSettings } from './AudioSettings.tsx'
 import { ConfirmDialog } from './ConfirmDialog.tsx'
 import { useAppUpdateBlocker } from './useAppUpdateBlocker.ts'
+import { makePracticeResult, syncPractice, type PracticeResult } from './practice.ts'
 
 type Screen = 'landing' | 'login' | 'intro' | 'howto' | 'outro' | 'pre' | 'modes' | 'settings' | Mode | 'ranking' | { level: string }
 type HowToFrom = 'landing' | 'settings'
@@ -24,6 +25,19 @@ const BattleRoom = lazy(() => import('./Battle.tsx').then(({ BattleRoom }) => ({
 const Intro = lazy(() => import('./Intro.tsx').then(({ Intro }) => ({ default: Intro })))
 const HowTo = lazy(() => import('./HowTo.tsx').then(({ HowTo }) => ({ default: HowTo })))
 const BattleOutro = lazy(() => import('./BattleOutro.tsx').then(({ BattleOutro }) => ({ default: BattleOutro })))
+
+type SavePhase = 'local' | 'saved' | 'syncing' | 'waiting' | 'signin' | 'storage'
+const pendingCount = (save: Save) => save.attempts.filter(attempt => !attempt.synced).length + (save.practice ?? []).filter(result => !result.synced).length
+const hasPending = (save: Save) => pendingCount(save) > 0
+function SaveStatus({ phase, pending, onRetry }: { phase: SavePhase; pending: number; onRetry: () => void }) {
+  const message = phase === 'storage' ? 'Couldn’t save on this device. Keep this tab open until your results sync.'
+    : phase === 'local' ? 'Saved on this device'
+    : phase === 'signin' ? 'Results are on this device. Ask your teacher to check your student code.'
+    : phase === 'syncing' ? 'Saving your results…'
+    : pending ? `Saved on this device · ${pending} ${pending === 1 ? 'result' : 'results'} waiting to sync`
+    : phase === 'waiting' ? 'Connect to check your saved results.' : 'Results up to date'
+  return <div className={`save-status ${phase}`} role="status"><span>{message}</span>{pending > 0 && ['waiting', 'signin', 'storage'].includes(phase) && <button className="link" onClick={onRetry}>Retry save</button>}</div>
+}
 
 export default function StudentApp() {
   const [store, setStore] = useState(load)
@@ -42,6 +56,13 @@ export default function StudentApp() {
   const [, setPuzzles] = useState(0) // bumped when the researchers' approved puzzles arrive
   const latest = useRef(store)
   const busy = useRef(false)
+  const alive = useRef(true)
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const retryDelay = useRef(2000)
+  const invalidCodes = useRef(new Map<string, string>())
+  const [syncRevision, setSyncRevision] = useState(0)
+  const [savePhase, setSavePhase] = useState<SavePhase>(db ? 'saved' : 'local')
+  const [storageFailed, setStorageFailed] = useState(false)
   const save = store.who ? store.saves[store.who] : null
   const saveBeforeUpdate = useEffectEvent(() => persist(store))
   useLayoutEffect(() => {
@@ -50,10 +71,16 @@ export default function StudentApp() {
     return () => removeEventListener('integrid:before-update', save)
   }, [])
 
-  useEffect(() => {
+  const persistStore = useEffectEvent(() => {
     latest.current = store
-    persist(store)
-  }, [store])
+    const failed = !persist(store)
+    queueMicrotask(() => { if (alive.current) setStorageFailed(failed) })
+  })
+  useEffect(() => { persistStore() }, [store])
+  useEffect(() => {
+    alive.current = true
+    return () => { alive.current = false; clearTimeout(retryTimer.current) }
+  }, [])
   // Music starts on the first tap (browsers allow sound only after one), pauses while the app is in
   // the background, and stops on the admin page.
   useEffect(() => {
@@ -88,35 +115,76 @@ export default function StudentApp() {
 
   async function syncNow() {
     const st = latest.current
-    if (!st.who || busy.current) return
+    if (busy.current || !db || !alive.current) return
+    clearTimeout(retryTimer.current)
+    retryTimer.current = undefined
+    if (!navigator.onLine) { setSavePhase('waiting'); queueRetry(); return }
     busy.current = true
+    setSavePhase('syncing')
+    let failed = false
+    let needsLogin = false
     // Everyone who played on this phone, not only whoever is signed in now: on a shared phone,
     // results of a student who signed out still reach the teacher.
-    const codes = [st.who, ...Object.keys(st.saves).filter((c) => c !== st.who && st.saves[c].attempts.some((a) => !a.synced))]
+    const codes = [...(st.who ? [st.who] : []), ...Object.keys(st.saves).filter((c) => c !== st.who && hasPending(st.saves[c]))]
     try {
       for (const code of codes) {
-        const r = await sync(st.saves[code])
-        if (r === 'bad-login') continue // code removed on the server: keep everything on the device
-        setStore((cur) => (cur.saves[code] ? { ...cur, saves: { ...cur.saves, [code]: merge(cur.saves[code], r.attempts) } } : cur))
-        if (code === st.who) setRanking(r.ranking)
+        if (!alive.current) return
+        const saved = st.saves[code]
+        if (invalidCodes.current.get(code) === saved.pin) { needsLogin = true; continue }
+        try {
+          const r = await sync(saved)
+          if (!alive.current) return
+          if (r === 'bad-login') { invalidCodes.current.set(code, saved.pin); needsLogin = true; continue }
+          setStore((cur) => (cur.saves[code] ? { ...cur, saves: { ...cur.saves, [code]: merge(cur.saves[code], r.attempts) } } : cur))
+          if (code === st.who) setRanking(r.ranking)
+        } catch { failed = true }
+        if ((saved.practice ?? []).some(result => !result.synced)) {
+          try {
+            const results = await syncPractice(saved, db)
+            if (!alive.current) return
+            if (results === 'bad-login') { invalidCodes.current.set(code, saved.pin); needsLogin = true; continue }
+            setStore((cur) => (cur.saves[code] ? { ...cur, saves: { ...cur.saves, [code]: merge(cur.saves[code], [], results) } } : cur))
+          } catch { failed = true }
+        }
       }
-    } catch {
-      // offline: the next finished level, app open or 'online' event tries again
     } finally {
       busy.current = false
+      if (alive.current) {
+        setSavePhase(needsLogin ? 'signin' : failed ? 'waiting' : 'saved')
+        if (failed) queueRetry()
+        else retryDelay.current = 2000
+        // Re-evaluate the committed store even if its pending count did not change.
+        // A result completed during this upload must not wait for another online event.
+        setSyncRevision(revision => revision + 1)
+      }
     }
   }
 
-  const unsent = save ? save.attempts.filter((a) => !a.synced).length : 0
+  function queueRetry() {
+    clearTimeout(retryTimer.current)
+    retryTimer.current = setTimeout(() => {
+      retryTimer.current = undefined
+      if (alive.current) setSyncRevision(revision => revision + 1)
+    }, retryDelay.current)
+    retryDelay.current = Math.min(30_000, retryDelay.current * 2)
+  }
+  const unsent = Object.values(store.saves).reduce((n, saved) => n + pendingCount(saved), 0)
+  const retrySave = () => { invalidCodes.current.clear(); void syncNow() }
+  const requestSync = useEffectEvent(() => void syncNow())
   useEffect(() => {
-    if (!store.who) return
-    void syncNow()
-    addEventListener('online', syncNow)
-    return () => removeEventListener('online', syncNow)
+    queueMicrotask(() => requestSync())
+    const online = () => { invalidCodes.current.clear(); void syncNow() }
+    const focus = () => { if (!document.hidden) void syncNow() }
+    addEventListener('online', online)
+    addEventListener('focus', focus)
+    document.addEventListener('visibilitychange', focus)
+    return () => { removeEventListener('online', online); removeEventListener('focus', focus); document.removeEventListener('visibilitychange', focus) }
   }, [store.who]) // syncNow reads refs, so it isn't a dependency
-  useEffect(() => {
-    if (unsent) void syncNow()
-  }, [unsent])
+  const drainSync = useEffectEvent(() => {
+    const syncable = Object.values(latest.current.saves).some(saved => invalidCodes.current.get(saved.code) !== saved.pin && hasPending(saved))
+    if (syncable && !retryTimer.current) void syncNow()
+  })
+  useEffect(() => { drainSync() }, [unsent, syncRevision])
 
   // A new screen replaces the button that had focus; move focus to the new screen so keyboards
   // and screen readers aren't left on an empty page (unless something, like a pop-up, took it).
@@ -193,6 +261,12 @@ export default function StudentApp() {
   if (screen === 'pre')
     return (
       <Pre
+        onComplete={(result) => {
+          const complete = (s: Save): Save => ({ ...s, introDone: true, howtoDone: true, preDone: true, practice: [...(s.practice ?? []).filter(r => r.id !== result.id), result] })
+          // Commit the completed result before showing the score or navigating away.
+          persist({ ...store, saves: { ...store.saves, [save.code]: complete(save) } })
+          update(complete)
+        }}
         onDone={() => {
           completeOnboarding({ introDone: true, howtoDone: true, preDone: true })
           go('modes')
@@ -207,6 +281,7 @@ export default function StudentApp() {
         onBack={() => go('modes')}
         onIntro={() => intro('settings')}
         onHowTo={() => howTo('settings')}
+        saveStatus={<SaveStatus phase={storageFailed && unsent ? 'storage' : savePhase} pending={unsent} onRetry={retrySave} />}
         onSignOut={() => {
           setStore((st) => ({ ...st, who: null }))
           go('login')
@@ -226,6 +301,7 @@ export default function StudentApp() {
         won={won}
         expertOpen={isUnlocked('expert-1', won)}
         battleOpen={won.has('expert-5')}
+        saveStatus={<SaveStatus phase={storageFailed && unsent ? 'storage' : savePhase} pending={unsent} onRetry={retrySave} />}
         onPick={(m) => {
           if (m === 'battle') {
             if (hasSavedWork) { setPendingStart('battle'); return }
@@ -295,7 +371,11 @@ function Login({ store, onBack, onDone }: { store: Store; onBack: () => void; on
     try {
       const r = await sync(newSave(c, pin))
       if (r === 'bad-login') setMsg('Wrong code or PIN. Ask your teacher.')
-      else onDone(merge(newSave(c, pin), r.attempts)) // brings back progress from another device
+      else {
+        const practice = await syncPractice(newSave(c, pin), db)
+        if (practice === 'bad-login') return setMsg('Wrong code or PIN. Ask your teacher.')
+        onDone(merge(newSave(c, pin), r.attempts, practice)) // includes practice completed on another device
+      }
     } catch {
       setMsg('You need internet the first time you sign in.')
     } finally {
@@ -370,11 +450,13 @@ function Login({ store, onBack, onDone }: { store: Store; onBack: () => void; on
   )
 }
 
-function Pre({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
+function Pre({ onDone, onBack, onComplete }: { onDone: () => void; onBack: () => void; onComplete: (result: PracticeResult) => void }) {
   const [i, setI] = useState(0)
   const [picked, setPicked] = useState<number | null>(null)
   const [score, setScore] = useState(0)
   const [leaving, setLeaving] = useState(false)
+  const [answers, setAnswers] = useState<number[]>([])
+  const [submission] = useState(() => ({ id: uuid(), started_at: new Date().toISOString() }))
   const total = PRE_ASSESSMENT.length
   useEffect(() => {
     if (i > 0) focusScreen() // the next question (or the score) is read out
@@ -424,6 +506,7 @@ function Pre({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
             disabled={picked !== null}
             onClick={() => {
               setPicked(j)
+              setAnswers(previous => [...previous.slice(0, i), j])
               if (j === q.answer) sfx.right()
               else sfx.wrong()
               if (j === q.answer) setScore(score + 1)
@@ -443,6 +526,7 @@ function Pre({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
             className="big"
             autoFocus
             onClick={() => {
+              if (i + 1 === total) onComplete(makePracticeResult(submission.id, answers, submission.started_at, new Date().toISOString()))
               setI(i + 1)
               setPicked(null)
             }}
@@ -474,7 +558,7 @@ function Pre({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
   )
 }
 
-function Modes(props: { code: string; coins: number; won: ReadonlySet<string>; expertOpen: boolean; battleOpen: boolean; onPick: (m: Mode) => void; onSettings: () => void }) {
+function Modes(props: { code: string; coins: number; won: ReadonlySet<string>; expertOpen: boolean; battleOpen: boolean; onPick: (m: Mode) => void; onSettings: () => void; saveStatus: ReactNode }) {
   const relax = LEVELS.filter((level) => level.mode === 'relax')
   const expert = LEVELS.filter((level) => level.mode === 'expert')
   const relaxDone = relax.filter((level) => props.won.has(level.id)).length
@@ -553,12 +637,13 @@ function Modes(props: { code: string; coins: number; won: ReadonlySet<string>; e
         ))}
       </div>
       <p className="adventure-note">{props.battleOpen ? 'All modes are open. Choose your next challenge.' : 'Clear each level to open the next part of your adventure.'}</p>
+      {props.saveStatus}
     </main>
   )
 }
 
 // Settings: replay the guides, saved audio preferences and account actions.
-function Settings({ code, onBack, onIntro, onHowTo, onSignOut }: { code: string; onBack: () => void; onIntro: () => void; onHowTo: () => void; onSignOut: () => void }) {
+function Settings({ code, onBack, onIntro, onHowTo, onSignOut, saveStatus }: { code: string; onBack: () => void; onIntro: () => void; onHowTo: () => void; onSignOut: () => void; saveStatus: ReactNode }) {
   const [confirm, setConfirm] = useState(false)
   useBack(onBack)
   return (
@@ -595,6 +680,7 @@ function Settings({ code, onBack, onIntro, onHowTo, onSignOut }: { code: string;
         <span className="settings-account-copy"><small>Signed in as</small><b>{code}</b></span>
         <button onClick={() => setConfirm(true)}>Sign out</button>
       </section>
+      {saveStatus}
       <p className="settings-footnote">Your progress stays saved on this device.</p>
       {confirm && (
         <Dialog title={`Sign out of ${code}?`} onClose={() => setConfirm(false)} className="settings-confirm-panel">

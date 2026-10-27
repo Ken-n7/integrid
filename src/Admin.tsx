@@ -9,6 +9,7 @@ import { RESEARCH_SURVEY, RESEARCH_TEST } from './content.ts'
 import { isCurrent, refreshPuzzles } from './puzzles.ts'
 import { BATTLES, clock, LEVELS, MODES, rankingFor, reward, START_COINS } from './rules.ts'
 import { db } from './store.ts'
+import { makePracticeResult, readPracticeResult, type PracticeResult } from './practice.ts'
 import { Deco, Dialog } from './ui.tsx'
 import { Art } from './Art.tsx'
 import { LoadingScreen } from './LoadingScreen.tsx'
@@ -17,6 +18,7 @@ import { deleteStudent } from './studentAdmin.ts'
 import { useBack } from './back.ts'
 import { useAppUpdateBlocker } from './useAppUpdateBlocker.ts'
 
+type PracticeRow = PracticeResult & { student: string }
 type Student = { code: string; pin: string }
 type Row = {
   id: string
@@ -90,7 +92,8 @@ function sampleData() {
     })
   }
   for (const r of rows) if (r.student === 'S04') r.played_at = new Date(Date.parse(r.played_at) - 6 * DAY).toISOString() // stopped a while ago
-  return { students, rows, research: sampleResearch(students.map((s) => s.code), rand) }
+  const practice: PracticeRow[] = students.slice(0, 8).map((student, i) => ({ ...makePracticeResult(`00000000-0000-4000-8000-${String(i).padStart(12, '0')}`, [1, 2, i % 2, 1, 0], new Date(time - 60_000).toISOString(), new Date(time).toISOString()), student: student.code }))
+  return { students, rows, practice, research: sampleResearch(students.map((s) => s.code), rand) }
 }
 
 // Dev mode: believable made-up results for the sample students, so the tab can be reviewed.
@@ -184,7 +187,7 @@ const NEEDS_UPDATE = 'This needs the database update: paste all of supabase/sche
 async function readDashboard(): Promise<
   | { error: string }
   | { notAdmin: true }
-  | { students: Student[]; rows: Row[]; research: Record<string, Research>; researchIssue: string }
+  | { students: Student[]; rows: Row[]; research: Record<string, Research>; researchIssue: string; practice: PracticeRow[]; practiceIssue: string }
 > {
   const me = await db!.from('admins').select('uid')
   if (me.error) return { error: me.error.message }
@@ -199,9 +202,22 @@ async function readDashboard(): Promise<
     rows.push(...(r.data as Row[]))
     if (r.data.length < 1000) break
   }
+  const practice: PracticeRow[] = []
+  let practiceIssue = ''
+  for (let from = 0; ; from += 1000) {
+    const result = await db!.from('practice_results').select('*').order('submitted_at').order('id').range(from, from + 999)
+    if (result.error) { practiceIssue = 'Practice results are unavailable. Ask the project owner to run supabase/enable-practice-results.sql, then Refresh.'; break }
+    for (const row of result.data) {
+      const valid = readPracticeResult(row)
+      if (valid && typeof row.student === 'string') practice.push({ ...valid, student: row.student })
+      else practiceIssue = 'Some practice records could not be read. Please check the database before exporting.'
+    }
+    if (result.data.length < 1000) break
+  }
   const res = await db!.from('research').select('student, pre, post, survey')
   return {
     students: s.data,
+    practice, practiceIssue,
     rows,
     research: Object.fromEntries((res.data ?? []).map((r) => [r.student, { pre: r.pre, post: r.post, survey: r.survey }])),
     researchIssue: res.error ? NEEDS_UPDATE : '',
@@ -212,6 +228,8 @@ function Dashboard({ email, demo = false, teacherId }: { email: string; demo?: b
   const [sample] = useState(() => (demo ? sampleData() : null))
   const [students, setStudents] = useState<Student[]>(sample?.students ?? [])
   const [rows, setRows] = useState<Row[]>(sample?.rows ?? [])
+  const [practice, setPractice] = useState<PracticeRow[]>(sample?.practice ?? [])
+  const [practiceIssue, setPracticeIssue] = useState('')
   const [research, setResearch] = useState<Record<string, Research>>(sample?.research ?? {})
   const [researchIssue, setResearchIssue] = useState(demo ? 'Dev mode: made-up results, nothing is saved.' : '')
   const [status, setStatus] = useState(demo ? '' : 'Loading…') // '' = ready
@@ -245,6 +263,8 @@ function Dashboard({ email, demo = false, teacherId }: { email: string; demo?: b
     return readDashboard().then((data) => {
       if ('error' in data) return setStatus(data.error)
       if ('notAdmin' in data) return setNotAdmin(true)
+      setPractice(data.practice)
+      setPracticeIssue(data.practiceIssue)
       setResearchIssue(data.researchIssue)
       setResearch(data.research)
       setStudents(data.students)
@@ -277,6 +297,7 @@ function Dashboard({ email, demo = false, teacherId }: { email: string; demo?: b
     if (!demo) await deleteStudent(db!, code)
     setStudents((cur) => cur.filter((s) => s.code !== code))
     setRows((cur) => cur.filter((r) => r.student !== code))
+    setPractice((cur) => cur.filter((r) => r.student !== code))
     setResearch((cur) => { const next = { ...cur }; delete next[code]; return next })
     setOpen((cur) => cur === code ? null : cur)
   }
@@ -365,7 +386,7 @@ function Dashboard({ email, demo = false, teacherId }: { email: string; demo?: b
         <header className="teacher-page-intro"><span className="teacher-page-icon"><Art name={TAB_INFO[tab].art} /></span><div><p className="eyebrow">{['overview', 'students', 'research'].includes(tab) ? 'Track and understand' : 'Prepare and play'}</p><h2>{TAB_INFO[tab].title}</h2><p>{TAB_INFO[tab].description}</p></div></header>
         {tab === 'overview' && <Overview students={students} byStudent={byStudent} rows={rows} onOpen={openStudent} />}
         {tab === 'students' && (
-          <StudentsTab students={students} byStudent={byStudent} rows={rows} research={research} onAdd={addStudents} onDelete={removeStudent} onReload={reload} open={open} onOpen={setOpen} />
+          <StudentsTab practice={practice} practiceIssue={practiceIssue} students={students} byStudent={byStudent} rows={rows} research={research} onAdd={addStudents} onDelete={removeStudent} onReload={reload} open={open} onOpen={setOpen} />
         )}
         {tab === 'puzzles' && <Puzzles rows={rows} />}
         {tab === 'research' && <ResearchTab codes={students.map((s) => s.code)} data={research} saveIssue={researchIssue} onSave={saveResearch} />}
@@ -518,6 +539,8 @@ function Overview({ students, byStudent, rows, onOpen }: { students: Student[]; 
 // ---------- Students ----------
 
 function StudentsTab(props: {
+  practice: PracticeRow[]
+  practiceIssue: string
   students: Student[]
   byStudent: Map<string, Row[]>
   rows: Row[]
@@ -556,13 +579,20 @@ function StudentsTab(props: {
       ...rows.map((r) => [r.student, r.level, r.result, r.seconds, r.wrong, signErrors(r), r.hints, r.coins, r.puzzle ?? '', r.played_at]),
     ])
   }
+  const practiceFor = (code: string) => props.practice.filter(r => r.student === code)
+  function exportPractice() {
+    download('practice-results.csv', [
+      ['student', 'id', 'version', 'score', 'total', 'started_at', 'submitted_at', ...Array.from({ length: 5 }, (_, i) => [`Q${i + 1}_choice`, `Q${i + 1}_correct`]).flat()],
+      ...props.practice.map(r => [r.student, r.id, r.version, r.score, r.total, r.started_at, r.submitted_at, ...r.answers.flatMap((answer, i) => [answer + 1, Number(r.correct[i])])]),
+    ])
+  }
   function exportStudents() {
     download('students.csv', [
-      ['student', 'levels_won', ...LEVELS.map((l) => `${l.id}_best_seconds`), 'plays', 'wrong', 'sign_errors', 'hints', 'coins', 'seconds_played', 'last_played'],
+      ['student', 'practice_score', 'practice_total', 'practice_submitted_at', 'levels_won', ...LEVELS.map((l) => `${l.id}_best_seconds`), 'plays', 'wrong', 'sign_errors', 'hints', 'coins', 'seconds_played', 'last_played'],
       ...students.map((s) => {
         const list = byStudent.get(s.code)!
         return [
-          s.code,
+          s.code, practiceFor(s.code).at(-1)?.score ?? '', practiceFor(s.code).at(-1)?.total ?? '', practiceFor(s.code).at(-1)?.submitted_at ?? '',
           LEVELS.filter((l) => bestOf(list, l.id)).length,
           ...LEVELS.map((l) => bestOf(list, l.id)?.seconds ?? ''),
           list.length,
@@ -581,6 +611,7 @@ function StudentsTab(props: {
     <>
       <section className="card">
         <h2>Students</h2>
+        {props.practiceIssue && <p className="note" role="status">{props.practiceIssue}</p>}
         <div className="row wrap">
           <label className="inline">
             Add
@@ -621,6 +652,7 @@ function StudentsTab(props: {
               <tr>
                 <th>Code</th>
                 <th>PIN</th>
+                <th title="Five-question in-game practice; separate from the research pretest">Practice / 5</th>
                 {LEVELS.map((l) => (
                   <th key={l.id} title={l.title}>
                     {shortLevel(l.id)}
@@ -647,6 +679,7 @@ function StudentsTab(props: {
                       </button>
                     </td>
                     <td>{s.pin}</td>
+                    <td>{practiceFor(s.code).at(-1)?.score ?? '—'}</td>
                     {LEVELS.map((l) => {
                       const best = bestOf(list, l.id)
                       const tries = list.filter((r) => r.level === l.id).length
@@ -678,6 +711,7 @@ function StudentsTab(props: {
           <button className="big secondary" onClick={exportAttempts} disabled={!rows.length}>
             <Deco>⬇</Deco> attempts.csv <small>one row per play</small>
           </button>
+          <button className="big secondary" onClick={exportPractice} disabled={!props.practice.length || !!props.practiceIssue}>practice-results.csv <small>one row per practice check</small></button>
           <button className="big secondary" onClick={exportStudents} disabled={!students.length}>
             <Deco>⬇</Deco> students.csv <small>one row per student</small>
           </button>
@@ -685,20 +719,20 @@ function StudentsTab(props: {
       </section>
 
       {deleting && <ConfirmDialog title={`Delete student ${deleting}?`} confirmLabel={`Delete ${deleting}`} onCancel={() => setDeleting(null)} onConfirm={() => void confirmDelete()} busy={busy === 'Deleting…'} error={deleteError}>
-        <p>This permanently deletes the student’s code, {byStudent.get(deleting)?.length ?? 0} saved game results, and any pretest, posttest and survey records. It also removes their individual rankings and class reports. Past class Battle History stays saved.</p>
+        <p>This permanently deletes the student’s code, {byStudent.get(deleting)?.length ?? 0} saved game results, practice checks, and any pretest, posttest and survey records. It also removes their individual rankings and class reports. Past class Battle History stays saved.</p>
         <p>This cannot be undone. Download the class data first if you need a copy.</p>
         <p className="muted small">Copies already saved on student devices remain there, but this code will stop syncing to the class.</p>
       </ConfirmDialog>}
 
       {props.open && byStudent.has(props.open) && (
-        <StudentRecord code={props.open} pin={students.find((s) => s.code === props.open)!.pin} list={byStudent.get(props.open)!} research={props.research[props.open]} onClose={() => props.onOpen(null)} />
+        <StudentRecord practice={practiceFor(props.open)} code={props.open} pin={students.find((s) => s.code === props.open)!.pin} list={byStudent.get(props.open)!} research={props.research[props.open]} onClose={() => props.onOpen(null)} />
       )}
     </>
   )
 }
 
 // One learner's record: every level, their mistakes (are they sign errors?), battles and test scores.
-function StudentRecord({ code, pin, list, research, onClose }: { code: string; pin: string; list: Row[]; research?: Research; onClose: () => void }) {
+function StudentRecord({ code, pin, list, research, practice, onClose }: { practice: PracticeRow[]; code: string; pin: string; list: Row[]; research?: Research; onClose: () => void }) {
   const wrongs = list.flatMap((r) => r.mistakes.map(([answer, placed]) => ({ level: r.level, answer, placed, sign: answer !== 0 && placed === -answer })))
   const signs = wrongs.filter((w) => w.sign).length
   const levels = [...LEVELS, ...BATTLES].filter((l) => list.some((r) => r.level === l.id))
@@ -717,6 +751,13 @@ function StudentRecord({ code, pin, list, research, onClose }: { code: string; p
           Pretest {pre ?? '—'}/20 · Posttest {post ?? '—'}/20{pre !== null && post !== null ? ` · gain ${post - pre >= 0 ? '+' : '−'}${Math.abs(post - pre)}` : ''}
         </p>
       ) : null}
+      <h3>In-game practice check</h3>
+      <p className="muted">Five questions from onboarding. Recorded separately from the research pretest and posttest.</p>
+      {practice.length ? practice.map(result => <details key={result.id}>
+        <summary>{result.score}/{result.total} · {new Date(result.submitted_at).toLocaleString()}</summary>
+        <p className="muted small">Version {result.version} · Started {new Date(result.started_at).toLocaleString()}</p>
+        <ol>{result.answers.map((answer, i) => <li key={i}>Question {i + 1}: choice {answer + 1} · {result.correct[i] ? 'Correct' : 'Incorrect'}</li>)}</ol>
+      </details>) : <p className="note">No recorded practice check. Checks completed before recording was added cannot be recovered.</p>}
       {levels.length ? (
         <div className="table-wrap" role="region" aria-label="Learner level results" tabIndex={0}><table className="rtable">
           <thead>

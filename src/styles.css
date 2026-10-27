@@ -648,6 +648,9 @@ a {
 
 /* Home and in-game settings share readable rows and saved audio switches. */
 .settings-screen { gap: 18px; padding-top: 20px; }
+.save-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 10px; padding: 9px 12px; border: 1px solid #c9ddbd; border-radius: 13px; background: #edf5e5; color: #396347; font-size: .7rem; line-height: 1.4; text-align: center; }
+.save-status.waiting, .save-status.signin, .save-status.storage { border-color: #e9cf9a; background: #fff2d5; color: #805220; }
+.save-status .link { min-height: 36px; font-size: .72rem; font-weight: 850; }
 .settings-bar .eyebrow { font-size: 0.7rem; }
 .settings-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .settings-heading .eyebrow { font-size: 0.65rem; letter-spacing: 0.07em; margin-bottom: 5px; }
