@@ -29,7 +29,7 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.ts',
       injectManifest: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ogg,mp3}', '**/nunito-latin-wght-*.woff2'],
+        globPatterns: ['**/*.{js,css,html,svg,png,ogg,mp3,wav}', '**/nunito-latin-wght-*.woff2'],
         globIgnores: ['**/gallery.html'],
       },
     }),

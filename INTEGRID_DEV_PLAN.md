@@ -48,7 +48,7 @@ Students fill in missing numbers in a crossword grid made of integer equations, 
 | Offline / install | PWA via `vite-plugin-pwa` | Works offline after first open and can be added to the home screen. Fixes reach every phone on the next open |
 | Styling | Plain CSS with design tokens | Simple UI (cells and buttons), no framework needed |
 | Font | Nunito, bundled (`@fontsource-variable/nunito`), 18px base | Rounded like the mockups, and works offline (no Google Fonts call). Base raised from 16px (researchers, Oct 16: "a bit small"); a percentage, so the phone's own text-size setting still applies |
-| Sound | Web Audio feedback (`src/sound.ts`); Pixabay win/game-over MP3s in `public/sounds/` (credits there); music: "Swinging Sweet" by hernandack, CC0 ([OpenGameArt](https://opengameart.org/content/short-loops-background-music-pack)), `public/music/`, looped gaplessly with Web Audio (`src/music.ts`) | All audio is cached for offline. Result clips total 54 KB, mono 64 kb/s, normalized; they pause music and other effects, then resume music at its previous position. Missing/undecodable clips use generated fallback tones. Separate sound/music switches in Settings. To change the music: new file in `public/music/`, change `SRC` |
+| Background music | Eric Matyas mode playlists; saved volume/mute, crossfades, offline cache and in-game credits. See Oct 27 local-preview notes below. |
 | Backend | Supabase (Postgres + Auth + Realtime) | SQL data that exports straight to CSV. Realtime for Battle. Row-level security for minors' data |
 | Hosting | Cloudflare Pages or Vercel (free) | Static site, HTTPS (required for offline/PWA) |
 | Puzzles | CSV files exported from Google Sheets, checked automatically before every build | Researchers write the problems themselves (paper's AI clause), and a wrong puzzle can't ship |
@@ -614,3 +614,70 @@ Anyone who signed in while a build had no keys (dev mode) keeps that save on the
 | Browser data cleared before sync | Lost results | Sync on every level end and app open; warn researchers |
 | Battle (shared group grid) runs late | Mode missing at delivery | Relax + Expert are enough for the intervention; Battle ships right after |
 | Free Supabase pauses | Sync fails | Use keeps it awake; Restore button; data kept |
+
+
+### Sound design and selected playlists — Oct 27 (local preview)
+
+- Native Web Audio cues for answers, hints, Undo, start/results; recorded CC0 clicks
+  by pauliuw and a page turn by rubberduck. No Kenney or AI-generated audio.
+- General student/teacher navigation clicks and pre-assessment correct/wrong and
+  neutral completion cues; independent saved music/effects volume and mute.
+- Music by Eric Matyas: menu/other student screens = Sky Puzzle + Puzzle Dreams;
+  Relax = Puzzle Game 3 + Cool Puzzler; Expert/Battle = Hypnotic Puzzle 3 + Mind Bender.
+- Paired rotation, 650ms crossfades, Next song in Settings, quieter puzzle/assessment
+  mix, result pause/resume, background suspension and stale-load protection.
+- Six compressed tracks precached offline; three decoded buffers retained.
+  Attribution and Soundimage license are accessible from both settings menus.
+- Worktree: `.worktrees/sound-design` on `sound-design`; localhost 5184/5185.
+  Not deployed. Asset provenance is in `public/music/README.md` and
+  `public/sounds/README.md`; browser results/screenshots are in `artifacts/audio/`.
+
+
+### Unified electronic SFX — Oct 27 (local preview)
+
+Every effect now uses the same hand-authored FM synth family as the selected
+electronic puzzle music: rounded plucks, glass chimes, a soft bass body and pad
+endings. General student/teacher button clicks are included. Removed the
+recorded clicks/page turn and their sample loader; SFX require no downloads.
+How to Play now uses real selection, correct/wrong, hint and clue sounds. Global
+click capture runs before buttons change state, with custom actions excluded to
+avoid double cues. Invalid bank-first/Hint/Undo taps retain a quiet click.
+
+Validation: all eleven cues rendered in Chromium OfflineAudioContext, with
+nonzero output, silent tails, no clipping and one completion callback each.
+Cancelling a win silences scheduled future notes. Mixes have ample headroom
+with all six music tracks. Browser checks cover 44 menu/tutorial/puzzle actions
+through a completed level, all five pre-assessment choices, and teacher clicks.
+The local listening gallery is `artifacts/audio/sfx-preview.html` on port 5184.
+No AI-generated audio, no Kenney assets; localhost only, not deployed.
+
+
+### Sample-based SFX candidates — Oct 27 (local preview)
+
+The user rejected the FM palette as generic and not fitting the soundtrack.
+Researched pyfxr/jfxr/rFXGen and sample-based tooling; built two candidates using
+FluidSynth/pyfluidsynth and Spotify Pedalboard with GeneralUser GS instruments
+by S. Christian Collins. Mallets is applied locally; Keys is a comparison option.
+The previous rejected render is preserved only as a comparison reference. No AI
+audio model or soundtrack sampling is involved. Source licenses and pinned
+recipes are retained in `scripts/audio/` and `public/sounds/`.
+
+The app now plays an approximately 200 KiB WAV sprite with exact cue spans. An
+embedded copy of the sampled click covers startup/failed downloads immediately;
+there is no delayed click or oscillator fallback. WAV is included in offline
+precache. Tests verify first-click playback, cue spans, cancellation, music pause
+and resume, mute/volume, 44 game/tutorial/menu actions, assessment and teacher
+clicks, offline bank and six music files, and real browser audio renders/mixes.
+Listening comparison: http://localhost:5184/artifacts/audio/sfx-preview.html .
+The user should judge aesthetic fit; technical checks do not establish that.
+Local only, not pushed or deployed.
+
+
+### Accepted audio release — Oct 27
+
+The user chose to keep the sound set currently applied in the game and requested
+production deployment. Release includes the six chosen Eric Matyas music tracks,
+mode playlists and the sampled mallet SFX bank, independent volume/mute, Next
+song and credits. Eight instrument auditions and comparison players remain local
+under ignored artifacts; they do not change the selected game audio. Current
+WAV and generated cue metadata were verified unchanged from the accepted set.

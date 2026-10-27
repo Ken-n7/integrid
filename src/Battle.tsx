@@ -197,6 +197,7 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
       // teammates' messages arrive at once; the teacher's total covers any that were missed
       hearts: Math.max(0, HEARTS - Math.max(sum(wrongs), snap.bars[group]?.wrong ?? 0)),
       over: snap.state === 'done',
+      won: place === 1,
       bars: <Bars bars={snap.bars} total={totalOf(snap.csv)} mine={group} members={snap.members} top={snap.state === 'done' ? Infinity : 3} compact={snap.state !== 'done'} final={snap.state === 'done'} />,
       result: (
         <>

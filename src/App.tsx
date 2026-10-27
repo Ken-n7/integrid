@@ -5,8 +5,10 @@ import { BATTLES, bestWin, clock, coinsOf, isUnlocked, LEVELS, rankingFor, wonLe
 import { abandon, db, load, merge, newSave, persist, startScreen, sync, type Save, type Store } from './store.ts'
 import { useBack } from './back.ts'
 import { focusScreen } from './focus.ts'
-import { startMusic, stopMusic } from './music.ts'
-import { pauseAudio, warmSoundEffects } from './sound.ts'
+import { focusMusic, setMusicScene, startMusic, stopMusic } from './music.ts'
+import { musicSceneForScreen } from './musicPlaylists.ts'
+import { installNavigationSounds } from './navigationSounds.ts'
+import { sfx } from './sound.ts'
 import { isCurrent, puzzleFor, refreshPuzzles } from './puzzles.ts'
 import { Coins, Deco, Dialog, Icon } from './ui.tsx'
 import { Art } from './Art.tsx'
@@ -25,6 +27,7 @@ const Intro = lazy(() => import('./Intro.tsx').then(({ Intro }) => ({ default: I
 const HowTo = lazy(() => import('./HowTo.tsx').then(({ HowTo }) => ({ default: HowTo })))
 
 export default function App() {
+  useEffect(installNavigationSounds, [])
   useEffect(() => { if (import.meta.env.PROD) startAppUpdates() }, [])
   const [admin, setAdmin] = useState(() => location.hash === '#admin')
   useEffect(() => {
@@ -80,8 +83,8 @@ function Student() {
   // Music starts on the first tap (browsers allow sound only after one), pauses while the app is in
   // the background, and stops on the admin page.
   useEffect(() => {
-    const tap = () => { void startMusic(); warmSoundEffects() }
-    const away = () => pauseAudio(document.hidden)
+    const tap = () => { void startMusic() }
+    const away = () => { if (!document.hidden) void startMusic() }
     addEventListener('pointerup', tap)
     addEventListener('keydown', tap)
     document.addEventListener('visibilitychange', away)
@@ -92,6 +95,8 @@ function Student() {
       stopMusic()
     }
   }, [])
+  useEffect(() => { setMusicScene(musicSceneForScreen(screen)) }, [screen])
+  useEffect(() => { if (screen === 'pre') return focusMusic() }, [screen])
   useEffect(() => {
     void navigator.storage?.persist?.() // ask the browser not to clear unsynced results
     void refreshPuzzles().then((changed) => changed && setPuzzles((n) => n + 1))
@@ -416,7 +421,8 @@ function Pre({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
   const total = PRE_ASSESSMENT.length
   useEffect(() => {
     if (i > 0) focusScreen() // the next question (or the score) is read out
-  }, [i])
+    if (i === total) return sfx.finish()
+  }, [i, total])
   useBack(() => (i === total ? onDone() : setLeaving(true)))
 
   if (i === total)
@@ -461,6 +467,8 @@ function Pre({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
             disabled={picked !== null}
             onClick={() => {
               setPicked(j)
+              if (j === q.answer) sfx.right()
+              else sfx.wrong()
               if (j === q.answer) setScore(score + 1)
             }}
           >

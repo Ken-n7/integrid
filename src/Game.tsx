@@ -8,6 +8,7 @@ import { bankOf, blanksOf, equations, key, lenOf, parse } from './puzzle.ts'
 import { versionOf } from './puzzles.ts'
 import { clock, HEARTS, MODES, reward, type Attempt, type Level, type Result } from './rules.ts'
 import { sfx } from './sound.ts'
+import { focusMusic } from './music.ts'
 import { uuid, type Pending } from './store.ts'
 import { Coins, Deco, Dialog, Icon, Num } from './ui.tsx'
 import { Art } from './Art.tsx'
@@ -43,6 +44,7 @@ export type BattleLink = {
   shared: Record<string, boolean> // boxes the group solved, teammates' too
   hearts: number // the group's shared hearts left: any member's wrong answer costs one
   over: boolean
+  won: boolean
   bars: ReactNode
   result: ReactNode
   onSolve: (k: string, hint: boolean) => void
@@ -66,6 +68,9 @@ type Props = {
 
 export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf, onProgress, onFinish, onExit, onNext, resume, battle }: Props) {
   useAppUpdateBlocker(true)
+  useEffect(() => focusMusic(), [])
+  const battleMode = !!battle
+  useEffect(() => { if (battleMode) sfx.start() }, [battleMode])
   const rules = MODES[level.mode]
   const { grid, eqs, blanks, bank, version } = useMemo(() => {
     const grid = parse(csv)
@@ -100,6 +105,10 @@ export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf
     if (panel) panel.scrollTop = 0
   }, [battle?.over])
   useEffect(() => () => stopResultSound.current(), [])
+  const battleOver = !!battle?.over, battleWon = !!battle?.won
+  useEffect(() => {
+    if (battleOver) return battleWon ? sfx.win() : sfx.finish()
+  }, [battleOver, battleWon])
   const [info, setInfo] = useState(INFO && !battle) // the (!) popup opens when the level starts…
   const [started, setStarted] = useState(!!battle || !INFO) // …and the clock starts when it closes, so reading costs no coins
   const [wiggle, setWiggle] = useState(false)
@@ -275,6 +284,7 @@ export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf
   // After choosing a box, keyboard focus jumps to the number bank (no visible change on touch screens).
   function select(k: string) {
     if (!playing || k in filled) return
+    sfx.select()
     setSel(k === sel ? null : k)
     if (k !== sel) requestAnimationFrame(() => document.querySelector<HTMLElement>('.bank .tile:not(:disabled)')?.focus())
   }
@@ -282,11 +292,13 @@ export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf
   function place(i: number) {
     if (!playing || tiles[i].used) return
     if (!sel) {
+      sfx.tap()
       setMsg('Tap a yellow box first!')
       setNudge(true)
       return
     }
     if (sel in filled) {
+      sfx.tap()
       setSel(null) // a teammate solved it a moment ago
       setMsg('A teammate just solved that box!')
       return
@@ -316,11 +328,13 @@ export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf
 
   function hint() {
     if (!canHint) {
+      sfx.tap()
       if (playing) setMsg(run.hints >= rules.hintLimit ? 'No hints left for this level.' : `A hint costs ${rules.hintCost} coins.`)
       return
     }
     const target = sel && !(sel in filled) ? sel : blanks.find((k) => !(k in filled))
     if (!target) return
+    sfx.hint()
     setSel(null)
     battle?.onSolve(target, true)
     commit({ ...run, hints: run.hints + 1, filled: { ...run.filled, [target]: true } })
@@ -329,9 +343,10 @@ export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf
   // Undo takes back your last correct number (filled keeps placement order). Hints and lost hearts stay.
   const undoable = battle ? undefined : Object.keys(run.filled).findLast((k) => !run.filled[k])
   function undo() {
-    if (!playing || !undoable) return
+    if (!playing || !undoable) { sfx.tap(); return }
     const { [undoable]: _, ...rest } = run.filled
     setSel(undoable)
+    sfx.undo()
     setMsg('Number taken back.')
     commit({ ...run, filled: rest })
   }
@@ -534,7 +549,7 @@ export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf
         <div className="tools">
           <button
             className={!INFO && wiggle ? 'wiggle' : ''}
-            onClick={() => setDialog('rules')}
+            onClick={() => { sfx.clue(); setDialog('rules') }}
             aria-label={!INFO && rules.clue ? 'Rules and a free clue' : undefined}
             aria-haspopup="dialog"
           >

@@ -29,3 +29,6 @@ dist-ssr
 
 # LibreOffice lock files (made while a document is open)
 .~lock.*#
+
+# Local audio authoring sources, listening previews and verification captures
+/artifacts/audio/

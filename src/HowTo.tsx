@@ -4,6 +4,7 @@ import { Guide } from './Guide.tsx'
 import { HEARTS, MODES, START_COINS } from './rules.ts'
 import { Coins, Deco, Dialog, Num } from './ui.tsx'
 import { Art } from './Art.tsx'
+import { sfx } from './sound.ts'
 
 export function HowTo({ step, onStep, replay, preDone, onBack, onDone }: {
   step: number
@@ -76,7 +77,7 @@ function Equation({ answer, selected = false, onSelect, hinted = false, boxRef }
       <span className="tutorial-cell" aria-hidden="true"><Num v={-3} /></span>
       <span className="tutorial-cell" aria-hidden="true">+</span>
       {onSelect ? (
-        <button ref={boxRef} className={`tutorial-cell ${state}`} aria-label={label} aria-pressed={selected} disabled={answer !== undefined} onClick={onSelect}>{answer ?? '?'}</button>
+        <button data-sfx="handled" ref={boxRef} className={`tutorial-cell ${state}`} aria-label={label} aria-pressed={selected} disabled={answer !== undefined} onClick={onSelect}>{answer ?? '?'}</button>
       ) : (
         <span className={`tutorial-cell ${state}`} role="img" aria-label={label}>{answer ?? '?'}</span>
       )}
@@ -97,14 +98,16 @@ function BankPractice() {
     <section className="tutorial-visual tutorial-practice" aria-label="Try the number bank">
       <p className="tutorial-badge">Your turn · practice only</p>
       <Equation boxRef={box} answer={solved ? 5 : undefined} selected={selected} onSelect={() => {
+        sfx.select()
         setSelected(true)
         setMessage('2. Now tap 5 in the number bank.')
         tile.current?.focus()
       }} />
       <div className="tutorial-bank">
         <p className="eyebrow">Number bank</p>
-        <button ref={tile} className="tutorial-tile" aria-label="Place 5" disabled={solved} onClick={() => {
-          if (!selected) return setMessage('Tap the yellow box first. Then choose a number.')
+        <button data-sfx="handled" ref={tile} className="tutorial-tile" aria-label="Place 5" disabled={solved} onClick={() => {
+          if (!selected) { sfx.tap(); setMessage('Tap the yellow box first. Then choose a number.'); return }
+          sfx.right()
           setSolved(true)
           setSelected(false)
           setMessage('You did it! The box turns green and the number is used up.')
@@ -131,7 +134,7 @@ function LivesExample() {
       </div>
       <p className="tutorial-life-count" aria-hidden="true">{HEARTS - Number(mistake)} <span>lives left</span></p>
       <p className="tutorial-feedback" role="status">{mistake ? 'One wrong answer = one heart lost. Keep trying!' : 'Every new try starts with 5 hearts.'}</p>
-      <button className="big secondary" onClick={() => setMistake(!mistake)}>{mistake ? 'Reset the example' : 'Show a wrong answer'}</button>
+      <button className="big secondary" data-sfx="handled" onClick={() => { if (mistake) sfx.tap(); else sfx.wrong(); setMistake(!mistake) }}>{mistake ? 'Reset the example' : 'Show a wrong answer'}</button>
       <p className="tutorial-tip">Run out? Try again with 5 fresh hearts.</p>
     </section>
   )
@@ -148,8 +151,8 @@ function HelpPractice() {
       <div className="tutorial-help-bar"><span className="tutorial-badge">Relax example</span><Coins n={balance} /></div>
       <Equation answer={hinted ? 5 : undefined} hinted={hinted} selected={!hinted} />
       <div className="tutorial-help-tools">
-        <button ref={rulesButton} className="big secondary" onClick={() => setRules(true)}><Deco>📖</Deco> Rules <small>Free</small></button>
-        <button className="big secondary" disabled={balance < cost} onClick={() => setHinted(true)}><Deco>💡</Deco> Hint <small>{cost} coins</small></button>
+        <button data-sfx="handled" ref={rulesButton} className="big secondary" onClick={() => { sfx.clue(); setRules(true) }}><Deco>📖</Deco> Rules <small>Free</small></button>
+        <button className="big secondary" disabled={balance < cost} data-sfx="handled" onClick={() => { sfx.hint(); setHinted(true) }}><Deco>💡</Deco> Hint <small>{cost} coins</small></button>
       </div>
       <p className={`tutorial-feedback${hinted ? ' tutorial-success' : ''}`} role="status">{hinted ? `The hint fills the box and uses ${cost} coins. Hinted boxes turn purple.` : 'Try the buttons: a clue helps you think; a hint fills a box.'}</p>
       {hinted && <button className="tutorial-reset" onClick={() => {

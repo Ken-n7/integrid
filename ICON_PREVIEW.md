@@ -141,3 +141,73 @@ Integrated the separate first-win reward work into the redesigned game without r
 The integrated production build, TypeScript, puzzle/core/save/audio/archive/deletion regressions, lint and whitespace checks pass. Browser reward checks pass for a loss before winning, first win after offline resume, immediate replay, paid replay hints, an already-won offline reload, another level's first reward, Expert first win and faster zero-reward replay, older synced puzzle versions, menu restart during a replay, a first win with a paid hint (gross reward shown accurately) and 320/360/423/768/1280px result layouts. Evidence: `/tmp/integrid-first-win-integrated/results.json`, with the adapted test at `/tmp/integrid-first-win-integrated-check.mjs`. Battle History and all teacher deletion/research/host confirmation browser regressions also pass on the integrated build. The blank fixture setup page exists only in ignored build output; it is not part of the source release.
 
 Ken explicitly authorized integrating this rule and deploying. Release includes tested Battle History and the Delete action after Last played, using the existing GitHub main → Vercel production integration. History SQL was already applied by Ken and authenticated save/read verified against the live database as recorded above. No new schema application is needed during deployment. The original checkout's WIP and stash remain untouched.
+
+
+## Sound and selected music preview — Oct 27
+
+Mode playlists use Eric Matyas tracks: menus/other student screens = Sky Puzzle
+and Puzzle Dreams; Relax = Puzzle Game 3 and Cool Puzzler; Expert/Battle =
+Hypnotic Puzzle 3 and Mind Bender. Each pair rotates with a 650ms crossfade.
+Settings includes Next song, independent saved volumes/mute and Music credits.
+Pre-assessment and puzzles lower music volume; results pause and resume its
+position. Navigation uses pauliuw CC0 clicks and Rules uses a rubberduck CC0 page
+turn; other cues use hand-authored Web Audio notes. No AI or Kenney audio.
+
+Validation: production build, lint, whitespace and audio regressions pass.
+Chromium checks cover menu/Relax/Expert/Battle selection, a real 24-second
+Hypnotic Puzzle 3 ending and transition to Mind Bender, sliders/switches, test
+cue, credits, 320–1280px layouts, all five assessment answers and teacher clicks.
+An offline reload decodes all six music tracks and three recorded effects, with
+nonzero audio, peaks below clipping and no JavaScript errors. No physical-phone
+or classroom listening test was performed. Screenshots, scripts and JSON evidence
+are under `artifacts/audio/` in this worktree. Build retains the existing main
+chunk-size advisory. Localhost only; nothing pushed or deployed.
+
+The previous temporary worktree was lost in an environment reset. This restored
+preview is in the persistent `.worktrees/sound-design` folder on `sound-design`.
+Local development: http://localhost:5184/ ; built preview: http://localhost:5185/.
+
+
+## Unified electronic SFX — Oct 27
+
+All SFX, including student/teacher button clicks, now share a hand-authored FM
+synth palette chosen to follow the soundtrack's soft electronic puzzle feel.
+The recorded clicks/page turn and their loader are removed. The How to Play
+practice buttons use the same cues as actual play. Quiet guidance clicks are
+also present on bank-first and unavailable Hint/Undo actions. Shared click
+capture runs before handlers change a button; custom actions play once.
+
+Eleven real browser renders pass audibility, headroom, silent-tail and completion
+checks. Cancelling a result also silences future notes. Mixes with all six music
+tracks remain below clipping. Forty-four browser interactions pass across
+keyboard/touch navigation, tutorials, correct/wrong placements, hints, Undo,
+Rules and a puzzle win. All five assessment choices and teacher clicks pass.
+Evidence: `artifacts/audio/sfx-render-results.json`, `sfx-flows-results.json` and
+`assessment-results.json`. Listening gallery with individual effects and three
+music mixes: http://localhost:5184/artifacts/audio/sfx-preview.html . Local only.
+
+
+## Sampled SFX alternatives — Oct 27
+
+The user rejected the previous FM set. Replaced its runtime oscillator engine
+with a compact rendered sample sprite. FluidSynth + pyfluidsynth render GeneralUser
+GS woodblocks, mallets, muted guitar and keyboard instruments; Spotify Pedalboard
+filters, compresses and adds a small room. The authoring tools and 31 MB SoundFont
+stay out of the app. Pinned recipes, source hash and license copies are retained.
+Mallets is applied to localhost; Keys and the previous rejected version can be
+compared with any selected soundtrack in `artifacts/audio/sfx-preview.html`.
+
+Native regressions cover immediate embedded-click playback before loading, exact
+cue offsets/durations, result priority, resume offsets, volume/mute and stale
+loads. Real browser renders verify eleven sampled cues and headroom with all six
+tracks. Forty-four menu/tutorial/puzzle actions pass with exactly one sampled cue
+per action and no runtime oscillators. Offline reload verifies the WAV sprite,
+first click and all music files; assessment and teacher-click tests pass.
+Aesthetic fit remains a listening judgment. Local only; not deployed.
+
+
+## Audio set accepted for release — Oct 27
+
+The user requested deployment of the current game audio. Keep the sampled mallet
+bank and selected music playlists. Alternative instrument audition files remain
+local and are excluded from the production build.
