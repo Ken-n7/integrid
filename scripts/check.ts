@@ -5,11 +5,13 @@ import './check-flows.ts'
 import './check-practice.ts'
 import './check-student-admin.ts'
 import './check-battle-history.ts'
+import './check-battle-relay.ts'
 import { readdirSync, readFileSync } from 'node:fs'
 import { bankOf, countSolutions, equations, parse, validate } from '../src/puzzle.ts'
 import { ALL_OPS, LEVELS, rankingFor, reward } from '../src/rules.ts'
 import { cronbach, likert, mastery, pairedT, shapiroWilk, wilcoxon } from '../src/stats.ts'
 
+await import('./check-battle-security.ts')
 await import('./check-audio.ts')
 await import('./check-offline-downloads.ts')
 

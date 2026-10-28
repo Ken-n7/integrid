@@ -317,6 +317,7 @@ export default function StudentApp() {
   if (screen === 'battle')
     return (
       <BattleRoom
+        pin={save.pin}
         code={save.code}
         coins={coins}
         onExit={(completedFinal) => go(completedFinal ? 'outro' : 'modes')}

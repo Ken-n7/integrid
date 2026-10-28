@@ -3,8 +3,8 @@ import { blanksOf, key, parse, validate } from './puzzle.ts'
 import { BATTLES, HEARTS } from './rules.ts'
 
 export type Bar = { cells: string[]; wrong: number; done: number | null }
-export type Room = { puzzle: string; csv: string; seconds: number; state: 'lobby' | 'live' | 'done'; startedAt: number | null; sentAt: number; members: string[][]; bars: Bar[] }
-export type GroupMsg = { t: 'join'; code: string } | { t: 'leave'; code: string } | { t: 'cell'; k: string; hint: boolean } | { t: 'wrong'; code: string; wrong: number; run?: string }
+export type Room = { instance?: string; puzzle: string; csv: string; seconds: number; state: 'lobby' | 'live' | 'done'; startedAt: number | null; sentAt: number; members: string[][]; bars: Bar[] }
+export type GroupMsg = { t: 'join'; code: string } | { t: 'leave'; code: string } | { t: 'cell'; k: string; hint: boolean; code?: string; value?: number } | { t: 'wrong'; code: string; wrong: number; run?: string; k?: string; value?: number }
 export type Host = Omit<Room, 'bars' | 'sentAt'> & { room: string; total: number; cells: string[][]; wrongs: Record<string, number>[]; done: (number | null)[] }
 
 export const sum = (w: Record<string, number>) => Object.values(w).reduce((a, b) => a + b, 0)

@@ -1,10 +1,5 @@
 // Battle Mode (dev plan §10). The teacher's admin page hosts a room; each group shares one grid.
-// Channels (Supabase Realtime broadcast; in dev mode, tabs of one browser):
-//   ig-<room>       teacher → everyone: the room (puzzle, time, groups, live bars), every 2–4 s
-//   ig-<room>-<g>   one group and the teacher: joins, solved boxes, wrong answers
-// One channel per group keeps each message to a handful of phones: the free plan allows about
-// 100 deliveries a second, and a class is ~40 phones.
-import type { RealtimeChannel } from '@supabase/supabase-js'
+// Online rooms use credential-checked RPCs; demo rooms use local browser channels.
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useBack } from './back.ts'
 import { apply, countWrong, isGroupMsg, isRoom, roundFinished, standings, sum, type Bar, type GroupMsg, type Host, type Room } from './battleState.ts'
@@ -13,37 +8,40 @@ import { blanksOf, key, parse } from './puzzle.ts'
 import { puzzleFor } from './puzzles.ts'
 import { BATTLES, clock, HEARTS, type Attempt } from './rules.ts'
 import { db, uuid } from './store.ts'
+import { BattleRelay, type BattleAuth } from './battleRelay.ts'
 import { Coins, Deco, Icon } from './ui.tsx'
 import { Art } from './Art.tsx'
 import { ConfirmDialog } from './ConfirmDialog.tsx'
 import { useBeforeUnload } from './useBeforeUnload.ts'
 import { archiveBattle, type BattleOutcome, type BattleRecord } from './battleHistory.ts'
 
-function channel<M>(name: string, onMsg: (m: M) => void, onReady: () => void = () => {}) {
+const relays = new Map<string, { relay: BattleRelay; users: number }>()
+function channel<M>(name: string, onMsg: (m: M) => void, onReady: () => void = () => {}, auth: BattleAuth = { teacher: true }, onError: (error: unknown) => void = () => {}) {
   if (!db) {
     const bc = new BroadcastChannel(name)
     bc.onmessage = (e) => onMsg(e.data as M)
     const ready = setTimeout(onReady)
-    return { send: (m: M) => bc.postMessage(m), close: () => { clearTimeout(ready); bc.close() } }
+    return { send: (m: M) => { bc.postMessage(m); return Promise.resolve('ok') }, close: () => { clearTimeout(ready); bc.close() } }
   }
-  // supabase-js hands back a channel that is still closing when the name matches (React's dev mode
-  // opens every screen twice; a student can re-pick the same group): let any old copy go first.
-  let ch: RealtimeChannel | null = null
-  let closed = false
-  void (async () => {
-    await Promise.resolve()
-    for (const old of db.getChannels().filter((c) => c.topic === `realtime:${name}`)) await db.removeChannel(old)
-    if (closed) return
-    ch = db.channel(name, { config: { broadcast: { self: false } } })
-    ch.on('broadcast', { event: 'm' }, ({ payload }) => onMsg(payload as M))
-    ch.subscribe((status) => status === 'SUBSCRIBED' && onReady())
-  })()
+  const match = /^ig-(\d{4})(?:-(\d+))?$/.exec(name)
+  if (!match) throw new Error('Invalid room channel')
+  const room = match[1], subject = match[2] === undefined ? 'room' : Number(match[2])
+  const key = room + ':' + ('teacher' in auth ? 'teacher' : auth.code)
+  let entry = relays.get(key)
+  if (!entry) { entry = { relay: new BattleRelay(db, room, auth, onError), users: 0 }; relays.set(key, entry) }
+  entry.users++
+  const current = entry
+  const unsubscribe = current.relay.subscribe(subject, value => {
+    if (subject === 'room' && current.relay.pending === 0) onError(null)
+    onMsg(value as M)
+  }, onReady)
   return {
-    send: (m: M) => ch?.send({ type: 'broadcast', event: 'm', payload: m }),
-    close: () => {
-      closed = true
-      if (ch) void db!.removeChannel(ch)
+    send: (m: M) => {
+      const sent = subject === 'room' ? current.relay.publish(m as Room) : current.relay.event(subject, m as GroupMsg)
+      void sent.then(() => { if (current.relay.pending === 0) onError(null) }, onError)
+      return sent
     },
+    close: () => { unsubscribe(); if (--current.users === 0) { current.relay.close(); relays.delete(key) } },
   }
 }
 
@@ -84,12 +82,13 @@ function Bars({ bars, total, mine, members, names = false, top = Infinity, compa
 
 // ---------- students ----------
 
-type Props = { code: string; coins: number; onExit: (completedFinal?: boolean) => void; onProgress: (a: Attempt) => void; onFinish: (a: Attempt) => void }
+type Props = { code: string; pin: string; coins: number; onExit: (completedFinal?: boolean) => void; onProgress: (a: Attempt) => void; onFinish: (a: Attempt) => void }
 
-export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props) {
+export function BattleRoom({ code, pin, coins, onExit, onProgress, onFinish }: Props) {
   const [runId] = useState(uuid) // rejoining starts a new wrong-answer count, without restoring group hearts
   const [typed, setTyped] = useState('')
   const [msg, setMsg] = useState('')
+  const [connectionIssue, setConnectionIssue] = useState('')
   const [room, setRoom] = useState<string | null>(null)
   const [snap, setSnap] = useState<Room | null>(null)
   const [group, setGroup] = useState<number | null>(null)
@@ -116,7 +115,7 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
       heard = true
       setSnap({ ...r, startedAt: r.startedAt && r.startedAt + (Date.now() - r.sentAt) })
       if (r.state === 'live' && groupNow.current !== null) setInBattle(true)
-    })
+    }, () => {}, { code, pin }, error => setConnectionIssue(error ? 'Battle connection interrupted. Check your connection and ask your teacher if it continues.' : ''))
     const t = setTimeout(() => {
       if (heard) return
       setMsg(`No battle with room code ${room}. Check the code on the board.`)
@@ -126,7 +125,7 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
       clearTimeout(t)
       ch.close()
     }
-  }, [room])
+  }, [room, code, pin])
 
   useEffect(() => {
     if (!room || group === null || !csv) return
@@ -138,7 +137,8 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
         if (m.t === 'cell' && boxes.has(m.k)) setShared((s) => (m.k in s ? s : { ...s, [m.k]: m.hint }))
         if (m.t === 'wrong') setWrongs((w) => countWrong(w, m.code, m.wrong, m.run))
       },
-      () => ch.send({ t: 'join', code }),
+      () => { void ch.send({ t: 'join', code }) },
+      { code, pin }, error => setConnectionIssue(error ? 'Your Battle update is waiting to send. Check your connection.' : ''),
     )
     send.current = ch.send
     return () => {
@@ -147,7 +147,7 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
       send.current = () => {}
       setWrongs({})
     }
-  }, [room, group, code, csv])
+  }, [room, group, code, pin, csv])
 
   // Not on the teacher's list yet (a lost message, or the teacher's page reloaded): say hello again.
   const listed = !snap || group === null || snap.state === 'done' || snap.members[group]?.includes(code)
@@ -215,13 +215,14 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
           <h3 className="battle-ranking-title">Final ranking</h3>
         </>
       ),
-      onSolve: (k, hint) => {
+      issue: connectionIssue,
+      onSolve: (k, hint, value) => {
         setShared((s) => ({ ...s, [k]: hint }))
-        send.current({ t: 'cell', k, hint })
+        send.current({ t: 'cell', code, k, hint, value })
       },
-      onWrong: (wrong) => {
+      onWrong: (wrong, k, value) => {
         setWrongs((w) => countWrong(w, code, wrong, runId))
-        send.current({ t: 'wrong', code, wrong, run: runId })
+        send.current({ t: 'wrong', code, wrong, run: runId, k, value })
       },
     }
     return (
@@ -256,6 +257,7 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
         <Coins n={coins} />
       </header>
 
+      {connectionIssue && <p className="error" role="alert">{connectionIssue}</p>}
       <div className="battle-heading">
         <div><p className="eyebrow">Team up. Take on the grid.</p><h1>Battle Mode</h1><p>One puzzle. Your group. A race together.</p></div>
         <span className="battle-heading-art" aria-hidden="true"><Art name="battle" /></span>
@@ -327,7 +329,7 @@ export function BattleRoom({ code, coins, onExit, onProgress, onFinish }: Props)
 // ---------- teacher (admin page) ----------
 
 const barsOf = (h: Host): Bar[] => h.cells.map((cells, g) => ({ cells, wrong: sum(h.wrongs[g]), done: h.done[g] }))
-const roomOf = (h: Host): Room => ({ puzzle: h.puzzle, csv: h.csv, seconds: h.seconds, state: h.state, startedAt: h.startedAt, sentAt: Date.now(), members: h.members, bars: barsOf(h) })
+const roomOf = (h: Host): Room => ({ instance: h.instance, puzzle: h.puzzle, csv: h.csv, seconds: h.seconds, state: h.state, startedAt: h.startedAt, sentAt: Date.now(), members: h.members, bars: barsOf(h) })
 
 // A number box's text as a whole number in [lo, hi] (empty or junk: the default).
 const clampOf = (text: string, lo: number, hi: number, fallback: number) => Math.max(lo, Math.min(hi, Math.round(Number(text)) || fallback))
@@ -382,7 +384,7 @@ export function BattleHost({ onGuardChange, onArchive, onShowHistory }: { onGuar
   const code = h?.room
   useEffect(() => {
     if (!code) return
-    const roomCh = channel<Room>(`ig-${code}`, () => {})
+    const roomCh = channel<Room>(`ig-${code}`, () => {}, () => {}, { teacher: true }, error => setActionError(error ? 'Battle connection interrupted. Check your internet and ask the project owner if it continues.' : ''))
     send.current = roomCh.send
     const groupChs = latest.current!.members.map((_, g) => channel<GroupMsg>(`ig-${code}-${g}`, (m) => {
       // Keep players who joined and left between React renders in the archive roster.
@@ -427,7 +429,7 @@ export function BattleHost({ onGuardChange, onArchive, onShowHistory }: { onGuar
     const currentPuzzle = puzzleFor(puzzle)!
     const csv = currentPuzzle.csv
     archiveMeta.current = { id: uuid(), created_at: new Date().toISOString(), puzzle_version: currentPuzzle.version, roster: empty(() => []), saved: false }
-    setH({ room, puzzle, csv, total: totalOf(csv), seconds: minutes * 60, state: 'lobby', startedAt: null, members: empty(() => []), cells: empty(() => []), wrongs: empty(() => ({})), done: empty(() => null) })
+    setH({ instance: uuid(), room, puzzle, csv, total: totalOf(csv), seconds: minutes * 60, state: 'lobby', startedAt: null, members: empty(() => []), cells: empty(() => []), wrongs: empty(() => ({})), done: empty(() => null) })
   }
 
   if (!h)
@@ -465,18 +467,24 @@ export function BattleHost({ onGuardChange, onArchive, onShowHistory }: { onGuar
     )
 
   const left = h.startedAt ? Math.max(0, h.seconds - Math.floor((now - h.startedAt) / 1000)) : h.seconds
-  function go(state: Room['state']) {
+  async function go(state: Room['state']) {
     // A cancelled lobby still needs a timestamp so waiting clients accept its done message.
     const startedAt = state === 'live' ? Date.now() : h!.startedAt ?? Date.now()
     const next = { ...h!, state, startedAt }
-    setH(next)
-    send.current(roomOf(next)) // start and end go out at once
+    const previous = latest.current
+    latest.current = next
+    try {
+      const result = await send.current(roomOf(next))
+      if (result && result !== 'ok') throw new Error('Couldn’t start the Battle. Try again.')
+      setH(next)
+    } catch (error) { latest.current = previous; throw error }
   }
   return (
     <section className="card no-print battle-host">
       <h2>
         <Deco>⚔️</Deco> {BATTLES.find((b) => b.id === h.puzzle)?.title} · room code
       </h2>
+      {actionError && <p className="error" role="alert">{actionError}</p>}
       <div className="teacher-room-banner"><span>SHARE THIS ROOM CODE</span><p className="room-code">{h.room}</p><small>{h.members.length} groups · {Math.round(h.seconds / 60)} {h.seconds === 60 ? 'minute' : 'minutes'}</small></div>
       {h.state === 'lobby' ? (
         <>
@@ -534,7 +542,7 @@ export function BattleHost({ onGuardChange, onArchive, onShowHistory }: { onGuar
           setActionError('')
           void (async () => {
             try {
-              if (action === 'start') go('live')
+              if (action === 'start') await go('live')
               else { await endHostedBattle(action === 'cancel' ? 'cancelled' : 'ended'); if (action === 'cancel') setH(null) }
               setAction(null)
             } catch (e) { setActionError((e as Error).message) }

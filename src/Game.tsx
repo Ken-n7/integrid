@@ -48,8 +48,9 @@ export type BattleLink = {
   won: boolean
   bars: ReactNode
   result: ReactNode
-  onSolve: (k: string, hint: boolean) => void
-  onWrong: (wrong: number) => void
+  issue?: string
+  onSolve: (k: string, hint: boolean, value: number) => void
+  onWrong: (wrong: number, k: string, value: number) => void
 }
 
 type Props = {
@@ -319,7 +320,7 @@ export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf
       const mine = { ...run.filled, [sel]: false }
       if (battle || blanks.some((k) => !(k in mine))) sfx.right()
       commit({ ...run, filled: mine })
-      battle?.onSolve(sel, false)
+      battle?.onSolve(sel, false, v)
       const next = blanks.find((k) => !(k in mine) && !(k in filled))
       if (next) requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-cell="${next}"]`)?.focus())
       return
@@ -329,7 +330,7 @@ export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf
     setMsg('')
     sfx.wrong()
     if (rules.clue) setWiggle(true)
-    battle?.onWrong(run.wrong + 1)
+    battle?.onWrong(run.wrong + 1, sel, v)
     commit({ ...run, hearts: run.hearts - 1, wrong: run.wrong + 1, mistakes: [...run.mistakes, [want, v]] })
   }
 
@@ -343,7 +344,7 @@ export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf
     if (!target) return
     sfx.hint()
     setSel(null)
-    battle?.onSolve(target, true)
+    battle?.onSolve(target, true, answerOf(target))
     commit({ ...run, hints: run.hints + 1, filled: { ...run.filled, [target]: true } })
   }
 
@@ -472,6 +473,7 @@ export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf
         </div>
       </header>
 
+      {battle?.issue && <p className="error" role="alert">{battle.issue}</p>}
       {battle && !battle.over && battle.bars}
 
       {/* the puzzle box: fills the space between the header and the tray, and the grid scales to fit it */}
