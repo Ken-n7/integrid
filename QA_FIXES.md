@@ -156,3 +156,13 @@ Pinned the transitive fast-uri dependency to 3.1.9 using an override, matching t
 3.x version in [GHSA-w74x-v6f9-j3xg](https://github.com/advisories/GHSA-w74x-v6f9-j3xg).
 The encoded-scheme regression and Vite/PWA production build pass. This affects development
 build tooling; no live application exploit was demonstrated by the report.
+
+Pinned serialize-javascript to 7.1.3 for
+[GHSA-m5mm-p8h7-m29v](https://github.com/advisories/GHSA-m5mm-p8h7-m29v). The function-boundary
+closing-script regression and complete production/PWA build pass.
+
+The refreshed npm audit has no Moderate/High/Critical findings, but reports four Low entries
+from the single deepmerge build-tool dependency chain. The newly reviewed
+[deepmerge advisory](https://github.com/advisories/GHSA-gcqx-w48m-w2h4) lists no patched version.
+No framework downgrade or local replacement of that upstream library was performed. This
+remaining development-only advisory is explicitly not marked resolved.

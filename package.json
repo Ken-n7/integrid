@@ -38,6 +38,7 @@
     "workbox-strategies": "7.4.1"
   },
   "overrides": {
-    "fast-uri": "3.1.9"
+    "fast-uri": "3.1.9",
+    "serialize-javascript": "7.1.3"
   }
 }
