@@ -31,8 +31,9 @@ Realtime; real-classroom latency/throughput is not established by the local chec
 
 ## Remaining verification and rollout
 
-- Project owner: install the two SQL helpers, then verify against the live INTEGRID database.
+- Project owner: run `supabase/qa-hardening.sql` (both helpers combined), then verify against the live INTEGRID database.
 - Verify classroom-sized load and old-PWA-to-new-release recovery on actual phones.
+- Review infrastructure rate limiting; no sustained PIN-guessing test was performed.
 - Deployment is a separate step; these commits have not been pushed or deployed.
 - QA-13's removed Puzzle Maker is not part of the shipped interface.
 
@@ -166,3 +167,26 @@ from the single deepmerge build-tool dependency chain. The newly reviewed
 [deepmerge advisory](https://github.com/advisories/GHSA-gcqx-w48m-w2h4) lists no patched version.
 No framework downgrade or local replacement of that upstream library was performed. This
 remaining development-only advisory is explicitly not marked resolved.
+
+## Commit index
+
+| Finding | Commit | Status |
+| --- | --- | --- |
+| QA-01 | fd32184 | Implemented/tested locally; SQL and live-class verification pending |
+| QA-02 | b3a8919 | Cross-tab browser regression passed |
+| QA-03 | be4b416 (prior release) | Overlapping-upload regression passed again |
+| QA-04 | 3472419 | Policy/reward SQL tests passed; live SQL verification pending |
+| QA-05 | 4dff548 | Poisoned teacher-row fixture and runtime checks passed |
+| QA-06 | 96efe83 | Storage quota/recovery/reload browser regression passed |
+| QA-07 | prior music release | All six current audio files fetched/decoded |
+| QA-08 | 7075da4 | 30 control names and axe label-in-name check passed |
+| QA-09 | 3dfda40 | Positional parser and exact browser submission checks passed |
+| QA-10 | 08f5c2c | Cancellation and confirmed terminal-publication checks passed locally |
+| QA-11/12 | prior lifecycle fixes; retested with 08f5c2c | Tab retention and rapid activation passed locally |
+| QA-13 | prior removal | Old editor is absent; conditional branch is not shipped |
+| fast-uri | ac40e40 | Encoded-scheme regression/build passed |
+| serialize-javascript | 5bfa464 | Function-boundary regression/full build passed |
+
+The owner upgrade file is checked against the exact helper contents and executed twice on an
+existing disposable database in `check-schema.ts`. Existing school data was not modified by
+this follow-up. All browser tests used local previews, fixtures or disposable Postgres.
