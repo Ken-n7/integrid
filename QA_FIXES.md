@@ -149,3 +149,10 @@ writes. Type/lint checks pass. Live room and classroom-load checks await SQL ins
 `AdminMaker.tsx` is absent and the teacher interface exposes the locked researcher puzzles,
 not the old Puzzle Maker/sample-save controls. The conditional editor finding is not marked
 fixed in a restored editor; that feature remains removed.
+
+## Development dependency advisories
+
+Pinned the transitive fast-uri dependency to 3.1.9 using an override, matching the patched
+3.x version in [GHSA-w74x-v6f9-j3xg](https://github.com/advisories/GHSA-w74x-v6f9-j3xg).
+The encoded-scheme regression and Vite/PWA production build pass. This affects development
+build tooling; no live application exploit was demonstrated by the report.
