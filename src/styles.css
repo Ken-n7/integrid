@@ -3085,3 +3085,6 @@ html:has(.admin-tabs) {
 @media (prefers-reduced-motion: reduce) {
   .celebration .achievement-panel, .achievement-emblem, .achievement-spark { animation: none; }
 }
+
+.game-save-warning { display: flex; align-items: center; gap: 8px; flex: none; padding: 7px 10px; border: 1px solid #e9cf9a; border-radius: 10px; background: #fff2d5; color: #805220; font-size: .74rem; line-height: 1.35; }
+.game-save-warning button { flex: none; min-height: 36px; font-size: inherit; }

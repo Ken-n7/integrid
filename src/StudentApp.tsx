@@ -2,6 +2,7 @@ import { lazy, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, typ
 import { PRE_ASSESSMENT } from './content.ts'
 import { Landing } from './Landing.tsx'
 import { DeviceWriter } from './DeviceWriter.tsx'
+import { SaveWarning } from './SaveWarning.tsx'
 import { BATTLES, bestWin, clock, coinsOf, isUnlocked, LEVELS, rankingFor, wonLevels, type Attempt, type Mode, type Rank } from './rules.ts'
 import { abandon, db, load, merge, newSave, persist, startScreen, sync, uuid, type Save, type Store } from './store.ts'
 import { useBack } from './back.ts'
@@ -31,13 +32,13 @@ type SavePhase = 'local' | 'saved' | 'syncing' | 'waiting' | 'signin' | 'storage
 const pendingCount = (save: Save) => save.attempts.filter(attempt => !attempt.synced).length + (save.practice ?? []).filter(result => !result.synced).length
 const hasPending = (save: Save) => pendingCount(save) > 0
 function SaveStatus({ phase, pending, onRetry }: { phase: SavePhase; pending: number; onRetry: () => void }) {
-  const message = phase === 'storage' ? 'Couldn’t save on this device. Keep this tab open until your results sync.'
+  const message = phase === 'storage' ? 'Progress can’t be saved on this device. Keep this tab open and ask your teacher for help.'
     : phase === 'local' ? 'Saved on this device'
     : phase === 'signin' ? 'Results are on this device. Ask your teacher to check your student code.'
     : phase === 'syncing' ? 'Saving your results…'
     : pending ? `Saved on this device · ${pending} ${pending === 1 ? 'result' : 'results'} waiting to sync`
     : phase === 'waiting' ? 'Connect to check your saved results.' : 'Results up to date'
-  return <div className={`save-status ${phase}`} role="status"><span>{message}</span>{pending > 0 && ['waiting', 'signin', 'storage'].includes(phase) && <button className="link" onClick={onRetry}>Retry save</button>}</div>
+  return <div className={`save-status ${phase}`} role={phase === 'storage' ? 'alert' : 'status'}><span>{message}</span>{(phase === 'storage' || (pending > 0 && ['waiting', 'signin'].includes(phase))) && <button className="link" onClick={onRetry}>Retry save</button>}</div>
 }
 
 export default function StudentEntry() {
@@ -174,7 +175,7 @@ function StudentApp() {
     retryDelay.current = Math.min(30_000, retryDelay.current * 2)
   }
   const unsent = Object.values(store.saves).reduce((n, saved) => n + pendingCount(saved), 0)
-  const retrySave = () => { invalidCodes.current.clear(); void syncNow() }
+  const retrySave = () => { setStorageFailed(!persist(latest.current)); invalidCodes.current.clear(); void syncNow() }
   const requestSync = useEffectEvent(() => void syncNow())
   useEffect(() => {
     queueMicrotask(() => requestSync())
@@ -266,6 +267,7 @@ function StudentApp() {
   if (screen === 'pre')
     return (
       <Pre
+        saveIssue={storageFailed} onRetrySave={retrySave}
         onComplete={(result) => {
           const complete = (s: Save): Save => ({ ...s, introDone: true, howtoDone: true, preDone: true, practice: [...(s.practice ?? []).filter(r => r.id !== result.id), result] })
           // Commit the completed result before showing the score or navigating away.
@@ -286,7 +288,7 @@ function StudentApp() {
         onBack={() => go('modes')}
         onIntro={() => intro('settings')}
         onHowTo={() => howTo('settings')}
-        saveStatus={<SaveStatus phase={storageFailed && unsent ? 'storage' : savePhase} pending={unsent} onRetry={retrySave} />}
+        saveStatus={<SaveStatus phase={storageFailed ? 'storage' : savePhase} pending={unsent} onRetry={retrySave} />}
         onSignOut={() => {
           setStore((st) => ({ ...st, who: null }))
           go('login')
@@ -322,6 +324,7 @@ function StudentApp() {
   if (screen === 'battle')
     return (
       <BattleRoom
+        saveIssue={storageFailed} onRetrySave={retrySave}
         pin={save.pin}
         code={save.code}
         coins={coins}
@@ -337,6 +340,7 @@ function StudentApp() {
   const next = LEVELS[LEVELS.indexOf(level) + 1]
   return (
     <Game
+      saveIssue={storageFailed} onRetrySave={retrySave}
       key={`${level.id}-${puzzle.version}`}
       level={level}
       csv={puzzle.csv}
@@ -456,7 +460,7 @@ function Login({ store, onBack, onDone }: { store: Store; onBack: () => void; on
   )
 }
 
-function Pre({ onDone, onBack, onComplete }: { onDone: () => void; onBack: () => void; onComplete: (result: PracticeResult) => void }) {
+function Pre({ onDone, onBack, onComplete, saveIssue, onRetrySave }: { saveIssue: boolean; onRetrySave: () => void; onDone: () => void; onBack: () => void; onComplete: (result: PracticeResult) => void }) {
   const [i, setI] = useState(0)
   const [picked, setPicked] = useState<number | null>(null)
   const [score, setScore] = useState(0)
@@ -473,6 +477,7 @@ function Pre({ onDone, onBack, onComplete }: { onDone: () => void; onBack: () =>
   if (i === total)
     return (
       <main className="screen center assessment-complete" tabIndex={-1}>
+        {saveIssue && <SaveWarning onRetry={onRetrySave} />}
         <span className="assessment-finish-art" aria-hidden="true"><Art name={score === total ? 'medal' : 'thumbs-up'} size={96} /></span>
         <p className="eyebrow">Pre-assessment complete</p>
         <div className="assessment-score" aria-hidden="true"><b>{score}</b><span>of {total}</span></div>
@@ -495,6 +500,7 @@ function Pre({ onDone, onBack, onComplete }: { onDone: () => void; onBack: () =>
         </button>
         <span className="assessment-bar-label">Integer rules</span><span className="assessment-count">{i + 1} / {total}</span>
       </header>
+        {saveIssue && <SaveWarning onRetry={onRetrySave} />}
         <div className="progress" role="progressbar" aria-label="Questions answered" aria-valuemin={0} aria-valuemax={total} aria-valuenow={i + Number(picked !== null)}>
           {PRE_ASSESSMENT.map((_, j) => (
             <span key={j} className={j < i ? 'done' : j === i ? 'now' : ''} />

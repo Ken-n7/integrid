@@ -1,3 +1,4 @@
+import { SaveWarning } from './SaveWarning.tsx'
 import { useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { useBack } from './back.ts'
@@ -54,6 +55,8 @@ export type BattleLink = {
 }
 
 type Props = {
+  saveIssue?: boolean
+  onRetrySave?: () => void
   level: Level
   csv: string
   sample: boolean
@@ -68,7 +71,7 @@ type Props = {
   battle?: BattleLink
 }
 
-export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf, onProgress, onFinish, onExit, onNext, resume, battle }: Props) {
+export function Game({ saveIssue, onRetrySave, level, csv, sample, coins, rewardEligible = false, rankOf, onProgress, onFinish, onExit, onNext, resume, battle }: Props) {
   useAppUpdateBlocker(true)
   useEffect(() => focusMusic(), [])
   const battleMode = !!battle
@@ -473,6 +476,7 @@ export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf
         </div>
       </header>
 
+      {saveIssue && <SaveWarning onRetry={onRetrySave} />}
       {battle?.issue && <p className="error" role="alert">{battle.issue}</p>}
       {battle && !battle.over && battle.bars}
 

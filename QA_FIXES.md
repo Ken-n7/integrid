@@ -87,3 +87,15 @@ malformed mistakes on write; this reader protects against pre-existing or otherw
 Validation: shape/boundary regression tests pass. A browser API fixture with four malformed
 mistake variants and one valid record retained the valid student record/export and displayed
 all four affected IDs, with no crash or page error. Type/lint checks passed.
+
+## QA-06 — local storage warnings during unfinished play
+
+Storage failure now warns inside solo/Battle grids and assessment screens, as well as Modes
+and Settings. It no longer depends on a completed result being unsynced. Retry save actually
+writes the latest local store, then attempts cloud sync; warnings clear after a successful
+local write. No cloud acknowledgement is treated as saving an unfinished run locally.
+
+Validation: injected QuotaExceededError during a paid hint showed the warning while retaining
+the live cell/charge. After storage recovered, Retry save persisted the hint and −60 charge;
+reload retained it. Warning layout passed 390px and 320px widths without horizontal overflow.
+No browser errors; type/lint/build checks passed.

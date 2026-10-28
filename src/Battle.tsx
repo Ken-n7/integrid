@@ -1,3 +1,4 @@
+import { SaveWarning } from './SaveWarning.tsx'
 // Battle Mode (dev plan §10). The teacher's admin page hosts a room; each group shares one grid.
 // Online rooms use credential-checked RPCs; demo rooms use local browser channels.
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
@@ -82,9 +83,9 @@ function Bars({ bars, total, mine, members, names = false, top = Infinity, compa
 
 // ---------- students ----------
 
-type Props = { code: string; pin: string; coins: number; onExit: (completedFinal?: boolean) => void; onProgress: (a: Attempt) => void; onFinish: (a: Attempt) => void }
+type Props = { saveIssue?: boolean; onRetrySave?: () => void; code: string; pin: string; coins: number; onExit: (completedFinal?: boolean) => void; onProgress: (a: Attempt) => void; onFinish: (a: Attempt) => void }
 
-export function BattleRoom({ code, pin, coins, onExit, onProgress, onFinish }: Props) {
+export function BattleRoom({ saveIssue, onRetrySave, code, pin, coins, onExit, onProgress, onFinish }: Props) {
   const [runId] = useState(uuid) // rejoining starts a new wrong-answer count, without restoring group hearts
   const [typed, setTyped] = useState('')
   const [msg, setMsg] = useState('')
@@ -227,6 +228,7 @@ export function BattleRoom({ code, pin, coins, onExit, onProgress, onFinish }: P
     }
     return (
       <Game
+        saveIssue={saveIssue} onRetrySave={onRetrySave}
         key={`${room}-${group}`}
         level={level}
         csv={p.csv}
@@ -257,6 +259,7 @@ export function BattleRoom({ code, pin, coins, onExit, onProgress, onFinish }: P
         <Coins n={coins} />
       </header>
 
+      {saveIssue && <SaveWarning onRetry={onRetrySave} />}
       {connectionIssue && <p className="error" role="alert">{connectionIssue}</p>}
       <div className="battle-heading">
         <div><p className="eyebrow">Team up. Take on the grid.</p><h1>Battle Mode</h1><p>One puzzle. Your group. A race together.</p></div>
