@@ -109,3 +109,17 @@ available. Empty buttons include the visible word Enter. No instrument content c
 Validation: all 30 entry controls included their visible text, and axe-core 4.14.0 reported
 zero `label-content-name-mismatch` violations on the populated demo Research screen.
 Type/lint/build checks passed.
+
+## QA-09 — positional survey quick entry
+
+Quick entry retains the teacher's raw input. Only explicit whitespace/comma/semicolon
+separators are ignored; invalid answer characters keep their item slot and show positional
+errors. Extra items are reported rather than truncated. Save is disabled until all 20
+positions are valid/answered. Choosing an individual scale value explicitly repairs that
+position without discarding other invalid or excess input. Zero placeholders keep gaps.
+No research questions or scales changed.
+
+Validation: parser regressions cover the reported bad paste, invalid digits/text, extra items,
+separators, gaps and explicit corrections. The browser retained the bad paste, blocked Save,
+kept an extra item after a manual edit, and sent exactly the intended 20 answers only after
+correction. One fixture write, zero browser errors. Type/lint/build checks passed.

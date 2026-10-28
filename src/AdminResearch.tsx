@@ -1,3 +1,4 @@
+import { parseSurveyEntry, setSurveyChoice } from './surveyEntry.ts'
 // Research tab: the paper's instrument, typed in from the paper forms, and the statistics its four
 // research questions ask for (pretest, posttest, the difference, learning experience), plus the
 // pilot's item analysis and reliability. A convenience: confirm in SPSS/jamovi with research.csv.
@@ -101,9 +102,9 @@ function TestEditor({ code, which, value, onSave, onClose, saving, error }: { co
 
 const SCALE = ['Strongly Disagree', 'Disagree', 'Agree', 'Strongly Agree']
 function SurveyEditor({ code, value, onSave, onClose, saving, error }: { code: string; value: number[] | null; onSave: (v: number[]) => void; onClose: () => void } & EntryStatus) {
-  const [answers, setAnswers] = useState<number[]>(value ?? Array(SURVEY.length).fill(0))
-  const done = answers.every((a) => a >= 1)
-  const discard = useDiscardChanges(answers.some((a, i) => a !== (value?.[i] ?? 0)), saving, onClose)
+  const [entry, setEntry] = useState(() => value?.join('') ?? '')
+  const { answers, error: entryError, complete: done } = parseSurveyEntry(entry, SURVEY.length)
+  const discard = useDiscardChanges(!!entryError || answers.some((a, i) => a !== (value?.[i] ?? 0)), saving, onClose)
   if (discard.confirming) return <ConfirmDialog title={`Discard changes to ${code}?`} confirmLabel="Discard changes" cancelLabel="Keep editing" onCancel={discard.keepEditing} onConfirm={onClose}>
     <p>Your survey changes have not been saved. Discarding keeps the previously saved answers.</p>
   </ConfirmDialog>
@@ -115,18 +116,13 @@ function SurveyEditor({ code, value, onSave, onClose, saving, error }: { code: s
           inputMode="numeric"
           autoComplete="off"
           disabled={saving}
-          // up to the last answered item, with 0 for any gap, so each digit stays on its own item
-          value={answers.slice(0, answers.findLastIndex((a) => a > 0) + 1).join('')}
-          onChange={(e) => {
-            const digits = e.target.value
-              .replace(/[^0-4]/g, '')
-              .slice(0, SURVEY.length)
-              .split('')
-              .map(Number)
-            setAnswers(SURVEY.map((_, i) => digits[i] ?? 0))
-          }}
+          value={entry}
+          aria-invalid={!!entryError}
+          aria-describedby={entryError ? 'survey-entry-error' : undefined}
+          onChange={(e) => setEntry(e.target.value)}
         />
       </label>
+      {entryError && <p className="error" id="survey-entry-error" role="alert">{entryError}</p>}
       {RESEARCH_SURVEY.map((d, di) => (
         <fieldset key={d.dim} className="survey-dim">
           <legend>{d.dim}</legend>
@@ -139,7 +135,7 @@ function SurveyEditor({ code, value, onSave, onClose, saving, error }: { code: s
                 </p>
                 <div className="likert" role="group" aria-label={`Item ${i + 1}`}>
                   {SCALE.map((label, k) => (
-                    <button key={k} aria-pressed={answers[i] === k + 1} aria-label={`${k + 1}, ${label}`} disabled={saving} onClick={() => setAnswers(answers.map((a, m) => (m === i ? k + 1 : a)))}>
+                    <button key={k} aria-pressed={answers[i] === k + 1} aria-label={`${k + 1}, ${label}`} disabled={saving} onClick={() => setEntry(current => setSurveyChoice(current, i, k + 1, SURVEY.length))}>
                       {k + 1}
                     </button>
                   ))}
@@ -150,13 +146,13 @@ function SurveyEditor({ code, value, onSave, onClose, saving, error }: { code: s
         </fieldset>
       ))}
       <p className="score-line" role="status">
-        {done ? `All 20 answered · mean ${f2(mean(answers))}` : `${answers.filter(Boolean).length} of 20 answered`}
+        {entryError ? 'Correct Quick entry before saving.' : done ? `All 20 answered · mean ${f2(mean(answers))}` : `${answers.filter(Boolean).length} of 20 answered`}
       </p>
       <div className="row">
         <button className="big secondary" onClick={discard.requestClose} disabled={saving}>
           Cancel
         </button>
-        <button className="big" onClick={() => onSave(answers)} disabled={!done || saving}>
+        <button className="big" onClick={() => { if (done) onSave(answers) }} disabled={!done || saving}>
           {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
