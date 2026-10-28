@@ -75,3 +75,15 @@ Validation: SQL reruns, all report examples, malformed mistakes, predecessor req
 immutable IDs, first-win submissions, hint charges, atomic batch rejection, catalogue parity
 and Relax/Expert reward boundaries passed in disposable Postgres. Build/lint/type checks pass.
 **Live installation/verification pending:** run `supabase/secure-game-sync.sql` before deployment.
+
+## QA-05 — resilient teacher records
+
+Teacher game rows are validated at the API boundary before any aggregation. Malformed
+records are isolated with their IDs and a visible notice that totals/downloads exclude them.
+Usable students, records, Overview and exports remain available; nothing is deleted. Stable
+ID ordering also makes timestamp-tied pagination deterministic. The QA-04 RPC rejects new
+malformed mistakes on write; this reader protects against pre-existing or otherwise bad rows.
+
+Validation: shape/boundary regression tests pass. A browser API fixture with four malformed
+mistake variants and one valid record retained the valid student record/export and displayed
+all four affected IDs, with no crash or page error. Type/lint checks passed.

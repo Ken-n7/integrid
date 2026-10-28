@@ -15,24 +15,13 @@ import { Art } from './Art.tsx'
 import { LoadingScreen } from './LoadingScreen.tsx'
 import { ConfirmDialog } from './ConfirmDialog.tsx'
 import { deleteStudent } from './studentAdmin.ts'
+import { readTeacherRow, type TeacherRow as Row, type AttemptIssue } from './teacherRows.ts'
 import { useBack } from './back.ts'
 import { useAppUpdateBlocker } from './useAppUpdateBlocker.ts'
 
 type PracticeRow = PracticeResult & { student: string }
 type Student = { code: string; pin: string }
-type Row = {
-  id: string
-  student: string
-  level: string
-  result: string
-  seconds: number
-  wrong: number
-  hints: number
-  coins: number
-  mistakes: [number, number][]
-  played_at: string
-  puzzle?: string | null
-}
+
 
 const signErrors = (r: Row) => r.mistakes.filter(([answer, placed]) => answer !== 0 && placed === -answer).length
 const sum = (rows: Row[], f: (r: Row) => number) => rows.reduce((t, r) => t + f(r), 0)
@@ -187,7 +176,7 @@ const NEEDS_UPDATE = 'This needs the database update: paste all of supabase/sche
 async function readDashboard(): Promise<
   | { error: string }
   | { notAdmin: true }
-  | { students: Student[]; rows: Row[]; research: Record<string, Research>; researchIssue: string; practice: PracticeRow[]; practiceIssue: string }
+  | { students: Student[]; rows: Row[]; research: Record<string, Research>; researchIssue: string; practice: PracticeRow[]; practiceIssue: string; attemptIssues: AttemptIssue[] }
 > {
   const me = await db!.from('admins').select('uid')
   if (me.error) return { error: me.error.message }
@@ -195,11 +184,16 @@ async function readDashboard(): Promise<
   const s = await db!.from('students').select('code, pin').order('code')
   if (s.error) return { error: s.error.message }
   const rows: Row[] = []
+  const attemptIssues: AttemptIssue[] = []
   for (let from = 0; ; from += 1000) {
     // the API hands out at most 1000 rows per request
-    const r = await db!.from('attempts').select('*').order('played_at').range(from, from + 999)
+    const r = await db!.from('attempts').select('*').order('played_at').order('id').range(from, from + 999)
     if (r.error) return { error: r.error.message }
-    rows.push(...(r.data as Row[]))
+    for (const value of r.data) {
+      const result = readTeacherRow(value)
+      if (result.row) rows.push(result.row)
+      else attemptIssues.push(result.issue)
+    }
     if (r.data.length < 1000) break
   }
   const practice: PracticeRow[] = []
@@ -217,7 +211,7 @@ async function readDashboard(): Promise<
   const res = await db!.from('research').select('student, pre, post, survey')
   return {
     students: s.data,
-    practice, practiceIssue,
+    practice, practiceIssue, attemptIssues,
     rows,
     research: Object.fromEntries((res.data ?? []).map((r) => [r.student, { pre: r.pre, post: r.post, survey: r.survey }])),
     researchIssue: res.error ? NEEDS_UPDATE : '',
@@ -228,6 +222,7 @@ function Dashboard({ email, demo = false, teacherId }: { email: string; demo?: b
   const [sample] = useState(() => (demo ? sampleData() : null))
   const [students, setStudents] = useState<Student[]>(sample?.students ?? [])
   const [rows, setRows] = useState<Row[]>(sample?.rows ?? [])
+  const [attemptIssues, setAttemptIssues] = useState<AttemptIssue[]>([])
   const [practice, setPractice] = useState<PracticeRow[]>(sample?.practice ?? [])
   const [practiceIssue, setPracticeIssue] = useState('')
   const [research, setResearch] = useState<Record<string, Research>>(sample?.research ?? {})
@@ -263,6 +258,7 @@ function Dashboard({ email, demo = false, teacherId }: { email: string; demo?: b
     return readDashboard().then((data) => {
       if ('error' in data) return setStatus(data.error)
       if ('notAdmin' in data) return setNotAdmin(true)
+      setAttemptIssues(data.attemptIssues)
       setPractice(data.practice)
       setPracticeIssue(data.practiceIssue)
       setResearchIssue(data.researchIssue)
@@ -298,6 +294,7 @@ function Dashboard({ email, demo = false, teacherId }: { email: string; demo?: b
     setStudents((cur) => cur.filter((s) => s.code !== code))
     setRows((cur) => cur.filter((r) => r.student !== code))
     setPractice((cur) => cur.filter((r) => r.student !== code))
+    setAttemptIssues((cur) => cur.filter((r) => r.student !== code))
     setResearch((cur) => { const next = { ...cur }; delete next[code]; return next })
     setOpen((cur) => cur === code ? null : cur)
   }
@@ -366,6 +363,11 @@ function Dashboard({ email, demo = false, teacherId }: { email: string; demo?: b
       </header>
       {demo && <p className="notice no-print">Preview classroom · Sample data is shown. Changes here do not update school records.</p>}
       {status && <p className="note no-print">{status}</p>}
+      {attemptIssues.length > 0 && <section className="notice no-print" role="alert">
+        <b>{attemptIssues.length} game record{attemptIssues.length === 1 ? ' could' : 's could'} not be read.</b>
+        <p>Totals and downloads exclude these records. Other class records remain available. Ask the project owner to review the listed IDs.</p>
+        <details><summary>Show affected records</summary><ul>{attemptIssues.slice(0, 20).map((issue, i) => <li key={i}>{issue.student} · {issue.id} · {issue.reason}</li>)}</ul>{attemptIssues.length > 20 && <p>{attemptIssues.length - 20} more records need review.</p>}</details>
+      </section>}
 
       <div className="teacher-layout no-print">
       <nav className="admin-tabs" role="tablist" aria-label="Admin sections" onKeyDown={(e) => {
