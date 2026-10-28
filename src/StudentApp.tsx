@@ -1,6 +1,7 @@
 import { lazy, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { PRE_ASSESSMENT } from './content.ts'
 import { Landing } from './Landing.tsx'
+import { DeviceWriter } from './DeviceWriter.tsx'
 import { BATTLES, bestWin, clock, coinsOf, isUnlocked, LEVELS, rankingFor, wonLevels, type Attempt, type Mode, type Rank } from './rules.ts'
 import { abandon, db, load, merge, newSave, persist, startScreen, sync, uuid, type Save, type Store } from './store.ts'
 import { useBack } from './back.ts'
@@ -39,7 +40,11 @@ function SaveStatus({ phase, pending, onRetry }: { phase: SavePhase; pending: nu
   return <div className={`save-status ${phase}`} role="status"><span>{message}</span>{pending > 0 && ['waiting', 'signin', 'storage'].includes(phase) && <button className="link" onClick={onRetry}>Retry save</button>}</div>
 }
 
-export default function StudentApp() {
+export default function StudentEntry() {
+  return <DeviceWriter><StudentApp /></DeviceWriter>
+}
+
+function StudentApp() {
   const [store, setStore] = useState(load)
   const [screen, setScreen] = useState<Screen>(() => {
     const saved = store.who ? store.saves[store.who] : null

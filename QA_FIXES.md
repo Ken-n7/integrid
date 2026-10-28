@@ -38,3 +38,18 @@ Realtime; real-classroom latency/throughput is not established by the local chec
 - QA-03/07: prior release addressed these; preserve regression coverage.
 - QA-10/11/12: current code addresses them; retest Battle cancellation, tab changes and rapid activation.
 - QA-13: removed Puzzle Maker is not reachable in the shipped interface.
+
+## QA-02 — one student writer per device
+
+`DeviceWriter` obtains an exclusive Web Lock before mounting the student app. Competing
+student tabs show a waiting screen and cannot initialize/persist a stale game store. After
+the owner closes or leaves the student app, a waiting tab obtains ownership and reads the
+latest device save. This covers all cached profiles on the device, including unfinished runs.
+Unsupported/insecure browser contexts fail closed with an actionable HTTPS/browser notice.
+Teacher tabs and their separate history storage are unaffected.
+
+Validation: build/lint/type checks passed. A real same-browser, offline/demo three-tab test
+preserved an unsynced first win exactly once, blocked a stale tab's retry, transferred ownership,
+and preserved the next level's hinted cell and −60 charge across another ownership transfer.
+The naturally advancing timer was checked separately from the immutable saved fields. No
+browser errors. This deliberately prevents simultaneous student play in tabs of one browser.
