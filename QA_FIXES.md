@@ -29,15 +29,12 @@ After installation, verify a real teacher/student Battle and classroom-sized loa
 calling this finding fully closed. This transport uses HTTP polling every 500 ms, replacing
 Realtime; real-classroom latency/throughput is not established by the local checks.
 
-## Remaining work
+## Remaining verification and rollout
 
-- QA-02: protect completed attempts and pending hint costs across tabs.
-- QA-04/05: validate game uploads and isolate malformed teacher records.
-- QA-06: warn about storage failure during unfinished gameplay.
-- QA-08/09: accessible Research control labels and positional survey validation.
-- QA-03/07: prior release addressed these; preserve regression coverage.
-- QA-10/11/12: current code addresses them; retest Battle cancellation, tab changes and rapid activation.
-- QA-13: removed Puzzle Maker is not reachable in the shipped interface.
+- Project owner: install the two SQL helpers, then verify against the live INTEGRID database.
+- Verify classroom-sized load and old-PWA-to-new-release recovery on actual phones.
+- Deployment is a separate step; these commits have not been pushed or deployed.
+- QA-13's removed Puzzle Maker is not part of the shipped interface.
 
 ## QA-02 — one student writer per device
 
@@ -123,3 +120,32 @@ Validation: parser regressions cover the reported bad paste, invalid digits/text
 separators, gaps and explicit corrections. The browser retained the bad paste, blocked Save,
 kept an extra item after a manual edit, and sent exactly the intended 20 answers only after
 correction. One fixture write, zero browser errors. Type/lint/build checks passed.
+
+## QA-03/07 — prior fixes retested
+
+The busy-upload browser regression on this updated build recorded a win during a held initial
+request and then uploaded it automatically with no extra online event (two calls, one saved
+attempt). All six configured current music URLs returned audio content and decoded in Chrome.
+The deleted Swinging Sweet path from the old report is no longer configured.
+
+## QA-10/11/12 — Battle lifecycle
+
+Pre-start cancellation already supplied a valid terminal timestamp. The host already remained
+mounted across teacher section/history changes, and Start/End already had separate confirmation
+flows. Those current-release corrections were retested rather than reimplemented.
+
+This pass also fixed automatic completion: the host now waits for confirmed final-state
+publication before archiving/showing New battle, and retries failed final publication while
+keeping the room active. This closes a teardown window in which students could miss the end.
+
+Validation: actual teacher/student UI with disposable Postgres and fixture Auth passed lobby
+cancellation notice, tab-switch room retention, rapid double-click Start/confirmation without
+accidental termination, and complete-grid results. Holding the final publication confirmed
+that New battle was unavailable until acknowledgement. Zero browser/RPC errors and no school
+writes. Type/lint checks pass. Live room and classroom-load checks await SQL installation.
+
+## QA-13 — not reachable
+
+`AdminMaker.tsx` is absent and the teacher interface exposes the locked researcher puzzles,
+not the old Puzzle Maker/sample-save controls. The conditional editor finding is not marked
+fixed in a restored editor; that feature remains removed.

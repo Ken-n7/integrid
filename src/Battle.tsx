@@ -350,6 +350,7 @@ export function BattleHost({ onGuardChange, onArchive, onShowHistory }: { onGuar
   const [now, setNow] = useState(Date.now)
   const send = useRef<(r: Room) => void | Promise<unknown>>(() => {})
   const latest = useRef<Host | null>(null)
+  const finalizing = useRef(false)
   const archiveMeta = useRef<{ id: string; created_at: string; puzzle_version: string; roster: string[][]; saved: boolean } | null>(null)
   useEffect(() => {
     latest.current = h
@@ -404,10 +405,21 @@ export function BattleHost({ onGuardChange, onArchive, onShowHistory }: { onGuar
       const cur = latest.current
       if (!cur) return
       if (roundFinished(cur)) {
+        if (finalizing.current) return
+        finalizing.current = true
         const next = { ...cur, state: 'done' as const }
-        saveArchive(next, Date.now() - cur.startedAt! >= cur.seconds * 1000 ? 'time_up' : 'completed')
-        latest.current = next
-        setH(next) // time's up, or every group finished or ran out of hearts
+        void (async () => {
+          try {
+            const result = await send.current(roomOf(next))
+            if (result && result !== 'ok') throw new Error('Couldn’t notify the class. Try again.')
+            if (latest.current?.state !== 'done') {
+              saveArchive(next, Date.now() - cur.startedAt! >= cur.seconds * 1000 ? 'time_up' : 'completed')
+              latest.current = next
+              setH(next)
+            }
+          } catch { setActionError('Final results are waiting to reach the class. Check your connection.') }
+          finally { finalizing.current = false }
+        })()
         return
       }
       const r = roomOf(cur)
