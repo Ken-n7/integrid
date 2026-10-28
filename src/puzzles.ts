@@ -2,6 +2,7 @@
 // on the admin page (saved in the database, cached on each phone for offline play), else the
 // generated sample (relax-1.sample.csv).
 import { db } from './store.ts'
+import { versionOf } from './puzzleVersion.ts'
 import { parse, validate } from './puzzle.ts'
 import { BATTLES, LEVELS } from './rules.ts'
 
@@ -25,11 +26,7 @@ const keep = () => {
 
 // A short fingerprint of a puzzle (FNV-1a), saved with every result: results from different
 // puzzles for the same level are never mixed in a ranking.
-export function versionOf(csv: string) {
-  let h = 0x811c9dc5
-  for (const ch of csv.trim()) h = Math.imul(h ^ ch.charCodeAt(0), 0x01000193) >>> 0
-  return h.toString(16).padStart(8, '0')
-}
+export { versionOf } from './puzzleVersion.ts'
 
 // Cached and downloaded approvals must pass the same checks as files shipped with the game.
 function readApprovals(value: unknown): Record<string, Approved> {

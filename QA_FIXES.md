@@ -53,3 +53,25 @@ preserved an unsynced first win exactly once, blocked a stale tab's retry, trans
 and preserved the next level's hinted cell and −60 charge across another ownership transfer.
 The naturally advancing timer was checked separately from the immutable saved fields. No
 browser errors. This deliberately prevents simultaneous student play in tabs of one browser.
+
+## QA-04 — game upload policy and first-win rewards
+
+`secure-game-sync.sql` validates known puzzle fingerprints, level progression, integer/bounded
+counters, mistake-bank pairs and timestamps before inserting a batch. It rejects arbitrary
+coin claims, derives rewards and hint charges, and serializes each student's writes with a
+row lock so separate first-win claims earn one reward. Repeated IDs remain immutable and
+idempotent. The SQL catalogue is checked against all 12 shipped CSV files; reward boundary
+checks use the client's rules. Ordinary out-of-order offline batches are sorted by start time.
+An invalid item rolls back the batch. Existing data is preserved.
+
+The client records at least one elapsed second for a non-Battle win, avoiding a legitimate
+sub-second UI completion producing the zero-second ranked result rejected by the policy.
+Teacher exports explain that gameplay remains device-reported activity. Format/rule validation
+cannot prove that an offline learner actually played or measured time honestly; it is not a
+substitute for the separate approved research instrument. Overlapping offline hint spending
+is recorded as charged rather than inventing refunds or dropping honest game activity.
+
+Validation: SQL reruns, all report examples, malformed mistakes, predecessor requirements,
+immutable IDs, first-win submissions, hint charges, atomic batch rejection, catalogue parity
+and Relax/Expert reward boundaries passed in disposable Postgres. Build/lint/type checks pass.
+**Live installation/verification pending:** run `supabase/secure-game-sync.sql` before deployment.

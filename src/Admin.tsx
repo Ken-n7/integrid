@@ -707,6 +707,7 @@ function StudentsTab(props: {
       <section className="card">
         <h2>Download data</h2>
         <p className="muted">Opens in Excel or Google Sheets. Codes only, no names.</p>
+        <p className="muted small">Gameplay totals are reported by student devices. They are not independently verified test scores.</p>
         <div className="row wrap">
           <button className="big secondary" onClick={exportAttempts} disabled={!rows.length}>
             <Deco>⬇</Deco> attempts.csv <small>one row per play</small>

@@ -237,7 +237,7 @@ export function Game({ level, csv, sample, coins, rewardEligible = false, rankOf
     id: r.id,
     level: level.id,
     result,
-    seconds: secs,
+    seconds: result === 'win' && !battle ? Math.max(1, secs) : secs,
     wrong: r.wrong,
     hints: r.hints,
     coins: earned - r.hints * rules.hintCost,

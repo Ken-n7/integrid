@@ -12,6 +12,8 @@ import { ALL_OPS, LEVELS, rankingFor, reward } from '../src/rules.ts'
 import { cronbach, likert, mastery, pairedT, shapiroWilk, wilcoxon } from '../src/stats.ts'
 
 await import('./check-battle-security.ts')
+await import('./check-game-security.ts')
+await import('./check-schema.ts')
 await import('./check-audio.ts')
 await import('./check-offline-downloads.ts')
 
