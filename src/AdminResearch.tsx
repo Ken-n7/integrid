@@ -512,7 +512,7 @@ export function ResearchTab({
       <button
         className="link"
         onClick={() => openEntry(code, part)}
-        aria-label={`${code} ${part === 'pre' ? 'pretest' : 'posttest'}: ${m ? `${score(m)} of 20, edit` : 'enter'}`}
+        aria-label={`${m ? `${score(m)}/20 · ${mps(score(m))}%` : 'Enter'} · ${code} ${part === 'pre' ? 'pretest' : 'posttest'}${m ? ', edit' : ''}`}
       >
         {m ? `${score(m)}/20 · ${mps(score(m))}%` : 'Enter'}
       </button>
@@ -557,7 +557,7 @@ export function ResearchTab({
                     <td>{cell(c, 'post')}</td>
                     <td>{r.pre && r.post ? `${score(r.post) - score(r.pre) >= 0 ? '+' : '−'}${Math.abs(score(r.post) - score(r.pre))}` : '—'}</td>
                     <td>
-                      <button className="link" onClick={() => openEntry(c, 'survey')} aria-label={`${c} survey: ${r.survey ? 'entered, edit' : 'enter'}`}>
+                      <button className="link" onClick={() => openEntry(c, 'survey')} aria-label={`${r.survey ? `mean ${f2(mean(r.survey))}` : 'Enter'} · ${c} survey${r.survey ? ', edit' : ''}`}>
                         {r.survey ? <><Deco>✓</Deco> mean {f2(mean(r.survey))}</> : 'Enter'}
                       </button>
                     </td>

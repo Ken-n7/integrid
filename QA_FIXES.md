@@ -99,3 +99,13 @@ Validation: injected QuotaExceededError during a paid hint showed the warning wh
 the live cell/charge. After storage recovered, Retry save persisted the hint and −60 charge;
 reload retained it. Warning layout passed 390px and 320px widths without horizontal overflow.
 No browser errors; type/lint/build checks passed.
+
+## QA-08 — Research label-in-name
+
+Pre/post edit buttons now include their exact visible fraction/percentage in their accessible
+names; survey buttons include their visible mean. Student and assessment context remains
+available. Empty buttons include the visible word Enter. No instrument content changed.
+
+Validation: all 30 entry controls included their visible text, and axe-core 4.14.0 reported
+zero `label-content-name-mismatch` violations on the populated demo Research screen.
+Type/lint/build checks passed.
