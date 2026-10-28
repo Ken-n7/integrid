@@ -23,15 +23,15 @@ that real disposable SQL database passed joining, start, wrong answers, complete
 scoring and final results, with zero public Realtime connections or browser/RPC errors.
 Authentication API responses in that browser test were fixtures; no school data was written.
 
-**Live verification pending:** the project owner must run `supabase/secure-battle.sql`
-before this client is deployed. The canonical `supabase/schema.sql` includes the same setup.
-After installation, verify a real teacher/student Battle and classroom-sized load before
-calling this finding fully closed. This transport uses HTTP polling every 500 ms, replacing
+**Live SQL verified:** the owner installed the combined upgrade. Real Supabase Auth/PIN,
+room controls, group isolation, submitted answers, retries and teacher/student play passed.
+The canonical `supabase/schema.sql` includes the same setup. Classroom-sized load remains
+unmeasured, so this is not a claim of full classroom-scale verification. This transport uses HTTP polling every 500 ms, replacing
 Realtime; real-classroom latency/throughput is not established by the local checks.
 
 ## Remaining verification and rollout
 
-- Project owner: run `supabase/qa-hardening.sql` (both helpers combined), then verify against the live INTEGRID database.
+- Owner installed `supabase/qa-hardening.sql`; live permission, scoring, sync and teacher/student UI checks passed.
 - Verify classroom-sized load and old-PWA-to-new-release recovery on actual phones.
 - Review infrastructure rate limiting; no sustained PIN-guessing test was performed.
 - Deployment is a separate step; these commits have not been pushed or deployed.
@@ -72,7 +72,7 @@ is recorded as charged rather than inventing refunds or dropping honest game act
 Validation: SQL reruns, all report examples, malformed mistakes, predecessor requirements,
 immutable IDs, first-win submissions, hint charges, atomic batch rejection, catalogue parity
 and Relax/Expert reward boundaries passed in disposable Postgres. Build/lint/type checks pass.
-**Live installation/verification pending:** run `supabase/secure-game-sync.sql` before deployment.
+**Live verified:** real RPC checks rejected all nine invalid-record examples, preserved atomic batches and offline progression, and enforced first-win rewards for simultaneous submissions.
 
 ## QA-05 — resilient teacher records
 
@@ -143,7 +143,7 @@ Validation: actual teacher/student UI with disposable Postgres and fixture Auth 
 cancellation notice, tab-switch room retention, rapid double-click Start/confirmation without
 accidental termination, and complete-grid results. Holding the final publication confirmed
 that New battle was unavailable until acknowledgement. Zero browser/RPC errors and no school
-writes. Type/lint checks pass. Live room and classroom-load checks await SQL installation.
+writes. Type/lint checks pass. Live room checks now pass; classroom-sized load remains unmeasured.
 
 ## QA-13 — not reachable
 
@@ -172,10 +172,10 @@ remaining development-only advisory is explicitly not marked resolved.
 
 | Finding | Commit | Status |
 | --- | --- | --- |
-| QA-01 | fd32184 | Implemented/tested locally; SQL and live-class verification pending |
+| QA-01 | fd32184 | Live API and two-student UI checks passed; classroom load pending |
 | QA-02 | b3a8919 | Cross-tab browser regression passed |
 | QA-03 | be4b416 (prior release) | Overlapping-upload regression passed again |
-| QA-04 | 3472419 | Policy/reward SQL tests passed; live SQL verification pending |
+| QA-04 | 3472419 | Policy/reward SQL and live RPC checks passed |
 | QA-05 | 4dff548 | Poisoned teacher-row fixture and runtime checks passed |
 | QA-06 | 96efe83 | Storage quota/recovery/reload browser regression passed |
 | QA-07 | prior music release | All six current audio files fetched/decoded |
@@ -190,3 +190,29 @@ remaining development-only advisory is explicitly not marked resolved.
 The owner upgrade file is checked against the exact helper contents and executed twice on an
 existing disposable database in `check-schema.ts`. Existing school data was not modified by
 this follow-up. All browser tests used local previews, fixtures or disposable Postgres.
+
+## Live verification after owner SQL installation
+
+The installed schema was exercised against the actual INTEGRID Supabase project using the
+real teacher login and disposable students. No application code changed during this pass.
+
+- Live API: first-win-only coins; simultaneous first-win claims; immutable retry IDs; nine
+  invalid record variants; atomic rejection of a mixed batch; valid offline progression;
+  anonymous teacher-control denial; invalid PIN and sender denial; group isolation;
+  coordinate-only/incorrect-answer rejection; accepted correct answers; event deduplication;
+  server-derived wrong counts; private-table isolation; rejection after room completion.
+- Updated local client with live Auth/database: two real temporary students joined one group,
+  solved the shared grid, received results, and saved one Battle attempt each. The teacher
+  switched sections while hosting, opened the resulting learner record and exported the CSV.
+- Only the permanent Battle History archive POST was intercepted in the UI test, preventing a
+  synthetic classroom round from appearing in permanent history. History reads and all
+  Battle/game RPCs were live. Existing class-history IDs remained unchanged.
+- Temporary students and attempts were deleted; their event/membership rows cascade. Test
+  room snapshots were closed and cleared of test rosters. Closed private room rows remain
+  until code reuse; no production classroom room was targeted.
+
+Evidence (local ignored artifacts): qa-hardening-live-results.json and
+qa-battle-ui-live-results.json under artifacts/performance/. Both pass. Browser errors: zero.
+This used the updated localhost preview, not a deployed app update. No push/deployment has
+been performed. Actual classroom load, real-phone/hotspot behavior, old-PWA upgrades,
+infrastructure rate limits and the unpatched development advisory remain separate limits.
