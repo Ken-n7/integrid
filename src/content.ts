@@ -83,36 +83,31 @@ export const HOW_TO = [
   { label: 'Help', action: 'CONTINUE', icon: '💰', title: 'Coins & Hints', text: 'Finish faster to earn more coins. Only your first win on each level earns coins; replays are for practice. Stuck? Tap Rules to see the sign rules, or spend coins on a hint. In Relax Mode, Rules also gives a free clue for the box you picked!' },
 ]
 
-// Client's pre-assessment and answer key (integrid.docx, 3rd page). A drill: scores are not recorded.
+// Client's pre-assessment and answer key (integrid.docx, 3rd page; client rewording Nov 1). A drill: scores are not recorded.
 export const PRE_ASSESSMENT = [
   {
-    q: 'When adding two integers with the same sign, what should you do?',
-    choices: ['Subtract the numbers and keep the larger sign', 'Add the numbers and keep the common sign', 'Multiply the numbers', 'Change both signs to positive'],
+    q: 'What do you do when adding two integers with the same signs?',
+    choices: ['Subtract the numbers and keep the bigger sign', 'Add the numbers and keep the same sign', 'Multiply the numbers', 'Change both signs to positive'],
     answer: 1,
   },
   {
-    q: 'When adding two integers with different signs, what should you do?',
-    choices: ['Add the numbers and keep the positive sign', 'Multiply the numbers', 'Subtract the absolute values and keep the sign of the larger absolute value', 'Always keep the negative sign'],
+    q: 'What do you do when adding two integers with different signs?',
+    choices: ['Add the numbers and keep the positive sign', 'Multiply the numbers', 'Subtract the numbers and keep the sign of the bigger number (absolute value)', 'Always keep the negative sign'],
     answer: 2,
   },
   {
-    q: 'What is the rule when multiplying two integers with the same sign?',
-    choices: ['The product is negative', 'The product is positive', 'The product is zero', 'The product is undefined'],
+    q: 'What is the answer when you multiply two integers with the same signs?',
+    choices: ['Negative', 'Positive', 'Zero', 'Undefined'],
     answer: 1,
   },
   {
-    q: 'What is the rule when multiplying two integers with different signs?',
-    choices: ['The product is positive', 'The product is negative', 'The product is zero', 'The product is unchanged'],
+    q: 'What is the answer when you multiply two integers with different signs?',
+    choices: ['Positive', 'Negative', 'Zero', 'The same number'],
     answer: 1,
   },
   {
-    q: 'Which statement is true about division of integers?',
-    choices: [
-      'Same signs give a positive quotient; different signs give a negative quotient',
-      'Same signs give a negative quotient; different signs give a positive quotient',
-      'Division always results in a positive quotient',
-      'Division always results in a negative quotient',
-    ],
+    q: 'What are the signs of the answer when dividing integers?',
+    choices: ['Same signs = positive; different signs = negative', 'Same signs = negative; different signs = positive', 'Always positive', 'Always negative'],
     answer: 0,
   },
 ]

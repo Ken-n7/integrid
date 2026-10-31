@@ -1,7 +1,7 @@
 import { PRE_ASSESSMENT } from './content.ts'
 
 // A five-question practice check, kept separate from the paper research instrument.
-export const PRACTICE_VERSION = 'integer-rules-v1'
+export const PRACTICE_VERSION = 'integer-rules-v2'
 export type PracticeResult = {
   id: string; version: string; answers: number[]; correct: boolean[]; score: number; total: number
   started_at: string; submitted_at: string; synced?: boolean
