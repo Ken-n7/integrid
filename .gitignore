@@ -35,3 +35,10 @@ dist-ssr
 
 # Local Lighthouse reports and browser performance captures
 /artifacts/performance/
+
+# Local-only: full icon pack download (only selected files ship, in public/art/),
+# worktrees, browser-tool output, old QA notes
+/public/Free Icon Pack*
+/.worktrees/
+/.playwright-mcp/
+/QA_REPORT.md
