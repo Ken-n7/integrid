@@ -7,6 +7,26 @@ equations with missing numbers (+, −, ×, ÷, with sign rules). You fill the
 blanks from a number bank, every wrong answer costs a heart, and a fast finish
 earns coins you can spend on hints.
 
+## Why
+
+Many Grade 7 students get stuck on integer operations, especially the sign
+rules (why −3 × −4 is positive, what happens when you subtract a negative).
+Worksheet drills don't keep them going. Many play on cheap Android phones or
+shared school PCs, often with weak or no internet. The math education researchers
+who asked for it also needed real data for their action research study: who
+played, how they did, and whether they improved.
+
+So the practice is a game, with hearts, coins, hints and a race. Every
+equation shares its numbers with the ones it crosses, so one wrong sign breaks
+the grid and you have to think it through. Clues explain the sign rule instead
+of just giving the answer. It's a small PWA that installs from the browser
+and plays offline after the first open, and progress syncs when the
+connection comes back. Students sign in with a code and a PIN, not an email.
+The teacher dashboard has the pre-test and post-test, the survey, and the
+statistics the study needs, all exportable as CSV.
+
+## Modes
+
 Three modes unlock in order:
 
 - **Relax** is guided. A free clue explains the sign rule behind any equation.
@@ -14,9 +34,7 @@ Three modes unlock in order:
 - **Battle** has groups racing each other, each group sharing one grid.
 
 Teachers get a separate dashboard. It creates student codes, shows progress
-and rankings, runs Battle rounds, and exports results as CSV for classroom
-research. It's an installable PWA, and solo play works offline after the
-first open.
+and rankings, and runs Battle rounds.
 
 Play it: **https://integrid-phi.vercel.app** ·
 [Watch the trailer](https://ken-n7.github.io/portfolio/previews/integrid-trailer.mp4)
